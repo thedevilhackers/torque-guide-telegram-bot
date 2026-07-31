@@ -1,0 +1,14 @@
+{
+  "name": "torque-guide-telegram-bot",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Telegram vehicle-tuning enquiry bot using the Telegram Bot API and OpenAI Responses API.",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node src/telegram-bot.js",
+    "test": "node --test"
+  }
+}
