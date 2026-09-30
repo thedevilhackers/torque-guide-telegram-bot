@@ -1,6 +1,6 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 
-const DATA_DIR = "data";
+const DATA_DIR = process.env.DATA_DIR || "data";
 const STORE_FILE = `${DATA_DIR}/sessions.json`;
 const MAX_PROCESSED_IDS = 500;
 

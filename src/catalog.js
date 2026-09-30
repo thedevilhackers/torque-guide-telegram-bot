@@ -1,49 +1,42 @@
+// Brands shown in "Browse by brand". aliases help the vehicle search match what customers type.
 export const BRANDS = {
-  audi: { title: "Audi", models: ["A3", "A4", "A5", "S3", "S4", "Q5", "RS3", "Other Audi"] },
-  bmw: { title: "BMW", models: ["1 Series", "3 Series", "5 Series", "M2", "M3/M4", "X3", "X5", "Other BMW"] },
-  ford: { title: "Ford", models: ["Fiesta", "Focus", "Mustang", "Ranger", "Puma", "Kuga", "Other Ford"] },
-  honda: { title: "Honda", models: ["Civic", "Accord", "CR-V", "City", "Jazz", "Other Honda"] },
-  mercedes: { title: "Mercedes-Benz", models: ["A-Class", "C-Class", "E-Class", "GLC", "AMG A45", "AMG C63", "Other Mercedes"] },
-  toyota: { title: "Toyota", models: ["Corolla", "Camry", "Fortuner", "Hilux", "GR Yaris", "Supra", "Other Toyota"] },
-  volkswagen: { title: "Volkswagen", models: ["Golf", "Polo", "Jetta", "Passat", "Tiguan", "GTI/R", "Other Volkswagen"] },
-  other: { title: "Other brand", models: ["Other / not listed"] }
+  audi: { title: "Audi", aliases: [] },
+  bmw: { title: "BMW", aliases: [] },
+  ford: { title: "Ford", aliases: [] },
+  honda: { title: "Honda", aliases: [] },
+  isuzu: { title: "Isuzu", aliases: [] },
+  mercedes: { title: "Mercedes-Benz", aliases: ["mercedes", "merc", "benz", "mb", "amg"] },
+  mitsubishi: { title: "Mitsubishi", aliases: [] },
+  nissan: { title: "Nissan", aliases: [] },
+  toyota: { title: "Toyota", aliases: [] },
+  volkswagen: { title: "Volkswagen", aliases: ["vw"] }
 };
 
-export const FUELS = [
-  ["petrol", "Petrol / gasoline", "Spark-ignition engine"],
-  ["diesel", "Diesel", "Compression-ignition engine"],
-  ["hybrid", "Hybrid", "Petrol + electric system"],
-  ["electric", "Electric", "Battery-electric vehicle"]
+// Unity Performance's ECU support list, used by the "ECU check" step.
+// status: "supported" | "on_request" | "not_supported". Edit this to match your tools and licences.
+export const ECUS = [
+  { id: "bosch_med17", title: "Bosch MED17 / MEVD17", fuels: ["petrol"], status: "supported", method: "OBD flash — no ECU removal" },
+  { id: "bosch_mg1", title: "Bosch MG1", fuels: ["petrol"], status: "supported", method: "One-time bench unlock, then OBD flash" },
+  { id: "simos18", title: "Continental Simos 18", fuels: ["petrol"], status: "supported", method: "OBD flash — no ECU removal" },
+  { id: "bosch_edc17", title: "Bosch EDC17", fuels: ["diesel"], status: "supported", method: "OBD flash — no ECU removal" },
+  { id: "bosch_md1", title: "Bosch MD1", fuels: ["diesel"], status: "supported", method: "One-time bench unlock, then OBD flash" },
+  { id: "continental_sid", title: "Continental / Siemens SID", fuels: ["diesel"], status: "supported", method: "OBD or bench, depending on version" },
+  { id: "denso", title: "Denso", fuels: ["petrol", "diesel"], status: "supported", method: "OBD or bench, depending on model" },
+  { id: "delphi", title: "Delphi DCM", fuels: ["diesel"], status: "on_request", method: "Bench read — confirmed per vehicle" },
+  { id: "transtron", title: "Transtron (Isuzu)", fuels: ["diesel"], status: "on_request", method: "Bench read — confirmed per vehicle" },
+  { id: "continental_sim2k", title: "Continental SIM2K", fuels: ["petrol"], status: "on_request", method: "Bench read — confirmed per vehicle" },
+  { id: "keihin", title: "Keihin (Honda)", fuels: ["petrol"], status: "on_request", method: "Confirmed per vehicle" },
+  { id: "marelli", title: "Magneti Marelli", fuels: ["petrol", "diesel"], status: "on_request", method: "Confirmed per vehicle" },
+  { id: "unknown", title: "Not sure", fuels: ["petrol", "diesel"], status: "unknown", method: "" }
 ];
 
-export const ECU_OPTIONS = [
-  ["bosch_med17", "Bosch MED17", "Common petrol ECU family"],
-  ["bosch_edc17", "Bosch EDC17", "Common diesel ECU family"],
-  ["bosch_mg1_md1", "Bosch MG1 / MD1", "Newer ECU family"],
-  ["continental_sim2k", "Continental SIM2K", "Common petrol ECU family"],
-  ["denso", "Denso", "Common Japanese OEM ECU"],
-  ["delphi", "Delphi", "Common OEM ECU family"],
-  ["other_ecu", "Other / not sure", "Check the ECU label first"]
-];
+export const ECU_STATUS = {
+  supported: { icon: "✅", label: "Supported", detail: "Supported — we tune this ECU." },
+  on_request: { icon: "⚠️", label: "On request", detail: "Available on request — we confirm your exact software version first." },
+  not_supported: { icon: "❌", label: "Not supported", detail: "Not currently supported — contact us for alternatives." },
+  unknown: { icon: "❓", label: "To be identified", detail: "We'll identify it from your vehicle." }
+};
 
-export const STAGES = [
-  ["stock", "Stock health check", "No performance calibration"],
-  ["stage_1", "Stage 1", "Software only, healthy standard hardware"],
-  ["stage_2", "Stage 2", "Software plus supporting hardware"],
-  ["stage_3", "Stage 3", "Major hardware; specialist build"],
-  ["custom", "Custom / unsure", "A tuner reviews your goal"]
-];
-
-export function titleFor(items, id) {
-  const match = items.find(([value]) => value === id);
-  return match?.[1] ?? id;
-}
-
-export function modelFor(brandId, modelId) {
-  const models = BRANDS[brandId]?.models ?? [];
-  return models.find((model) => slug(model) === modelId) ?? modelId;
-}
-
-export function slug(value) {
-  return value.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
+export function ecuById(id) {
+  return ECUS.find((ecu) => ecu.id === id);
 }

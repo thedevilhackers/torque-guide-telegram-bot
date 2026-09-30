@@ -2,7 +2,7 @@
   "name": "torque-guide-telegram-bot",
   "version": "1.0.0",
   "private": true,
-  "description": "Telegram vehicle-tuning enquiry bot using the Telegram Bot API and OpenAI Responses API.",
+  "description": "Unity Performance Telegram bot: vehicle search, Stage 1 performance graphs, ECU check and WhatsApp enquiries, with OpenAI Responses API integration.",
   "type": "module",
   "engines": {
     "node": ">=20"

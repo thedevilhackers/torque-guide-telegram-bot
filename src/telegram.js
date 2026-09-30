@@ -4,24 +4,49 @@ const apiUrl = (method) => `https://api.telegram.org/bot${config.telegramBotToke
 
 export async function callTelegram(method, payload = {}) {
   if (!config.telegramBotToken) throw new Error("TELEGRAM_BOT_TOKEN is missing. Fill in .env before starting the bot.");
+  const isForm = payload instanceof FormData;
   const response = await fetch(apiUrl(method), {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload)
+    headers: isForm ? undefined : { "Content-Type": "application/json" },
+    body: isForm ? payload : JSON.stringify(payload),
+    signal: AbortSignal.timeout(method === "getUpdates" ? 60_000 : 30_000)
   });
   const data = await response.json();
   if (!response.ok || !data.ok) throw new Error(`Telegram ${method} failed: ${data.description ?? response.status}`);
   return data.result;
 }
 
-export const sendText = (chatId, text) => callTelegram("sendMessage", { chat_id: chatId, text });
-
-export function sendList(chatId, { body, rows, header = "Torque Guide" }) {
-  return callTelegram("sendMessage", {
-    chat_id: chatId,
-    text: `${header}\n\n${body}`,
-    reply_markup: {
-      inline_keyboard: rows.map(({ id, title }) => [{ text: title, callback_data: id }])
-    }
-  });
+export function escapeHtml(value) {
+  return String(value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
+
+// buttons: rows of { text, data } (callback) or { text, url } (link) shown under the message.
+// keyboard: rows of reply-keyboard buttons, e.g. { text, request_location: true }.
+function replyMarkup({ buttons, keyboard, placeholder, removeKeyboard } = {}) {
+  if (buttons) return { inline_keyboard: buttons.map((row) => row.map(({ text, data, url }) => (url ? { text, url } : { text, callback_data: data }))) };
+  if (keyboard) return { keyboard, resize_keyboard: true, one_time_keyboard: true, input_field_placeholder: placeholder };
+  if (removeKeyboard) return { remove_keyboard: true };
+  return undefined;
+}
+
+export const sendText = (chatId, html, options) =>
+  callTelegram("sendMessage", { chat_id: chatId, text: html, parse_mode: "HTML", link_preview_options: { is_disabled: true }, reply_markup: replyMarkup(options) });
+
+export function sendPhoto(chatId, png, { caption, filename = "stage1-graph.png", ...options } = {}) {
+  const form = new FormData();
+  form.append("chat_id", String(chatId));
+  form.append("photo", new Blob([png], { type: "image/png" }), filename);
+  if (caption) {
+    form.append("caption", caption);
+    form.append("parse_mode", "HTML");
+  }
+  const markup = replyMarkup(options);
+  if (markup) form.append("reply_markup", JSON.stringify(markup));
+  return callTelegram("sendPhoto", form);
+}
+
+export const sendVenue = (chatId, { latitude, longitude, title, address, ...options }) =>
+  callTelegram("sendVenue", { chat_id: chatId, latitude, longitude, title, address, reply_markup: replyMarkup(options) });
+
+// Typing/upload indicators are cosmetic, so failures are ignored.
+export const sendChatAction = (chatId, action) => callTelegram("sendChatAction", { chat_id: chatId, action }).catch(() => {});
