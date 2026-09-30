@@ -30,7 +30,7 @@ const ICONS = { bolt: "Lightning", gauge: "Gauge", wave: "Dyno curve", scan: "Di
 
 class SignedOut extends Error {}
 
-async function api(path, { method = "GET", body } = {}) {
+async function api(path, { method = "GET", body = method === "GET" || method === "DELETE" ? undefined : {} } = {}) {
   const response = await fetch(path, {
     method,
     headers: { "X-Requested-With": "unity-admin", ...(body !== undefined && { "Content-Type": "application/json" }) },
@@ -526,7 +526,7 @@ async function viewEnquiries(main, id) {
         h("dt", { text: "Customer" }), h("dd", { text: who(enquiry) }),
         h("dt", { text: "Contact" }), h("dd", {}, ...(contact.length ? contact : ["—"])),
         h("dt", { text: "Vehicle" }), h("dd", { text: vehicle ? `${vehicle.name}${vehicle.years ? ` (${vehicle.years})` : ""}${vehicle.source === "ai" ? " · AI estimate" : ""}` : "—" }),
-        vehicle?.stage1 ? [h("dt", { text: "Stage 1" }), h("dd", { text: `${vehicle.stock.hp} → ${vehicle.stage1.hp} hp · ${vehicle.stock.nm} → ${vehicle.stage1.nm} Nm` })] : null,
+        vehicle?.stage1 ? [h("dt", { text: `Stage ${vehicle.stage ?? 1}` }), h("dd", { text: `${vehicle.stock.hp} → ${(vehicle.target ?? vehicle.stage1).hp} hp · ${vehicle.stock.nm} → ${(vehicle.target ?? vehicle.stage1).nm} Nm` })] : null,
         h("dt", { text: "ECU" }), h("dd", { text: ecuName(enquiry.ecu) }),
         h("dt", { text: "Location" }), h("dd", {}, locationLink),
         enquiry.message ? [h("dt", { text: "Message" }), h("dd", { text: enquiry.message })] : null,
@@ -570,7 +570,7 @@ async function viewEnquiries(main, id) {
     columns: [
       { label: "Received", cell: (enquiry) => [dateTime(enquiry.createdAt), h("span", { class: "sub", text: enquiry.source === "telegram" ? "Telegram bot" : "Website" })] },
       { label: "Customer", cell: (enquiry) => [who(enquiry), h("span", { class: "sub", text: enquiry.customer.phone || (enquiry.customer.username ? "Telegram" : "") })] },
-      { label: "Vehicle", cell: (enquiry) => [enquiry.vehicle?.name ?? "—", enquiry.vehicle?.stage1 ? h("span", { class: "sub", text: `${enquiry.vehicle.stock.hp} → ${enquiry.vehicle.stage1.hp} hp` }) : null] },
+      { label: "Vehicle", cell: (enquiry) => [enquiry.vehicle?.name ?? "—", enquiry.vehicle?.stage1 ? h("span", { class: "sub", text: `Stage ${enquiry.vehicle.stage ?? 1}: ${enquiry.vehicle.stock.hp} → ${(enquiry.vehicle.target ?? enquiry.vehicle.stage1).hp} hp` }) : null] },
       { label: "ECU", cell: (enquiry) => ecuName(enquiry.ecu) },
       { label: "Status", cell: (enquiry) => statusSelect(ENQUIRY_LABELS, enquiry.status, (value, select) => update(enquiry, { status: value }).catch((error) => ((select.value = enquiry.status), reportError(error)))) }
     ]
@@ -662,8 +662,31 @@ const COLLECTION_VIEWS = {
       return { brands, ecus };
     },
     search: (vehicle, { brands }) => `${brands.find((brand) => brand.id === vehicle.brand)?.title ?? ""} ${vehicle.model} ${vehicle.generation} ${vehicle.engine} ${vehicle.keywords}`,
-    before: (vehicle) =>
-      h("div", { class: "full" }, h("img", { class: "graph-preview", src: `/api/vehicles/${encodeURIComponent(vehicle.id)}/graph.png?v=${encodeURIComponent(vehicle.updatedAt ?? "")}`, alt: `Current Stage 1 graph for ${vehicle.model}` })),
+    // Preview of the saved graphs, with a switch for each stage the vehicle has.
+    before: (vehicle) => {
+      const stages = [1, 2, 3].filter((stage) => stage === 1 || vehicle[`stage${stage}Hp`] !== "");
+      const src = (stage) => `/api/vehicles/${encodeURIComponent(vehicle.id)}/graph.png?stage=${stage}&v=${encodeURIComponent(vehicle.updatedAt ?? "")}`;
+      const image = h("img", { class: "graph-preview", src: src(1), alt: `Current Stage 1 graph for ${vehicle.model}` });
+      const tabs = h("div", { class: "chips" });
+      if (stages.length > 1) {
+        tabs.append(
+          ...stages.map((stage) =>
+            h("button", {
+              class: "chip",
+              type: "button",
+              "aria-pressed": String(stage === 1),
+              text: `Stage ${stage}`,
+              onclick: (event) => {
+                image.src = src(stage);
+                image.alt = `Current Stage ${stage} graph for ${vehicle.model}`;
+                for (const chip of tabs.children) chip.setAttribute("aria-pressed", String(chip === event.currentTarget));
+              }
+            })
+          )
+        );
+      }
+      return h("div", { class: "full" }, tabs, image);
+    },
     fields: ({ brands, ecus }) => [
       { name: "brand", label: "Brand", type: "select", options: brands.map((brand) => [brand.id, brand.title]) },
       { name: "model", label: "Model", placeholder: "Golf GTI" },
@@ -677,6 +700,10 @@ const COLLECTION_VIEWS = {
       { name: "stockNm", label: "Stock torque (Nm)", type: "number", step: "1" },
       { name: "stage1Hp", label: "Stage 1 power (hp)", type: "number", step: "1" },
       { name: "stage1Nm", label: "Stage 1 torque (Nm)", type: "number", step: "1" },
+      { name: "stage2Hp", label: "Stage 2 power (hp)", type: "number", step: "1", help: "Optional. Leave Stage 2 and 3 empty if you don't offer them." },
+      { name: "stage2Nm", label: "Stage 2 torque (Nm)", type: "number", step: "1" },
+      { name: "stage3Hp", label: "Stage 3 power (hp)", type: "number", step: "1", help: "Optional. Needs Stage 2 figures." },
+      { name: "stage3Nm", label: "Stage 3 torque (Nm)", type: "number", step: "1" },
       { name: "ecus", label: "ECUs commonly fitted", type: "checkboxes", full: true, options: ecus.map((ecu) => [ecu.id, ecu.title]), help: "Starred for customers in the ECU check." },
       { name: "keywords", label: "Extra search words", full: true, placeholder: "golf7 mk7 gti", help: "Other names customers might type." },
       { name: "redline", label: "Redline (rpm)", type: "number", step: "100", help: "Optional. Shapes the graph for high-revving engines." },
@@ -687,7 +714,8 @@ const COLLECTION_VIEWS = {
       { label: "Years", cell: (vehicle) => (vehicle.yearTo ? `${vehicle.yearFrom}–${vehicle.yearTo}` : `${vehicle.yearFrom}+`) },
       { label: "Fuel", cell: (vehicle) => FUEL_LABELS[vehicle.fuel] },
       { label: "Stock", class: "num", cell: (vehicle) => [`${vehicle.stockHp} hp`, h("span", { class: "sub", text: `${vehicle.stockNm} Nm` })] },
-      { label: "Stage 1", class: "num", cell: (vehicle) => [`${vehicle.stage1Hp} hp`, h("span", { class: "sub", text: `+${Math.round((vehicle.stage1Hp / vehicle.stockHp - 1) * 100)}% · ${vehicle.stage1Nm} Nm` })] }
+      { label: "Stage 1", class: "num", cell: (vehicle) => [`${vehicle.stage1Hp} hp`, h("span", { class: "sub", text: `+${Math.round((vehicle.stage1Hp / vehicle.stockHp - 1) * 100)}% · ${vehicle.stage1Nm} Nm` })] },
+      { label: "Stages", cell: (vehicle) => [1, 2, 3].filter((stage) => stage === 1 || vehicle[`stage${stage}Hp`] !== "").join(" · ") }
     ]
   },
   ecus: {
@@ -777,6 +805,15 @@ const SETTINGS_SECTIONS = [
     { name: "deliveryFee", label: "Delivery fee", type: "number", step: "0.01", min: "0" },
     { name: "shopNote", label: "Payment note", type: "textarea", full: true }
   ]],
+  ["Stage 2 & 3 descriptions", [
+    { name: "stage2Note", label: "Stage 2: what's included", type: "textarea", full: true, help: "Shown with Stage 2 graphs on the website and in the bot." },
+    { name: "stage3Note", label: "Stage 3: what's included", type: "textarea", full: true }
+  ]],
+  ["Alert settings", [
+    { name: "alertOrders", label: "Alert me about new orders", type: "checkbox" },
+    { name: "alertEnquiries", label: "Alert me about new enquiries", type: "checkbox" },
+    { name: "siteUrl", label: "Website address", full: true, placeholder: "https://…", help: "Adds an “Open in admin” button to alerts. Filled in automatically on Render." }
+  ]],
   ["Social links", [
     { name: "instagram", label: "Instagram", placeholder: "https://instagram.com/…" },
     { name: "facebook", label: "Facebook", placeholder: "https://facebook.com/…" },
@@ -785,8 +822,81 @@ const SETTINGS_SECTIONS = [
   ]]
 ];
 
+// Linked chats, a one-time link to connect another, and a test message.
+async function alertsCard() {
+  const card = h("section", { class: "card form-section" }, h("h2", { text: "Telegram alerts" }));
+  const body = h("div");
+  card.append(body);
+  const run = (action) => async () => {
+    try {
+      await action();
+    } catch (error) {
+      reportError(error);
+    }
+  };
+  async function draw() {
+    const { chats, botUsername, botRunning } = await api("/api/admin/alerts");
+    const linkArea = h("div");
+    const list = chats.length
+      ? h("ul", { class: "list" },
+          ...chats.map((chat) =>
+            h("li", {},
+              h("span", {}, chat.name || "Telegram chat", h("span", { class: "sub", text: `${chat.username ? `@${chat.username} · ` : ""}linked ${dateTime(chat.linkedAt)}` })),
+              h("button", {
+                class: "btn btn-small btn-danger",
+                type: "button",
+                text: "Remove",
+                onclick: run(async () => {
+                  if (!(await confirmDialog(`Stop sending alerts to ${chat.name || "this chat"}?`, { confirmLabel: "Remove" }))) return;
+                  await api(`/api/admin/alerts/${encodeURIComponent(chat.chatId)}`, { method: "DELETE" });
+                  toast("Chat removed");
+                  await draw();
+                })
+              })
+            )
+          ))
+      : h("p", { class: "note", text: "No chats linked yet." });
+    const connect = h("button", {
+      class: "btn btn-primary",
+      type: "button",
+      text: "Connect a Telegram chat",
+      disabled: !botRunning,
+      onclick: run(async () => {
+        const { code, url } = await api("/api/admin/alerts/link", { method: "POST" });
+        linkArea.replaceChildren(
+          h("p", { class: "note", text: "On the phone that should get alerts, open this link and press Start. It works once and expires in 15 minutes." }),
+          h("div", { class: "toolbar" },
+            h("a", { class: "btn", href: url, target: "_blank", rel: "noopener", text: `Open @${botUsername}` }),
+            h("button", { class: "btn btn-link", type: "button", text: "Done: refresh the list", onclick: run(draw) })
+          ),
+          h("p", { class: "note", text: `Or send this message to @${botUsername}: /alerts ${code}` })
+        );
+      })
+    });
+    const test = h("button", {
+      class: "btn",
+      type: "button",
+      text: "Send test alert",
+      disabled: !botRunning || !chats.length,
+      onclick: run(async () => {
+        const { sent } = await api("/api/admin/alerts/test", { method: "POST" });
+        toast(`Test alert sent to ${sent} chat${sent === 1 ? "" : "s"}`);
+      })
+    });
+    body.replaceChildren(
+      h("p", { class: "note", text: botRunning ? `Get a message from @${botUsername} the moment an order or enquiry arrives.` : "Alerts need the Telegram bot: set TELEGRAM_BOT_TOKEN on the server and restart it." }),
+      list,
+      h("div", { class: "toolbar", style: { marginTop: "14px", marginBottom: "0" } }, connect, test),
+      linkArea
+    );
+  }
+  await draw();
+  return card;
+}
+
 async function viewSettings(main) {
   const { settings, effective } = await api("/api/admin/settings");
+  const alerts = await alertsCard();
   const built = [];
   const sections = SETTINGS_SECTIONS.map(([title, fields]) =>
     h("section", { class: "card form-section" }, h("h2", { text: title }),
@@ -819,7 +929,7 @@ async function viewSettings(main) {
       save.disabled = false;
     }
   });
-  main.replaceChildren(pageHead("Settings", "Business details, home page, contact, shop and social links."), form);
+  main.replaceChildren(pageHead("Settings", "Business details, home page, contact, shop, alerts and social links."), alerts, form);
 }
 
 function viewBackup(main) {
@@ -901,6 +1011,8 @@ function renderShell() {
 async function route() {
   const main = document.getElementById("main");
   if (!main) return;
+  // Navigating (e.g. with the Back button) closes any open editor instead of leaving it on top.
+  for (const open of document.querySelectorAll("dialog[open]")) open.close();
   const [section = "dashboard", id] = location.hash.slice(1).split("/");
   const known = SECTIONS.some(([key]) => key === section) ? section : "dashboard";
   for (const link of document.querySelectorAll("[data-section]")) {

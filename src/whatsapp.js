@@ -1,6 +1,6 @@
 import { ECU_STATUS, ecuById } from "./catalog.js";
 import { settings } from "./db.js";
-import { stage1Gain, vehicleName } from "./vehicles.js";
+import { stageFigures, stageGain, vehicleName } from "./vehicles.js";
 
 // Customers send enquiries themselves: a wa.me link opens WhatsApp with the message already
 // typed to the business number, so no WhatsApp Business API account is needed.
@@ -17,17 +17,19 @@ export function locationText(location) {
   return String(location.text ?? "").slice(0, 120);
 }
 
-export function enquiryText({ vehicle, location, ecu, customer, message } = {}, businessName = settings().businessName) {
-  const lines = [`Hello ${businessName}, I'd like a Stage 1 tune. My details:`, ""];
+export function enquiryText({ vehicle, stage = 1, location, ecu, customer, message } = {}, businessName = settings().businessName) {
+  const chosen = vehicle?.tunable && vehicle[`stage${stage}`] ? stage : 1;
+  const lines = [`Hello ${businessName}, I'd like a Stage ${chosen} tune. My details:`, ""];
   if (customer?.name) lines.push(`Name: ${customer.name.slice(0, 60)}`);
   if (customer?.username) lines.push(`Telegram: @${customer.username}`);
   if (vehicle) {
     lines.push(`Vehicle: ${vehicleName(vehicle)}${vehicle.years ? ` (${vehicle.years})` : ""}`);
     lines.push(`Engine: ${vehicle.engine}, ${vehicle.fuel}`);
     if (vehicle.tunable) {
-      const gain = stage1Gain(vehicle);
+      const gain = stageGain(vehicle, chosen);
+      const target = stageFigures(vehicle, chosen);
       lines.push(`Stock: ${vehicle.stock.hp} hp / ${vehicle.stock.nm} Nm`);
-      lines.push(`Stage 1 estimate: ${vehicle.stage1.hp} hp / ${vehicle.stage1.nm} Nm (+${gain.hp} hp / +${gain.nm} Nm)`);
+      lines.push(`Stage ${chosen} estimate: ${target.hp} hp / ${target.nm} Nm (+${gain.hp} hp / +${gain.nm} Nm)`);
     }
     if (vehicle.source === "ai") lines.push("Figures: AI estimate, to be verified");
   }

@@ -22,8 +22,11 @@ export function yearsLabel([from, to] = []) {
   return to ? `${from}–${to}` : `${from}+`;
 }
 
+export const STAGES = [1, 2, 3];
+const figures = (pair) => (pair ? { hp: pair[0], nm: pair[1] } : undefined);
+
 function toVehicle(entry) {
-  const { stock, stage1, years, keywords, brand, ...rest } = entry;
+  const { stock, stage1, stage2, stage3, years, keywords, brand, ...rest } = entry;
   return {
     ...rest,
     source: "catalog",
@@ -31,10 +34,22 @@ function toVehicle(entry) {
     brand: brandById(brand)?.title ?? brand,
     years: yearsLabel(years),
     yearRange: years,
-    stock: { hp: stock[0], nm: stock[1] },
-    stage1: { hp: stage1[0], nm: stage1[1] },
+    stock: figures(stock),
+    stage1: figures(stage1),
+    ...(stage2 && { stage2: figures(stage2) }),
+    ...(stage3 && { stage3: figures(stage3) }),
     tunable: true
   };
+}
+
+// The stages this vehicle has figures for, e.g. [1, 2, 3]. AI-identified vehicles only have Stage 1.
+export function availableStages(vehicle) {
+  return vehicle?.tunable ? STAGES.filter((stage) => vehicle[`stage${stage}`]) : [];
+}
+
+// Falls back to Stage 1 when the vehicle has no figures for the requested stage.
+export function stageFigures(vehicle, stage = 1) {
+  return vehicle[`stage${stage}`] ?? vehicle.stage1;
 }
 
 export function getVehicle(id) {
@@ -59,11 +74,14 @@ export function vehicleButtonLabel(vehicle) {
   return `${vehicle.model} ${vehicle.generation} · ${vehicle.engine.replace(/\s*\(.*\)$/, "")}${years}`;
 }
 
-export function stage1Gain(vehicle) {
-  const hp = vehicle.stage1.hp - vehicle.stock.hp;
-  const nm = vehicle.stage1.nm - vehicle.stock.nm;
+export function stageGain(vehicle, stage = 1) {
+  const target = stageFigures(vehicle, stage);
+  const hp = target.hp - vehicle.stock.hp;
+  const nm = target.nm - vehicle.stock.nm;
   return { hp, nm, hpPercent: Math.round((hp / vehicle.stock.hp) * 100), nmPercent: Math.round((nm / vehicle.stock.nm) * 100) };
 }
+
+export const stage1Gain = (vehicle) => stageGain(vehicle, 1);
 
 export function normalizeSearch(value) {
   return String(value)

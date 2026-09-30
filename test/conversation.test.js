@@ -107,3 +107,50 @@ test("Ask AI mode answers free-text questions until the customer leaves it", asy
   await handle("chat-ask", { text: "ranger" });
   assert.ok(buttonData(last()).includes("veh:ford_ranger_32"));
 });
+
+test("customers can view Stage 2 and 3 graphs and enquire about the stage they chose", async () => {
+  const { sent, last } = fakeBot();
+  const chat = "chat-stages";
+  const charts = [];
+  const bot = createConversation({
+    telegram: { sendText: async (chatId, text, options = {}) => sent.push({ kind: "text", text, ...options }), sendPhoto: async (chatId, png, options = {}) => sent.push({ kind: "photo", ...options }), sendChatAction: async () => {} },
+    ai: { aiEnabled: () => false, makeStage1Report: async (_, vehicle) => tuning.fallbackStage1Report(vehicle), formatStage1Report: tuning.formatStage1Report },
+    renderChart: (vehicle, options) => (charts.push(options.stage), Buffer.from("png"))
+  });
+  await bot(chat, { data: "veh:vw_golf7_gti", from: { first_name: "Ann" } });
+  assert.ok(buttonData(last()).includes("stage:2") && buttonData(last()).includes("stage:3"), "Stage 2 and 3 buttons are offered");
+
+  await bot(chat, { data: "stage:3" });
+  const photo = last();
+  assert.equal(photo.kind, "photo");
+  assert.deepEqual(charts, [1, 3]);
+  assert.match(photo.caption, /Stage 3 · Volkswagen Golf GTI Mk7/);
+  assert.match(photo.caption, /220 → <b>375 hp<\/b>/);
+  assert.match(photo.caption, /upgraded turbocharger/);
+  assert.equal(photo.buttons[0][0].data, "next");
+
+  await bot(chat, { data: "next" });
+  await bot(chat, { text: "Kandy" });
+  await bot(chat, { data: "ecu:simos18" });
+  assert.match(last().text, /Your Stage 3 enquiry/);
+  assert.match(decodeURIComponent(last().buttons[0][0].url), /I'd like a Stage 3 tune[\s\S]*Stage 3 estimate: 375 hp \/ 485 Nm/);
+
+  await bot(chat, { data: "stage:3" });
+  await bot("chat-city", { data: "veh:honda_city_15" });
+  await bot("chat-city", { data: "stage:2" });
+  assert.match(last().text, /don't have Stage 2 figures/);
+});
+
+test("the owner links and unlinks alert chats from Telegram", async () => {
+  const { createLinkCode, alertChats } = await import("../src/alerts.js");
+  const { handle, last } = fakeBot();
+  const { code } = createLinkCode();
+  await handle("owner-chat", { text: `/start alerts_${code}`, from: { first_name: "Owner" } });
+  assert.match(last().text, /Alerts are on/);
+  assert.ok(alertChats().some((chat) => chat.chatId === "owner-chat"));
+  await handle("other-chat", { text: `/alerts ${code}` });
+  assert.match(last().text, /expired or was already used/);
+  await handle("owner-chat", { text: "/stopalerts" });
+  assert.match(last().text, /Alerts are off/);
+  assert.ok(!alertChats().some((chat) => chat.chatId === "owner-chat"));
+});

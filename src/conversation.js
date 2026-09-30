@@ -1,16 +1,19 @@
+import { linkChat, unlinkChat } from "./alerts.js";
 import { ECU_STATUS, ecuById, ecus } from "./catalog.js";
 import { settings } from "./db.js";
-import { renderStage1Chart } from "./dyno-chart.js";
+import { renderStageChart } from "./dyno-chart.js";
 import { recordTelegramEnquiry } from "./records.js";
 import { getSession, resetSession, setSession } from "./store.js";
 import * as telegramApi from "./telegram.js";
 import { escapeHtml as h } from "./telegram.js";
 import * as tuningService from "./tuning-service.js";
-import { brandsWithVehicles, getVehicle, searchVehicles, stage1Gain, vehicleButtonLabel, vehicleName, vehiclesForBrand } from "./vehicles.js";
+import { availableStages, brandsWithVehicles, getVehicle, searchVehicles, stageFigures, stageGain, vehicleButtonLabel, vehicleName, vehiclesForBrand } from "./vehicles.js";
 import { enquiryText, locationText, whatsappLink } from "./whatsapp.js";
 
 const MAX_QUERY_LENGTH = 80;
 const RESET = /^(\/start(\s.*)?|\/menu|start|menu|restart|hi|hello|hey)$/i;
+// "/start alerts_CODE" (the admin panel's link) or "/alerts CODE" links a chat for owner alerts.
+const LINK_ALERTS = /^\/(?:start\s+alerts_|alerts\s+)([A-Za-z0-9]{8})$/i;
 
 const btn = (text, data) => ({ text, data });
 const link = (text, url) => ({ text, url });
@@ -28,15 +31,22 @@ function hasWorkshop() {
   return Boolean(address) || (Number.isFinite(latitude) && Number.isFinite(longitude));
 }
 
-export function performanceCaption(vehicle) {
-  const gain = stage1Gain(vehicle);
+const stageNote = (stage) => (stage === 2 ? settings().stage2Note : stage === 3 ? settings().stage3Note : "");
+
+// The stage the customer is looking at, if this vehicle has figures for it; otherwise Stage 1.
+const chosenStage = (vehicle, stage) => (availableStages(vehicle).includes(stage) ? stage : 1);
+
+export function performanceCaption(vehicle, stage = 1) {
+  const gain = stageGain(vehicle, stage);
+  const target = stageFigures(vehicle, stage);
   const lines = [
-    `<b>Stage 1 · ${h(vehicleName(vehicle))}</b>`,
+    `<b>Stage ${stage} · ${h(vehicleName(vehicle))}</b>`,
     h([vehicle.engine, vehicle.years].filter(Boolean).join(" · ")),
     "",
-    `⚡ Power: ${vehicle.stock.hp} → <b>${vehicle.stage1.hp} hp</b> (+${gain.hp} hp, +${gain.hpPercent}%)`,
-    `🔧 Torque: ${vehicle.stock.nm} → <b>${vehicle.stage1.nm} Nm</b> (+${gain.nm} Nm, +${gain.nmPercent}%)`
+    `⚡ Power: ${vehicle.stock.hp} → <b>${target.hp} hp</b> (+${gain.hp} hp, +${gain.hpPercent}%)`,
+    `🔧 Torque: ${vehicle.stock.nm} → <b>${target.nm} Nm</b> (+${gain.nm} Nm, +${gain.nmPercent}%)`
   ];
+  if (stageNote(stage)) lines.push("", `🛠 ${h(stageNote(stage))}`);
   if (vehicle.source === "ai") {
     lines.push("", `🤖 AI estimate, ${h(vehicle.confidence ?? "low")} confidence. We verify your exact engine before quoting.${vehicle.notes ? `\n${h(vehicle.notes)}` : ""}`);
   }
@@ -53,7 +63,7 @@ function ecuCheckText(ecu, vehicle) {
   return `${status.icon} <b>${h(ecu.title)}</b>\n${h(status.detail)}${ecu.method ? `\nMethod: ${h(ecu.method)}` : ""}`;
 }
 
-export function createConversation({ telegram = telegramApi, ai = tuningService, renderChart = renderStage1Chart } = {}) {
+export function createConversation({ telegram = telegramApi, ai = tuningService, renderChart = renderStageChart } = {}) {
   async function showMenu(chatId) {
     setSession(chatId, { awaiting: undefined });
     const rows = [
@@ -126,7 +136,7 @@ export function createConversation({ telegram = telegramApi, ai = tuningService,
   }
 
   async function showPerformance(chatId, vehicle) {
-    const session = setSession(chatId, { vehicle, awaiting: undefined, ecu: undefined });
+    const session = setSession(chatId, { vehicle, stage: 1, awaiting: undefined, ecu: undefined });
     if (!vehicle.tunable) {
       return telegram.sendText(
         chatId,
@@ -136,7 +146,7 @@ export function createConversation({ telegram = telegramApi, ai = tuningService,
     }
     await telegram.sendChatAction(chatId, "upload_photo");
     try {
-      await telegram.sendPhoto(chatId, renderChart(vehicle, { businessName: businessName() }), { caption: performanceCaption(vehicle) });
+      await telegram.sendPhoto(chatId, renderChart(vehicle, { businessName: businessName(), stage: 1 }), { caption: performanceCaption(vehicle) });
     } catch (error) {
       console.error("Stage 1 graph failed:", error.message);
       await telegram.sendText(chatId, performanceCaption(vehicle));
@@ -144,11 +154,33 @@ export function createConversation({ telegram = telegramApi, ai = tuningService,
     await telegram.sendChatAction(chatId, "typing");
     const report = await ai.makeStage1Report(chatId, vehicle);
     const next = session.location ? btn("➡️ Continue to ECU check", "next") : btn("📍 Add my location", "next");
+    const moreStages = availableStages(vehicle).filter((stage) => stage > 1);
     return telegram.sendText(
       chatId,
-      `${ai.formatStage1Report(vehicle, report)}\n\n<i>Figures are estimates for a healthy, standard vehicle. Final results are confirmed on our dyno.</i>\n\n<b>Next:</b> ${session.location ? "check your ECU" : "add your location"}.`,
-      { buttons: [[next], [btn("🔎 Another vehicle", "search"), btn("🏠 Menu", "menu")]] }
+      `${ai.formatStage1Report(vehicle, report)}\n\n<i>Figures are estimates for a healthy, standard vehicle. Final results are confirmed on our dyno.</i>\n\n<b>Next:</b> ${session.location ? "check your ECU" : "add your location"}${moreStages.length ? ", or see what Stage 2 and 3 builds make" : ""}.`,
+      { buttons: [[next], ...(moreStages.length ? [moreStages.map((stage) => btn(`📈 Stage ${stage} graph`, `stage:${stage}`))] : []), [btn("🔎 Another vehicle", "search"), btn("🏠 Menu", "menu")]] }
     );
+  }
+
+  // Shows another stage's graph. The stage last viewed is the one the enquiry is for.
+  async function showStage(chatId, stage) {
+    const { vehicle, location } = getSession(chatId);
+    if (!vehicle) return promptSearch(chatId);
+    if (!availableStages(vehicle).includes(stage)) return telegram.sendText(chatId, `We don't have Stage ${stage} figures for this vehicle yet. Ask us on WhatsApp for a quote.`, { buttons: [menuRow()] });
+    setSession(chatId, { stage, awaiting: undefined });
+    const others = availableStages(vehicle).filter((other) => other !== stage);
+    const buttons = [
+      [btn(`${location ? "➡️" : "📍"} Continue with Stage ${stage}`, "next")],
+      others.map((other) => btn(`📈 Stage ${other}`, `stage:${other}`)),
+      [btn("🔎 Another vehicle", "search"), btn("🏠 Menu", "menu")]
+    ];
+    await telegram.sendChatAction(chatId, "upload_photo");
+    try {
+      return await telegram.sendPhoto(chatId, renderChart(vehicle, { businessName: businessName(), stage }), { caption: performanceCaption(vehicle, stage), buttons });
+    } catch (error) {
+      console.error(`Stage ${stage} graph failed:`, error.message);
+      return telegram.sendText(chatId, performanceCaption(vehicle, stage), { buttons });
+    }
   }
 
   async function nextStep(chatId) {
@@ -202,10 +234,12 @@ export function createConversation({ telegram = telegramApi, ai = tuningService,
       console.error("Could not record enquiry:", error.message);
     }
     const ecu = ecuById(session.ecu);
-    const lines = ["<b>📄 Your Stage 1 enquiry</b>", "", `<b>Vehicle:</b> ${h(vehicleName(vehicle))}${vehicle.years ? ` (${h(vehicle.years)})` : ""}`, `<b>Engine:</b> ${h(vehicle.engine)}, ${h(vehicle.fuel)}`];
+    const stage = chosenStage(vehicle, session.stage);
+    const lines = [`<b>📄 Your Stage ${stage} enquiry</b>`, "", `<b>Vehicle:</b> ${h(vehicleName(vehicle))}${vehicle.years ? ` (${h(vehicle.years)})` : ""}`, `<b>Engine:</b> ${h(vehicle.engine)}, ${h(vehicle.fuel)}`];
     if (vehicle.tunable) {
-      const gain = stage1Gain(vehicle);
-      lines.push(`<b>Stock:</b> ${vehicle.stock.hp} hp / ${vehicle.stock.nm} Nm`, `<b>Stage 1:</b> ${vehicle.stage1.hp} hp / ${vehicle.stage1.nm} Nm (+${gain.hp} hp / +${gain.nm} Nm)`);
+      const gain = stageGain(vehicle, stage);
+      const target = stageFigures(vehicle, stage);
+      lines.push(`<b>Stock:</b> ${vehicle.stock.hp} hp / ${vehicle.stock.nm} Nm`, `<b>Stage ${stage}:</b> ${target.hp} hp / ${target.nm} Nm (+${gain.hp} hp / +${gain.nm} Nm)`);
     }
     if (ecu) {
       const status = ECU_STATUS[ecu.status];
@@ -277,6 +311,8 @@ export function createConversation({ telegram = telegramApi, ai = tuningService,
         const vehicle = getVehicle(value);
         return vehicle ? showPerformance(chatId, vehicle) : promptSearch(chatId);
       }
+      case "stage":
+        return showStage(chatId, Number(value));
       case "aisearch":
         return aiSearch(chatId, getSession(chatId).lastQuery ?? "");
       case "next":
@@ -301,6 +337,19 @@ export function createConversation({ telegram = telegramApi, ai = tuningService,
   // input: { text } | { data } (button press) | { location: { latitude, longitude } }, plus the Telegram `from` user.
   return async function handleConversation(chatId, input = {}) {
     const text = (input.text ?? "").trim();
+    const alertCode = LINK_ALERTS.exec(text)?.[1];
+    if (alertCode) {
+      const linked = linkChat(chatId, input.from, alertCode);
+      return telegram.sendText(
+        chatId,
+        linked
+          ? `✅ <b>Alerts are on.</b> This chat will get a message for every new ${h(businessName())} order and enquiry. Send /stopalerts to turn them off.`
+          : "That alert code has expired or was already used. Create a new one in Admin → Settings → Telegram alerts."
+      );
+    }
+    if (/^\/stopalerts$/i.test(text)) {
+      return telegram.sendText(chatId, unlinkChat(chatId) ? "🔕 Alerts are off for this chat." : "This chat wasn't receiving alerts.");
+    }
     const resetting = !input.data && !input.location && (!text || RESET.test(text));
     const previous = getSession(chatId);
     if (resetting) resetSession(chatId);

@@ -13,8 +13,8 @@ const { db } = await import("../src/db.js");
 let ipCounter = 0;
 
 // Each call gets its own app (fresh rate limiters) and a unique client IP.
-async function startApp() {
-  const server = createServer(createApp());
+async function startApp(options = {}) {
+  const server = createServer(createApp(options));
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   const base = `http://127.0.0.1:${server.address().port}`;
   const ip = `10.0.0.${++ipCounter}`;
@@ -70,10 +70,14 @@ test("public pages and APIs", async (t) => {
   assert.equal(search.data.vehicles[0].id, "vw_golf8_gti");
   const vehicle = await request("/api/vehicles/vw_golf7_gti");
   assert.deepEqual(vehicle.data.vehicle.gain, { hp: 70, nm: 70, hpPercent: 32, nmPercent: 20 });
-  assert.equal(Math.max(...vehicle.data.curves.stage1.power), 290);
+  assert.equal(Math.max(...vehicle.data.curves.stages[1].power), 290);
+  assert.equal(Math.max(...vehicle.data.curves.stages[3].power), 375);
+  assert.deepEqual(vehicle.data.vehicle.stages.map(({ stage, hp }) => [stage, hp]), [[1, 290], [2, 320], [3, 375]]);
   assert.ok(vehicle.data.curves.stock.rpm.every((rpm) => rpm % 100 === 0));
   const graph = await request("/api/vehicles/vw_golf7_gti/graph.png");
   assert.equal(graph.headers.get("content-type"), "image/png");
+  assert.equal((await request("/api/vehicles/vw_golf7_gti/graph.png?stage=3")).status, 200);
+  assert.equal((await request("/api/vehicles/honda_city_15/graph.png?stage=2")).status, 404, "naturally aspirated cars are Stage 1 only");
   assert.equal((await request("/api/vehicles/nope")).status, 404);
   assert.equal((await request("/api/vehicles/identify?q=nissan+patrol")).status, 404, "AI search is off without an API key");
 });
@@ -115,6 +119,52 @@ test("website enquiries are stored with a vehicle snapshot", async (t) => {
   assert.equal(stored.source, "website");
   assert.deepEqual(stored.vehicle.stage1, { hp: 235, nm: 580 });
   assert.equal((await request("/api/enquiries", { method: "POST", body: { name: "K", phone: "0771234567" } })).status, 400);
+
+  const stage2 = await request("/api/enquiries", { method: "POST", body: { name: "Kasun", phone: "0771234567", vehicleId: "vw_golf7_gti", stage: 2 } });
+  assert.match(decodeURIComponent(stage2.data.whatsappUrl), /Stage 2 estimate: 320 hp \/ 450 Nm/);
+  const saved = db().enquiries.find((enquiry) => enquiry.id === stage2.data.id).vehicle;
+  assert.deepEqual([saved.stage, saved.target], [2, { hp: 320, nm: 450 }]);
+  const unavailable = await request("/api/enquiries", { method: "POST", body: { name: "Kasun", phone: "0771234567", vehicleId: "honda_city_15", stage: 3 } });
+  assert.match(unavailable.data.error, /Stage 3 isn't available/);
+});
+
+test("admin can add Stage 2 and 3 figures, which are validated", async (t) => {
+  const { request, login, close } = await startApp();
+  t.after(close);
+  await login();
+  const base = { brand: "toyota", model: "Test", generation: "X1", engine: "2.0T", fuel: "petrol", aspiration: "turbo", yearFrom: 2020, stockHp: 200, stockNm: 300, stage1Hp: 240, stage1Nm: 360 };
+  const error = async (extra) => (await request("/api/admin/vehicles", { method: "POST", admin: true, body: { ...base, ...extra } })).data.error;
+  assert.match(await error({ stage2Hp: 230, stage2Nm: 400 }), /at least 2% above Stage 1/);
+  assert.match(await error({ stage2Hp: 270 }), /Enter both Stage 2 power and torque/);
+  assert.match(await error({ stage3Hp: 300, stage3Nm: 420 }), /Add Stage 2 figures before Stage 3/);
+  const added = await request("/api/admin/vehicles", { method: "POST", admin: true, body: { ...base, stage2Hp: 270, stage2Nm: 390, stage3Hp: 320, stage3Nm: 430 } });
+  assert.equal(added.status, 200);
+  assert.equal(added.data.item.stage3Hp, 320);
+  assert.equal((await request(`/api/vehicles/${added.data.item.id}/graph.png?stage=3`)).status, 200);
+  assert.deepEqual((await request(`/api/vehicles/${added.data.item.id}`)).data.vehicle.stages.map(({ stage }) => stage), [1, 2, 3]);
+});
+
+test("admin connects and tests Telegram alert chats", async (t) => {
+  const offline = await startApp();
+  t.after(offline.close);
+  await offline.login();
+  assert.equal((await offline.request("/api/admin/alerts")).data.botRunning, false);
+  assert.match((await offline.request("/api/admin/alerts/link", { method: "POST", admin: true, body: {} })).data.error, /TELEGRAM_BOT_TOKEN/);
+
+  const delivered = [];
+  const { request, login, close } = await startApp({ botUsername: () => "UnityPerformanceBot", sendAlert: async (chatId, text) => delivered.push({ chatId, text }) });
+  t.after(close);
+  await login();
+  const link = await request("/api/admin/alerts/link", { method: "POST", admin: true, body: {} });
+  assert.match(link.data.url, /^https:\/\/t\.me\/UnityPerformanceBot\?start=alerts_[A-Z2-9]{8}$/);
+  assert.match((await request("/api/admin/alerts/test", { method: "POST", admin: true })).data.error, /Link a Telegram chat first/, "a POST with no body works");
+  const { linkChat } = await import("../src/alerts.js");
+  assert.equal(linkChat("555", { first_name: "Owner" }, link.data.code), true);
+  assert.equal((await request("/api/admin/alerts")).data.chats[0].chatId, "555");
+  assert.equal((await request("/api/admin/alerts/test", { method: "POST", admin: true, body: {} })).data.sent, 1);
+  assert.match(delivered[0].text, /Test alert/);
+  assert.equal((await request("/api/admin/alerts/555", { method: "DELETE", admin: true })).status, 200);
+  assert.equal((await request("/api/admin/alerts")).data.chats.length, 0);
 });
 
 test("admin sign-in, protection and brute-force limit", async (t) => {

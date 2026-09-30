@@ -58,7 +58,9 @@ export function sendBuffer(res, status, buffer, contentType, headers = {}) {
 
 // Requiring a JSON content type means cross-site forms can't post here, and cross-site scripts
 // would need a CORS preflight, which this server never grants.
+// A request with no body at all (e.g. a button that just triggers an action) reads as {}.
 export async function readJson(req, limit = 1_000_000) {
+  if (req.headers["content-length"] === "0" || (!req.headers["content-length"] && !req.headers["transfer-encoding"])) return {};
   if (!String(req.headers["content-type"] ?? "").startsWith("application/json")) throw new HttpError(415, "Send JSON.");
   const chunks = [];
   let size = 0;

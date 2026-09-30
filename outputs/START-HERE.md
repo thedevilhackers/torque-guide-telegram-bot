@@ -24,10 +24,11 @@ Everything runs from this one project: the website, the shop, the admin panel an
 
 1. **Settings**: your business name, WhatsApp number, address, opening hours, currency and a hero photo.
 2. **Products**: replace the sample products with yours, including prices, stock and photos.
-3. **Vehicles**: check the Stage 1 figures against your own dyno results.
+3. **Vehicles**: check the Stage 1, 2 and 3 figures against your own dyno results. Clear Stage 2 and 3 for anything you don't offer.
 4. **ECUs**: set which ECUs you support.
+5. **Settings → Telegram alerts**: press **Connect a Telegram chat**, open the link on your phone and press Start. You'll get a message for every new order and enquiry.
 
-New shop orders and Stage 1 enquiries, from both the website and the Telegram bot, appear under **Orders** and **Enquiries**.
+New shop orders and Stage 1, 2 and 3 enquiries, from both the website and the Telegram bot, appear under **Orders** and **Enquiries**.
 
 ## Host it 24/7
 

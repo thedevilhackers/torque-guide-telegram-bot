@@ -1,13 +1,16 @@
 import { createServer } from "node:http";
+import { startAlerts } from "./alerts.js";
 import { config, optionalSettingWarnings } from "./config.js";
 import { settings } from "./db.js";
 import { startBot } from "./telegram-bot.js";
+import { sendText } from "./telegram.js";
 import { createApp } from "./web/app.js";
 
 // Runs the website, the admin panel and the Telegram bot in one process, so they share one database.
 
 let botUsername = "";
-const server = createServer(createApp({ botUsername: () => botUsername }));
+const sendAlert = config.telegramBotToken ? sendText : null;
+const server = createServer(createApp({ botUsername: () => botUsername, sendAlert }));
 
 server.listen(config.port, () => {
   console.log(`${settings().businessName} website is running on http://localhost:${config.port} (admin: /admin)`);
@@ -15,6 +18,7 @@ server.listen(config.port, () => {
 });
 
 if (config.telegramBotToken) {
+  startAlerts({ send: sendText });
   startBot()
     .then((username) => {
       botUsername = username;

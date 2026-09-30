@@ -5,19 +5,28 @@ One Node.js app runs four things that share one database:
 - **Website** (`/`): an Apple-style, scroll-animated site. It has a live "Find your car" search with interactive Stage 1 power and torque charts, Stage 1 booking, services, supported ECUs and a visit section.
 - **Shop** (`/shop`): products with categories, search and sorting, a bag and checkout. Orders are saved, and the customer sends the order to you on WhatsApp in one tap.
 - **Admin panel** (`/admin`): full access to orders, enquiries, products (with photo upload), the Stage 1 vehicle database, ECUs, brands, services, site settings and backups.
-- **Telegram bot**: vehicle search, the Stage 1 graph, location, ECU check and a WhatsApp summary. Every customer who reaches the summary appears under Admin → Enquiries.
+- **Telegram bot**: vehicle search, Stage 1, 2 and 3 graphs, location, ECU check and a WhatsApp summary. Every customer who reaches the summary appears under Admin → Enquiries.
+- **Instant alerts**: the bot messages you on Telegram the moment an order or enquiry arrives.
 
 It has no npm dependencies. The Stage 1 graphs are drawn in plain JavaScript, so there's nothing native to install.
 
 ## What customers see
 
-**Website.** The hero and the "Read. Calibrate. Verify." story animate as you scroll, with a live power counter and a curve that draws itself. **Find your car** searches the database as you type, or browses by brand. It shows Stage 1 figures and an interactive chart, where you hover or use the arrow keys to read values; power and torque are separate panels on a shared rpm axis, and there's also a table view. **Book Stage 1** saves an enquiry and hands it to WhatsApp. If a car isn't listed and AI is on, "Ask AI to identify it" estimates it; the estimate is clearly labelled and kept within your gain limits.
+**Website.** The hero and the "Read. Calibrate. Verify." story animate as you scroll, with a live power counter and a curve that draws itself. **Find your car** searches the database as you type, or browses by brand. It shows Stage 1 figures and an interactive chart, where you hover or use the arrow keys to read values; power and torque are separate panels on a shared rpm axis, and there's also a table view. A **Stage 1 / 2 / 3** switch shows each stage's figures, chart, the hardware it needs and a downloadable dyno sheet. **Book Stage 1** saves an enquiry and hands it to WhatsApp. If a car isn't listed and AI is on, "Ask AI to identify it" estimates it; the estimate is clearly labelled and kept within your gain limits.
 
 **Shop.** Customers add items to the bag and choose collection or delivery. They get an order number (UP-1001, UP-1002, …) and a **Send order on WhatsApp** button with the order already written. Prices and stock always come from the server, and stock goes down when an order is placed.
 
 There are no card payments: customers pay on collection or delivery once you confirm on WhatsApp. An online payment gateway (for example Stripe or PayHere) can be added later.
 
-**Telegram bot.** Customers find their vehicle and get the Stage 1 graph. Then they add their location and check their ECU. Finally they send the full details to you on WhatsApp.
+**Telegram bot.** Customers find their vehicle and get the Stage 1 graph, with buttons for the Stage 2 and 3 graphs. Then they add their location and check their ECU. Finally they send the full details to you on WhatsApp. The enquiry is for the last stage they looked at.
+
+## Instant alerts
+
+1. In **Admin → Settings → Telegram alerts**, press **Connect a Telegram chat**.
+2. Open the link on the phone that should get alerts and press **Start** (or send the bot the `/alerts CODE` message shown). The link works once and expires after 15 minutes.
+3. Press **Send test alert** to check it. You can connect several people, and remove any of them from the same card.
+
+Each new order, website enquiry and Telegram enquiry then arrives as a message showing the customer, vehicle, stage, figures, ECU and location. It has buttons to WhatsApp the customer (or message them on Telegram) and to open the record in the admin panel. The admin-panel button needs your public https address: Render provides it automatically; elsewhere, set **Website address** in Settings. Switch order or enquiry alerts off under **Alert settings**, and send `/stopalerts` to the bot to stop alerts on a phone. Alerts need `TELEGRAM_BOT_TOKEN`.
 
 ## Quick start
 
@@ -46,12 +55,12 @@ Open http://localhost:3000 for the site and http://localhost:3000/admin for the 
 - **Orders**: filter, search, change status (New → Confirmed → Ready → Completed) and keep private notes. You can call or WhatsApp the customer from the order. **Cancelling an order returns its items to stock**; reopening takes them out again.
 - **Enquiries**: Stage 1 requests from the website and the Telegram bot, with vehicle, figures, ECU and location, plus status and notes.
 - **Products**: name, category, price, compare-at (offer) price, stock (empty = unlimited), description, features, photo, featured, and shown/hidden.
-- **Vehicles**: the Stage 1 database used by the website, the bot and the graphs, with a live graph preview. Validation keeps the figures realistic (Stage 1 at least 3% above stock, torque between 0.8× and 3.5× the power), so every graph is exact.
+- **Vehicles**: the Stage 1, 2 and 3 database used by the website, the bot and the graphs, with a graph preview for each stage. Stage 2 and 3 are optional per vehicle. Validation keeps the figures realistic (Stage 1 at least 3% above stock, each later stage at least 2% above the one before, torque between 0.8× and 3.5× the power), so every graph is exact. Stage 3 graphs build peak torque a little later, like a bigger turbo.
 - **ECUs, Brands, Services**: the ECU support list, brands and search aliases, and the service cards.
-- **Settings**: business name, headline, hero photo, announcement bar, contact details, WhatsApp number, map location, opening hours, currency, delivery fee and social links.
+- **Settings**: business name, headline, hero photo, announcement bar, contact details, WhatsApp number, map location, opening hours, currency, delivery fee, social links, the Stage 2 and 3 descriptions, and Telegram alerts.
 - **Backup**: download everything as one JSON file, or restore a backup. Uploaded photos are separate files in `DATA_DIR/uploads`.
 
-**The included vehicles, Stage 1 figures, ECU statuses and products are sample data.** Replace them with your own dyno results, tools, prices and photos before launch.
+**The included vehicles, Stage 1, 2 and 3 figures, ECU statuses and products are sample data.** Replace them with your own dyno results, tools, prices and photos before launch.
 
 ## Security
 
@@ -87,6 +96,7 @@ src/web/                HTTP router, public API, admin API, auth
 src/db.js               JSON database (DATA_DIR/db.json)
 src/seed-data.js        first-run vehicles, ECUs, brands, services, products, settings
 src/records.js          orders and enquiries
+src/alerts.js           Telegram alerts: link codes, alert chats, messages
 src/validation.js       admin input validation
 src/conversation.js     Telegram conversation flow
 src/dyno-chart.js       Stage 1 curves + PNG graph

@@ -1,8 +1,8 @@
 import { Canvas, hex } from "./raster.js";
-import { stage1Gain, vehicleName } from "./vehicles.js";
+import { stageFigures, stageGain, vehicleName } from "./vehicles.js";
 
-// Builds estimated stock and Stage 1 power/torque curves from peak figures, then draws a
-// dyno-style PNG. Curves are shaped so their peaks match the vehicle's hp/Nm figures exactly.
+// Builds estimated stock and tuned (Stage 1, 2 or 3) power/torque curves from peak figures, then
+// draws a dyno-style PNG. Curves are shaped so their peaks match the vehicle's hp/Nm figures exactly.
 
 const KW_PER_HP = 0.73549875; // metric horsepower (PS)
 const RPM_STEP = 50;
@@ -10,10 +10,10 @@ const PLATEAU_DROOP = 0.03;
 
 // Typical torque-curve shapes. Vehicles can override redline and torqueFrom.
 const PROFILES = {
-  "petrol:turbo": { start: 1000, torqueFrom: 1800, torqueTo: 4500, redline: 6500, startRatio: 0.5, falloff: 1.4, stage1Shift: -150 },
-  "diesel:turbo": { start: 1000, torqueFrom: 1750, torqueTo: 2750, redline: 4500, startRatio: 0.45, falloff: 1.4, stage1Shift: -100 },
-  "petrol:supercharged": { start: 1000, torqueFrom: 2500, torqueTo: 4500, redline: 6500, startRatio: 0.65, falloff: 1.6, stage1Shift: 0 },
-  "petrol:naturally_aspirated": { start: 1000, torqueFrom: 4300, torqueTo: 4700, redline: 6800, startRatio: 0.72, falloff: 2.4, stage1Shift: 0 }
+  "petrol:turbo": { start: 1000, torqueFrom: 1800, torqueTo: 4500, redline: 6500, startRatio: 0.5, falloff: 1.4, stage1Shift: -150, stage3Shift: 350 },
+  "diesel:turbo": { start: 1000, torqueFrom: 1750, torqueTo: 2750, redline: 4500, startRatio: 0.45, falloff: 1.4, stage1Shift: -100, stage3Shift: 250 },
+  "petrol:supercharged": { start: 1000, torqueFrom: 2500, torqueTo: 4500, redline: 6500, startRatio: 0.65, falloff: 1.6, stage1Shift: 0, stage3Shift: 0 },
+  "petrol:naturally_aspirated": { start: 1000, torqueFrom: 4300, torqueTo: 4700, redline: 6800, startRatio: 0.72, falloff: 2.4, stage1Shift: 0, stage3Shift: 0 }
 };
 
 export const powerHp = (nm, rpm) => (nm * rpm) / 9549.3 / KW_PER_HP;
@@ -87,12 +87,15 @@ export function solveCurve(target, profile, floor = () => 0) {
   }
 }
 
-export function buildDynoCurves(vehicle) {
+// Returns { stock, tuned } for the requested stage. Stages 1 and 2 build boost a little earlier than
+// stock; Stage 3's bigger turbo builds it later. Tuned curves never drop below stock.
+export function buildDynoCurves(vehicle, stage = 1) {
   const profile = curveProfile(vehicle);
   const stock = solveCurve(vehicle.stock, profile);
-  // Stage 1 never drops below the stock curve.
-  const stage1 = solveCurve(vehicle.stage1, { ...profile, torqueFrom: profile.torqueFrom + profile.stage1Shift }, (rpm) => interpolate(stock.rpm, stock.torque, rpm) * 1.02);
-  return { stock, stage1 };
+  const stockAt = (rpm) => interpolate(stock.rpm, stock.torque, rpm);
+  const shift = stage === 3 ? profile.stage3Shift : profile.stage1Shift;
+  const tuned = solveCurve(stageFigures(vehicle, stage), { ...profile, torqueFrom: profile.torqueFrom + shift }, stage === 3 ? stockAt : (rpm) => stockAt(rpm) * 1.02);
+  return { stock, tuned };
 }
 
 const WIDTH = 1200;
@@ -153,14 +156,15 @@ function peakMarker(canvas, points, values, color, label) {
   canvas.text(label, left + 8, top + 6, 2, THEME.background);
 }
 
-export function renderStage1Chart(vehicle, { businessName = "Unity Performance", curves = buildDynoCurves(vehicle) } = {}) {
-  const { stock, stage1 } = curves;
-  const gain = stage1Gain(vehicle);
+export function renderStageChart(vehicle, { stage = 1, businessName = "Unity Performance", curves = buildDynoCurves(vehicle, stage) } = {}) {
+  const { stock, tuned } = curves;
+  const target = stageFigures(vehicle, stage);
+  const gain = stageGain(vehicle, stage);
   const canvas = new Canvas(WIDTH, HEIGHT, THEME.background);
 
   // Header and headline gains.
   canvas.text(businessName, 48, 34, 4, THEME.text);
-  canvas.text("STAGE 1 PERFORMANCE GRAPH", 48, 76, 2, THEME.power);
+  canvas.text(`STAGE ${stage} PERFORMANCE GRAPH`, 48, 76, 2, THEME.power);
   const title = fitText(canvas, vehicleName(vehicle), 672, [3, 2]);
   canvas.text(title.text, 48, 104, title.size, THEME.text);
   const aspiration = { turbo: "TURBO", supercharged: "SUPERCHARGED", naturally_aspirated: "NA" }[vehicle.aspiration] ?? "";
@@ -168,14 +172,14 @@ export function renderStage1Chart(vehicle, { businessName = "Unity Performance",
   const suffix = ["", [vehicle.fuel, aspiration].join(" ").trim(), vehicle.years].filter((part, i) => i === 0 || part).join(" - ");
   const engine = fitText(canvas, vehicle.engine, 672 - canvas.measureText(suffix, 2), [2]);
   canvas.text(`${engine.text}${suffix}`, 48, 140, 2, THEME.muted);
-  statCard(canvas, 744, 32, { label: "POWER", percent: gain.hpPercent, gain: `+${gain.hp} HP`, detail: `${vehicle.stock.hp} > ${vehicle.stage1.hp} HP`, color: THEME.power });
-  statCard(canvas, 956, 32, { label: "TORQUE", percent: gain.nmPercent, gain: `+${gain.nm} NM`, detail: `${vehicle.stock.nm} > ${vehicle.stage1.nm} NM`, color: THEME.torque });
+  statCard(canvas, 744, 32, { label: "POWER", percent: gain.hpPercent, gain: `+${gain.hp} HP`, detail: `${vehicle.stock.hp} > ${target.hp} HP`, color: THEME.power });
+  statCard(canvas, 956, 32, { label: "TORQUE", percent: gain.nmPercent, gain: `+${gain.nm} NM`, detail: `${vehicle.stock.nm} > ${target.nm} NM`, color: THEME.torque });
 
   // Axes: power on the left, torque on the right, sharing the same gridlines.
-  const powerStep = niceStep((Math.max(...stage1.power) * 1.15) / DIVISIONS);
-  const torqueStep = niceStep((Math.max(...stage1.torque) * 1.15) / DIVISIONS);
+  const powerStep = niceStep((Math.max(...tuned.power) * 1.15) / DIVISIONS);
+  const torqueStep = niceStep((Math.max(...tuned.torque) * 1.15) / DIVISIONS);
   const minRpm = stock.rpm[0];
-  const maxRpm = Math.ceil(Math.max(stock.rpm.at(-1), stage1.rpm.at(-1)) / 500) * 500;
+  const maxRpm = Math.ceil(Math.max(stock.rpm.at(-1), tuned.rpm.at(-1)) / 500) * 500;
   const plotHeight = PLOT.bottom - PLOT.top;
   const x = (rpm) => PLOT.left + ((rpm - minRpm) / (maxRpm - minRpm)) * (PLOT.right - PLOT.left);
   const yPower = (hp) => PLOT.bottom - (hp / (powerStep * DIVISIONS)) * plotHeight;
@@ -199,19 +203,19 @@ export function renderStage1Chart(vehicle, { businessName = "Unity Performance",
   // Curves, with the Stage 1 power gain shaded.
   const powerPoints = (curve) => curve.rpm.map((rpm, i) => [x(rpm), yPower(curve.power[i])]);
   const torquePoints = (curve) => curve.rpm.map((rpm, i) => [x(rpm), yTorque(curve.torque[i])]);
-  canvas.fillPolygon([...powerPoints(stage1), ...powerPoints(stock).reverse()], THEME.powerGain);
+  canvas.fillPolygon([...powerPoints(tuned), ...powerPoints(stock).reverse()], THEME.powerGain);
   canvas.polyline(torquePoints(stock), 3, THEME.torqueStock, DASH);
   canvas.polyline(powerPoints(stock), 3, THEME.powerStock, DASH);
-  canvas.polyline(torquePoints(stage1), 4, THEME.torque);
-  canvas.polyline(powerPoints(stage1), 5, THEME.power);
-  peakMarker(canvas, torquePoints(stage1), stage1.torque, THEME.torque, `${vehicle.stage1.nm} NM`);
-  peakMarker(canvas, powerPoints(stage1), stage1.power, THEME.power, `${vehicle.stage1.hp} HP`);
+  canvas.polyline(torquePoints(tuned), 4, THEME.torque);
+  canvas.polyline(powerPoints(tuned), 5, THEME.power);
+  peakMarker(canvas, torquePoints(tuned), tuned.torque, THEME.torque, `${target.nm} NM`);
+  peakMarker(canvas, powerPoints(tuned), tuned.power, THEME.power, `${target.hp} HP`);
 
   // Legend and footer.
   const legendY = 724;
-  legendItem(canvas, PLOT.left, legendY, "STAGE 1 POWER", THEME.power, false);
+  legendItem(canvas, PLOT.left, legendY, `STAGE ${stage} POWER`, THEME.power, false);
   legendItem(canvas, PLOT.left + 250, legendY, "STOCK POWER", THEME.powerStock, true);
-  legendItem(canvas, PLOT.left + 500, legendY, "STAGE 1 TORQUE", THEME.torque, false);
+  legendItem(canvas, PLOT.left + 500, legendY, `STAGE ${stage} TORQUE`, THEME.torque, false);
   legendItem(canvas, PLOT.left + 750, legendY, "STOCK TORQUE", THEME.torqueStock, true);
   canvas.fillRect(48, 756, WIDTH - 96, 1, THEME.grid);
   canvas.text("ESTIMATED CURVES - FINAL FIGURES CONFIRMED ON THE DYNO", 48, 770, 2, THEME.muted);

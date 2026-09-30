@@ -590,6 +590,18 @@ table.data {
   stroke-linejoin: round;
 }
 
+.sub {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.note {
+  margin: 4px 0 12px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
 .empty {
   padding: 36px;
   color: var(--muted);

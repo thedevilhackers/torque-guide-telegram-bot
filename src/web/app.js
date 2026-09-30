@@ -23,11 +23,11 @@ const notFoundPage = Buffer.from(
 );
 
 // Handlers return a value to send it as JSON, or write to res themselves.
-export function createApp({ botUsername = () => "" } = {}) {
+export function createApp({ botUsername = () => "", sendAlert = null } = {}) {
   const routes = [];
   const route = (method, path, handler) => routes.push({ method, handler, ...compile(path) });
   registerPublicRoutes(route, { botUsername });
-  registerAdminRoutes(route);
+  registerAdminRoutes(route, { botUsername, sendAlert });
 
   return async function app(req, res) {
     applySecurityHeaders(req, res);

@@ -1,5 +1,5 @@
 // Interactive dyno chart: power and torque as two panels sharing one rpm axis (no dual y-axes),
-// stock dashed blue vs Stage 1 solid red, crosshair tooltip, keyboard support and a table view.
+// stock dashed blue vs the chosen stage in solid red, crosshair tooltip, keyboard support and a table view.
 import { h, reducedMotion } from "./common.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -21,8 +21,9 @@ function niceScale(max, ticks = 4) {
 
 const format = (value) => Math.round(value).toLocaleString();
 
-export function dynoChart({ stock, stage1 }) {
-  const rpms = stage1.rpm;
+// tuned is the Stage 1, 2 or 3 curve; label names it ("Stage 2").
+export function dynoChart({ stock, tuned, label = "Stage 1" }) {
+  const rpms = tuned.rpm;
   const minRpm = Math.min(stock.rpm[0], rpms[0]);
   const maxRpm = Math.max(stock.rpm.at(-1), rpms.at(-1));
   const stockAt = (key, rpm) => {
@@ -34,11 +35,11 @@ export function dynoChart({ stock, stage1 }) {
     { key: "torque", title: "Torque", unit: "Nm" }
   ];
 
-  const root = h("figure", { class: "dyno", tabindex: "0", "aria-label": "Power and torque curves, stock and Stage 1. Use the left and right arrow keys to read values." });
+  const root = h("figure", { class: "dyno", tabindex: "0", "aria-label": `Power and torque curves, stock and ${label}. Use the left and right arrow keys to read values.` });
   const legend = h(
     "ul",
     { class: "dyno-legend" },
-    h("li", {}, h("span", { class: "line-key", "aria-hidden": "true" }), "Stage 1"),
+    h("li", {}, h("span", { class: "line-key", "aria-hidden": "true" }), label),
     h("li", {}, h("span", { class: "line-key stock", "aria-hidden": "true" }), "Stock")
   );
   const tooltip = h("div", { class: "dyno-tooltip", "aria-hidden": "true" });
@@ -59,7 +60,7 @@ export function dynoChart({ stock, stage1 }) {
     const panels = metrics.map((metric, panelIndex) => {
       const isLast = panelIndex === metrics.length - 1;
       const height = MARGIN.top + plotHeight + (isLast ? 28 : 8);
-      const scale = niceScale(Math.max(...stage1[metric.key], ...stock[metric.key]));
+      const scale = niceScale(Math.max(...tuned[metric.key], ...stock[metric.key]));
       const y = (value) => MARGIN.top + plotHeight - (value / scale.max) * plotHeight;
       const chart = svg("svg", { viewBox: `0 0 ${width} ${height}`, height, role: "presentation" });
 
@@ -78,31 +79,30 @@ export function dynoChart({ stock, stage1 }) {
 
       const points = (curve) => curve.rpm.map((rpm, i) => [x(rpm), y(curve[metric.key][i])]);
       const line = (list) => `M${list.map(([px, py]) => `${px.toFixed(1)},${py.toFixed(1)}`).join("L")}`;
-      const stage1Points = points(stage1);
+      const tunedPoints = points(tuned);
       const stockPoints = points(stock);
-      chart.append(svg("path", { class: "gain-area", d: `${line(stage1Points)}L${line([...stockPoints].reverse()).slice(1)}Z` }));
+      chart.append(svg("path", { class: "gain-area", d: `${line(tunedPoints)}L${line([...stockPoints].reverse()).slice(1)}Z` }));
       chart.append(svg("path", { class: "series series-stock", d: line(stockPoints) }));
-      const stage1Path = svg("path", { class: "series series-stage1", d: line(stage1Points) });
-      chart.append(stage1Path);
+      const tunedPath = svg("path", { class: "series series-stage1", d: line(tunedPoints) });
+      chart.append(tunedPath);
 
-      // Label only the Stage 1 peak; the tooltip and table carry every other value.
-      const peakIndex = stage1[metric.key].indexOf(Math.max(...stage1[metric.key]));
-      const [peakX, peakY] = stage1Points[peakIndex];
+      // Label only the tuned peak; the tooltip and table carry every other value.
+      const peakIndex = tuned[metric.key].indexOf(Math.max(...tuned[metric.key]));
+      const [peakX, peakY] = tunedPoints[peakIndex];
       chart.append(svg("circle", { class: "peak", cx: peakX, cy: peakY, r: 5 }));
       const labelX = Math.min(width - MARGIN.right - 40, Math.max(MARGIN.left + 40, peakX));
-      chart.append(svg("text", { class: "peak-label", x: labelX, y: Math.max(12, peakY - 12), "text-anchor": "middle" }, `${format(stage1[metric.key][peakIndex])} ${metric.unit}`));
+      chart.append(svg("text", { class: "peak-label", x: labelX, y: Math.max(12, peakY - 12), "text-anchor": "middle" }, `${format(tuned[metric.key][peakIndex])} ${metric.unit}`));
 
       const crosshair = svg("line", { class: "crosshair", y1: MARGIN.top, y2: MARGIN.top + plotHeight });
       const stockDot = svg("circle", { class: "hover-dot", r: 4, fill: "var(--stock)" });
-      const stage1Dot = svg("circle", { class: "hover-dot", r: 4, fill: "var(--stage1)" });
-      chart.append(crosshair, stockDot, stage1Dot);
+      const tunedDot = svg("circle", { class: "hover-dot", r: 4, fill: "var(--stage1)" });
+      chart.append(crosshair, stockDot, tunedDot);
       panelHosts[panelIndex].querySelector("svg")?.remove();
       panelHosts[panelIndex].append(chart);
-      return { metric, chart, y, crosshair, stockDot, stage1Dot, stage1Path };
+      return { metric, chart, y, crosshair, stockDot, tunedDot, tunedPath };
     });
     layout = { x, panels, innerWidth };
     if (activeIndex !== null) showIndex(activeIndex);
-    if (drawn) for (const panel of panels) panel.stage1Path.style.removeProperty("--length");
   }
 
   function showIndex(index) {
@@ -113,12 +113,12 @@ export function dynoChart({ stock, stage1 }) {
     const groups = [];
     for (const panel of layout.panels) {
       const { key, title, unit } = panel.metric;
-      const stageValue = stage1[key][activeIndex];
+      const stageValue = tuned[key][activeIndex];
       const stockValue = stockAt(key, rpm);
       panel.crosshair.setAttribute("x1", px);
       panel.crosshair.setAttribute("x2", px);
-      panel.stage1Dot.setAttribute("cx", px);
-      panel.stage1Dot.setAttribute("cy", panel.y(stageValue));
+      panel.tunedDot.setAttribute("cx", px);
+      panel.tunedDot.setAttribute("cy", panel.y(stageValue));
       panel.stockDot.style.display = stockValue === null ? "none" : "";
       if (stockValue !== null) {
         panel.stockDot.setAttribute("cx", px);
@@ -126,7 +126,7 @@ export function dynoChart({ stock, stage1 }) {
       }
       groups.push(
         h("p", { class: "group", text: title }),
-        h("div", { class: "row" }, h("span", { class: "line-key" }), h("strong", { text: `${format(stageValue)} ${unit}` }), h("span", { text: "Stage 1" })),
+        h("div", { class: "row" }, h("span", { class: "line-key" }), h("strong", { text: `${format(stageValue)} ${unit}` }), h("span", { text: label })),
         h("div", { class: "row" }, h("span", { class: "line-key stock" }), h("strong", { text: stockValue === null ? "—" : `${format(stockValue)} ${unit}` }), h("span", { text: "Stock" }))
       );
     }
@@ -134,7 +134,7 @@ export function dynoChart({ stock, stage1 }) {
     const tooltipWidth = tooltip.offsetWidth || 190;
     const left = px + 16 + tooltipWidth > root.clientWidth ? px - 16 - tooltipWidth : px + 16;
     tooltip.style.left = `${Math.max(0, left)}px`;
-    live.textContent = `${rpm} rpm: power ${format(stage1.power[activeIndex])} horsepower Stage 1, torque ${format(stage1.torque[activeIndex])} newton metres Stage 1.`;
+    live.textContent = `${rpm} rpm, ${label}: power ${format(tuned.power[activeIndex])} horsepower, torque ${format(tuned.torque[activeIndex])} newton metres.`;
   }
 
   function hide() {
@@ -174,26 +174,26 @@ export function dynoChart({ stock, stage1 }) {
       h(
         "table",
         {},
-        h("thead", {}, h("tr", {}, ...["rpm", "Stock hp", "Stage 1 hp", "Stock Nm", "Stage 1 Nm"].map((label) => h("th", { scope: "col", text: label })))),
+        h("thead", {}, h("tr", {}, ...["rpm", "Stock hp", `${label} hp`, "Stock Nm", `${label} Nm`].map((heading) => h("th", { scope: "col", text: heading })))),
         h(
           "tbody",
           {},
           ...rows.map(({ rpm, i }) =>
-            h("tr", {}, ...[rpm.toLocaleString(), stockAt("power", rpm), stage1.power[i], stockAt("torque", rpm), stage1.torque[i]].map((value, column) => h(column ? "td" : "th", { text: value === null ? "—" : typeof value === "number" ? format(value) : value })))
+            h("tr", {}, ...[rpm.toLocaleString(), stockAt("power", rpm), tuned.power[i], stockAt("torque", rpm), tuned.torque[i]].map((value, column) => h(column ? "td" : "th", { text: value === null ? "—" : typeof value === "number" ? format(value) : value })))
           )
         )
       )
     );
   }
 
-  // Draw the Stage 1 line the first time the chart scrolls into view.
+  // Draw the tuned line the first time the chart scrolls into view.
   function animateIn() {
     if (drawn || reducedMotion()) {
       drawn = true;
       return;
     }
     drawn = true;
-    for (const panel of layout.panels) panel.stage1Path.style.setProperty("--length", panel.stage1Path.getTotalLength());
+    for (const panel of layout.panels) panel.tunedPath.style.setProperty("--length", panel.tunedPath.getTotalLength());
     root.classList.add("will-draw");
     requestAnimationFrame(() => requestAnimationFrame(() => root.classList.add("is-drawn")));
     setTimeout(() => root.classList.remove("will-draw", "is-drawn"), 1800);

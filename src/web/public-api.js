@@ -1,32 +1,36 @@
 import { ecus } from "../catalog.js";
 import { db, settings } from "../db.js";
-import { buildDynoCurves, renderStage1Chart } from "../dyno-chart.js";
+import { buildDynoCurves, renderStageChart } from "../dyno-chart.js";
 import { createEnquiry, createOrder, orderText } from "../records.js";
 import { aiEnabled, identifyVehicle } from "../tuning-service.js";
-import { brandsWithVehicles, getVehicle, searchVehicles, stage1Gain, vehicleEntries, vehiclesForBrand } from "../vehicles.js";
+import { availableStages, brandsWithVehicles, getVehicle, searchVehicles, stageFigures, stageGain, vehicleEntries, vehiclesForBrand } from "../vehicles.js";
 import { enquiryText, whatsappLink } from "../whatsapp.js";
 import { HttpError, rateLimiter, readJson, sameOrigin, sendBuffer } from "./http.js";
 
 const PUBLIC_SETTINGS = [
   "businessName", "tagline", "heroTitle", "heroSubtitle", "heroImage", "announcement", "currency", "shopNote", "deliveryFee", "whatsappNumber",
-  "phone", "email", "address", "latitude", "longitude", "hours", "instagram", "facebook", "tiktok", "youtube"
+  "phone", "email", "address", "latitude", "longitude", "hours", "instagram", "facebook", "tiktok", "youtube", "stage2Note", "stage3Note"
 ];
 
 export function vehicleSummary(vehicle) {
   const { id, source, brand, brandId, model, generation, years, engine, fuel, aspiration, ecus: ecuIds = [], stock, stage1, tunable, confidence, notes } = vehicle;
-  return { id, source, brand, brandId, model, generation, years, engine, fuel, aspiration, ecus: ecuIds, stock, stage1, tunable, confidence, notes, gain: tunable ? stage1Gain(vehicle) : null };
+  return {
+    id, source, brand, brandId, model, generation, years, engine, fuel, aspiration, ecus: ecuIds, stock, stage1, tunable, confidence, notes,
+    gain: tunable ? stageGain(vehicle, 1) : null,
+    stages: availableStages(vehicle).map((stage) => ({ stage, ...stageFigures(vehicle, stage), gain: stageGain(vehicle, stage) }))
+  };
 }
 
 const round = (value) => Math.round(value * 10) / 10;
 
-// Curves sampled every 100 rpm, which is plenty for a smooth SVG line.
+// Stock and every available stage, sampled every 100 rpm (plenty for a smooth SVG line).
 export function vehicleCurves(vehicle) {
   const sample = (curve) => {
     const keep = curve.rpm.map((rpm, i) => (rpm % 100 === 0 ? i : -1)).filter((i) => i >= 0);
     return { rpm: keep.map((i) => curve.rpm[i]), power: keep.map((i) => round(curve.power[i])), torque: keep.map((i) => round(curve.torque[i])) };
   };
-  const { stock, stage1 } = buildDynoCurves(vehicle);
-  return { stock: sample(stock), stage1: sample(stage1) };
+  const stages = Object.fromEntries(availableStages(vehicle).map((stage) => [stage, buildDynoCurves(vehicle, stage)]));
+  return { stock: sample(stages[1].stock), stages: Object.fromEntries(Object.entries(stages).map(([stage, curves]) => [stage, sample(curves.tuned)])) };
 }
 
 // Public POSTs must come from this site as JSON; each IP gets a modest allowance.
@@ -79,10 +83,12 @@ export function registerPublicRoutes(route, { botUsername }) {
     return { vehicle: vehicleSummary(vehicle), curves: vehicleCurves(vehicle) };
   });
 
-  route("GET", "/api/vehicles/:id/graph.png", ({ res, params }) => {
+  route("GET", "/api/vehicles/:id/graph.png", ({ res, params, url }) => {
     const vehicle = getVehicle(params.id);
+    const stage = Number(url.searchParams.get("stage") ?? 1);
     if (!vehicle) throw new HttpError(404, "Vehicle not found.");
-    sendBuffer(res, 200, renderStage1Chart(vehicle, { businessName: settings().businessName }), "image/png", { "Cache-Control": "no-cache" });
+    if (!availableStages(vehicle).includes(stage)) throw new HttpError(404, `No Stage ${stage} figures for this vehicle.`);
+    sendBuffer(res, 200, renderStageChart(vehicle, { businessName: settings().businessName, stage }), "image/png", { "Cache-Control": "no-cache" });
   });
 
   route("GET", "/api/products", () => ({
@@ -101,9 +107,10 @@ export function registerPublicRoutes(route, { botUsername }) {
 
   route("POST", "/api/enquiries", async ({ req, ip }) => {
     const input = await publicPost(req, ip, enquiryLimiter);
-    const { enquiry, vehicle } = createEnquiry(input);
+    const { enquiry, vehicle, stage } = createEnquiry(input);
     const text = enquiryText({
       vehicle,
+      stage,
       ecu: enquiry.ecu,
       customer: { name: enquiry.customer.name },
       location: enquiry.location ? { text: enquiry.location } : undefined,

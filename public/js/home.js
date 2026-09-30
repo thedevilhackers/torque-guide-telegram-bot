@@ -100,7 +100,8 @@ function resultCard(vehicle, index) {
     { class: "result-card", type: "button", style: { "--delay": `${index * 0.04}s` }, "aria-pressed": String(finder.current?.id === vehicle.id), onclick: () => openVehicle(vehicle.id) },
     h("strong", { text: `${vehicle.brand} ${vehicle.model}` }),
     h("span", { text: [vehicle.generation, vehicle.engine, vehicle.years].filter(Boolean).join(" · ") }),
-    h("span", { class: "result-gain", text: `${vehicle.stock.hp} → ${vehicle.stage1.hp} hp  ·  +${vehicle.gain.hpPercent}%` })
+    h("span", { class: "result-gain", text: `${vehicle.stock.hp} → ${vehicle.stage1.hp} hp  ·  +${vehicle.gain.hpPercent}%` }),
+    vehicle.stages?.length > 1 ? h("span", { text: `Up to ${vehicle.stages.at(-1).hp} hp with Stage ${vehicle.stages.at(-1).stage}` }) : null
   );
 }
 
@@ -178,11 +179,14 @@ async function openVehicle(id, { scroll = true } = {}) {
   for (const card of $$(".result-card", finder.results)) card.setAttribute("aria-pressed", "false");
 }
 
-function statTile(label, stockValue, stageValue, unit, percent) {
+const STAGE_NOTES = { 1: "Software only, on standard hardware." };
+const stageNote = (stage) => (stage === 2 ? settings.stage2Note : stage === 3 ? settings.stage3Note : STAGE_NOTES[1]);
+
+function statTile(label, stockValue, stageValue, unit, percent, stage = 1) {
   return h(
     "div",
     { class: "stat-tile" },
-    h("p", { class: "label", text: `${label}, Stage 1` }),
+    h("p", { class: "label", text: `${label}, Stage ${stage}` }),
     h("p", { class: "value" }, String(stageValue), h("small", { text: unit })),
     h("p", { class: "delta" }, h("strong", { text: `+${stageValue - stockValue} ${unit}` }), ` (+${percent}%) vs ${stockValue} ${unit} stock`)
   );
@@ -194,22 +198,38 @@ function renderPanel({ vehicle, curves }, { scroll = true, query } = {}) {
   panel.hidden = false;
   const name = `${vehicle.brand} ${vehicle.model} ${vehicle.generation}`.trim();
   const meta = [vehicle.engine, [FUEL_LABEL[vehicle.fuel], ASPIRATION_LABEL[vehicle.aspiration]].filter(Boolean).join(" "), vehicle.years].filter(Boolean).join(" · ");
-  const head = h("header", { class: "vehicle-head" }, h("p", { class: "eyebrow", text: "Stage 1 estimate" }), h("h3", { text: name }), h("p", { class: "meta", text: meta }));
+  const eyebrow = h("p", { class: "eyebrow", text: "Stage 1 estimate" });
+  const head = h("header", { class: "vehicle-head" }, eyebrow, h("h3", { text: name }), h("p", { class: "meta", text: meta }));
   if (vehicle.source === "ai") head.append(h("p", { class: "badge", text: `AI estimate · ${vehicle.confidence} confidence${vehicle.notes ? ` · ${vehicle.notes}` : ""}` }));
 
   if (!vehicle.tunable) {
     panel.replaceChildren(head, h("p", { class: "lead", text: "We don't offer Stage 1 software for hybrid or electric drivetrains, but we're happy to advise on other options." }));
   } else {
-    const book = h("button", { class: "btn btn-primary", type: "button", text: "Book Stage 1", onclick: () => openEnquiry(vehicle, query) });
-    const actions = h("div", { class: "vehicle-actions" }, book);
-    if (vehicle.source === "catalog") actions.append(h("a", { class: "link-arrow", href: `/api/vehicles/${encodeURIComponent(vehicle.id)}/graph.png`, download: `${vehicle.id}-stage1.png`, text: "Download dyno sheet" }));
-    panel.replaceChildren(
-      head,
-      h("div", { class: "stat-tiles" }, statTile("Power", vehicle.stock.hp, vehicle.stage1.hp, "hp", vehicle.gain.hpPercent), statTile("Torque", vehicle.stock.nm, vehicle.stage1.nm, "Nm", vehicle.gain.nmPercent)),
-      dynoChart(curves),
-      actions,
-      h("p", { class: "fineprint", text: "Estimates for a healthy, standard vehicle on good fuel. Final figures are confirmed on our dyno." })
-    );
+    const stages = vehicle.stages?.length ? vehicle.stages : [{ stage: 1, ...vehicle.stage1, gain: vehicle.gain }];
+    const body = h("div");
+    const show = (stage) => {
+      const current = stages.find((item) => item.stage === stage);
+      eyebrow.textContent = `Stage ${stage} estimate`;
+      const actions = h("div", { class: "vehicle-actions" }, h("button", { class: "btn btn-primary", type: "button", text: `Book Stage ${stage}`, onclick: () => openEnquiry(vehicle, query, current) }));
+      if (vehicle.source === "catalog") {
+        actions.append(h("a", { class: "link-arrow", href: `/api/vehicles/${encodeURIComponent(vehicle.id)}/graph.png?stage=${stage}`, download: `${vehicle.id}-stage${stage}.png`, text: "Download dyno sheet" }));
+      }
+      body.replaceChildren(
+        h("div", { class: "stat-tiles" }, statTile("Power", vehicle.stock.hp, current.hp, "hp", current.gain.hpPercent, stage), statTile("Torque", vehicle.stock.nm, current.nm, "Nm", current.gain.nmPercent, stage)),
+        h("p", { class: "stage-note", text: stageNote(stage) }),
+        dynoChart({ stock: curves.stock, tuned: curves.stages[stage], label: `Stage ${stage}` }),
+        actions
+      );
+    };
+    // Stage 1 / 2 / 3 switch, shown when the vehicle has figures for more than one stage.
+    const switcher = stages.length > 1
+      ? h("div", { class: "segmented stage-switch", role: "radiogroup", "aria-label": "Tuning stage", style: { "--count": stages.length } },
+          ...stages.map(({ stage }) =>
+            h("label", {}, h("input", { type: "radio", name: `stage-${vehicle.id}`, value: stage, checked: stage === 1, onchange: () => show(stage) }), h("span", { text: `Stage ${stage}` }))
+          ))
+      : null;
+    show(1);
+    panel.replaceChildren(head, switcher, body, h("p", { class: "fineprint", text: "Estimates for a healthy vehicle on good fuel. Stage 2 and 3 figures depend on the parts fitted. Final figures are confirmed on our dyno." }));
   }
   panel.style.animation = "none";
   void panel.offsetWidth;
@@ -240,7 +260,7 @@ function ecuSelect(vehicle) {
   );
 }
 
-function openEnquiry(vehicle, query) {
+function openEnquiry(vehicle, query, current = { stage: 1, ...vehicle.stage1 }) {
   const error = h("p", { class: "form-error", role: "alert", hidden: true });
   const location = h("input", { name: "location", autocomplete: "address-level2", placeholder: "City or area" });
   const useLocation = h("button", { class: "inline-button", type: "button", text: "Use my current location" });
@@ -286,6 +306,7 @@ function openEnquiry(vehicle, query) {
           ecu: fields.ecu.value,
           location: fields.location.value,
           message: fields.message.value,
+          stage: current.stage,
           ...(vehicle.source === "catalog" ? { vehicleId: vehicle.id } : { vehicleText: `${vehicle.brand} ${vehicle.model} ${vehicle.generation} ${vehicle.engine}`.trim() || query })
         }
       });
@@ -307,8 +328,8 @@ function openEnquiry(vehicle, query) {
   const inner = h(
     "div",
     { class: "sheet-inner" },
-    h("h2", { id: "enquiry-title", text: "Book Stage 1" }),
-    h("p", { class: "sheet-sub", text: `${vehicle.brand} ${vehicle.model} ${vehicle.generation} · ${vehicle.stock.hp} → ${vehicle.stage1.hp} hp` }),
+    h("h2", { id: "enquiry-title", text: `Book Stage ${current.stage}` }),
+    h("p", { class: "sheet-sub", text: `${vehicle.brand} ${vehicle.model} ${vehicle.generation} · ${vehicle.stock.hp} → ${current.hp} hp` }),
     form
   );
   dialog.replaceChildren(closeButton(), inner);

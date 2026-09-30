@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { ecuById } from "./catalog.js";
 import { transact } from "./db.js";
-import { getVehicle, vehicleName } from "./vehicles.js";
+import { events } from "./events.js";
+import { availableStages, getVehicle, stageFigures, vehicleName } from "./vehicles.js";
 import { locationText } from "./whatsapp.js";
 
 // Orders from the shop and Stage 1 enquiries from the website and the Telegram bot.
@@ -37,8 +38,10 @@ function emailAddress(value) {
   return email;
 }
 
-export function vehicleSnapshot(vehicle) {
+// The vehicle as it was when the customer enquired, including the stage they chose and its figures.
+export function vehicleSnapshot(vehicle, stage = 1) {
   if (!vehicle) return null;
+  const chosen = availableStages(vehicle).includes(stage) ? stage : 1;
   return {
     id: vehicle.id,
     source: vehicle.source,
@@ -46,7 +49,7 @@ export function vehicleSnapshot(vehicle) {
     years: vehicle.years ?? "",
     engine: vehicle.engine ?? "",
     fuel: vehicle.fuel ?? "",
-    ...(vehicle.tunable && { stock: vehicle.stock, stage1: vehicle.stage1 })
+    ...(vehicle.tunable && { stock: vehicle.stock, stage1: vehicle.stage1, stage: chosen, target: stageFigures(vehicle, chosen) })
   };
 }
 
@@ -65,7 +68,7 @@ export function createOrder(input) {
   if (!requested.size) throw new InputError("Your bag is empty.");
   if (requested.size > 30) throw new InputError("Your bag has too many different items.");
 
-  return transact((data) => {
+  const saved = transact((data) => {
     const items = [...requested].map(([id, qty]) => {
       const product = data.products.find((candidate) => candidate.id === id && candidate.active);
       if (!product) throw new InputError("An item in your bag is no longer available. Please remove it and try again.");
@@ -98,6 +101,8 @@ export function createOrder(input) {
     data.orders.unshift(order);
     return order;
   });
+  events.emit("order", saved);
+  return saved;
 }
 
 export function formatMoney(amount, currency) {
@@ -123,6 +128,8 @@ export function createEnquiry(input) {
   if (input?.ecu && !ecu) throw new InputError("Please choose your ECU again.");
   // Vehicles found by AI search aren't in the database, so the website sends their name instead.
   const vehicleText = clean(input?.vehicleText, 120);
+  const stage = Number(input?.stage) || 1;
+  if (vehicle && !availableStages(vehicle).includes(stage)) throw new InputError(`Stage ${stage} isn't available for this vehicle.`);
   const now = new Date().toISOString();
   const enquiry = {
     id: randomUUID(),
@@ -131,34 +138,37 @@ export function createEnquiry(input) {
     status: "new",
     source: "website",
     customer: { name, phone },
-    vehicle: vehicle ? vehicleSnapshot(vehicle) : vehicleText ? { id: "", source: "ai", name: vehicleText } : null,
+    vehicle: vehicle ? vehicleSnapshot(vehicle, stage) : vehicleText ? { id: "", source: "ai", name: vehicleText } : null,
     ecu: ecu?.id ?? "",
     location: clean(input?.location, 120),
     message: clean(input?.message, 600),
     notes: ""
   };
   transact((data) => data.enquiries.unshift(enquiry));
-  return { enquiry, vehicle };
+  events.emit("enquiry", enquiry);
+  return { enquiry, vehicle, stage };
 }
 
 // Called when a Telegram customer reaches the summary. Revisiting it within a day updates the
-// same enquiry instead of creating duplicates.
+// same enquiry instead of creating duplicates; only a new enquiry fires the "enquiry" event.
 export function recordTelegramEnquiry(chatId, session) {
   const customer = { name: session.customer?.name ?? "", username: session.customer?.username ?? "", chatId: String(chatId) };
-  const vehicle = vehicleSnapshot(session.vehicle);
+  const vehicle = vehicleSnapshot(session.vehicle, session.stage);
   const location = session.location ? locationText(session.location) : "";
   const now = new Date().toISOString();
-  return transact((data) => {
+  const { enquiry, created } = transact((data) => {
     const dayAgo = Date.now() - 86_400_000;
     const existing = data.enquiries.find(
       (enquiry) => enquiry.source === "telegram" && enquiry.customer?.chatId === customer.chatId && enquiry.vehicle?.name === vehicle?.name && Date.parse(enquiry.createdAt) > dayAgo
     );
     if (existing) {
-      Object.assign(existing, { customer, ecu: session.ecu ?? "", location, updatedAt: now });
-      return existing;
+      Object.assign(existing, { customer, vehicle, ecu: session.ecu ?? "", location, updatedAt: now });
+      return { enquiry: existing, created: false };
     }
-    const enquiry = { id: randomUUID(), createdAt: now, updatedAt: now, status: "new", source: "telegram", customer, vehicle, ecu: session.ecu ?? "", location, message: "", notes: "" };
-    data.enquiries.unshift(enquiry);
-    return enquiry;
+    const fresh = { id: randomUUID(), createdAt: now, updatedAt: now, status: "new", source: "telegram", customer, vehicle, ecu: session.ecu ?? "", location, message: "", notes: "" };
+    data.enquiries.unshift(fresh);
+    return { enquiry: fresh, created: true };
   });
+  if (created) events.emit("enquiry", enquiry);
+  return enquiry;
 }

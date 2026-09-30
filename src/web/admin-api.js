@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { alertChats, broadcast, createLinkCode, unlinkChat } from "../alerts.js";
 import { DATA_DIR, db, replaceData, settings, transact } from "../db.js";
 import { ENQUIRY_STATUSES, InputError, ORDER_STATUSES } from "../records.js";
 import { slugify, validateBrand, validateEcu, validateProduct, validateService, validateSettings, validateVehicle, vehicleFormValues } from "../validation.js";
@@ -98,7 +99,8 @@ function validateBackup(backup) {
   if (!Number.isInteger(backup.nextOrderNumber)) throw new InputError("The backup is missing its order counter.");
 }
 
-export function registerAdminRoutes(route) {
+// sendAlert delivers a Telegram message; it is null when the bot isn't configured.
+export function registerAdminRoutes(route, { botUsername = () => "", sendAlert = null } = {}) {
   const loginFailures = rateLimiter({ windowMs: 15 * 60_000, max: 5 });
 
   // Every admin request needs a session; changes also need the admin panel's header and origin,
@@ -227,6 +229,27 @@ export function registerAdminRoutes(route) {
   );
 
   admin("GET", "/api/admin/settings", () => ({ settings: db().settings, effective: settings() }));
+
+  // Telegram alerts: linked chats, one-time link codes and a test message.
+  admin("GET", "/api/admin/alerts", () => ({ chats: alertChats(), botUsername: botUsername(), botRunning: Boolean(sendAlert && botUsername()) }));
+
+  admin("POST", "/api/admin/alerts/link", () => {
+    if (!sendAlert || !botUsername()) throw new InputError("The Telegram bot isn't running. Set TELEGRAM_BOT_TOKEN on the server and restart it.");
+    const { code, expiresAt } = createLinkCode();
+    return { code, expiresAt, url: `https://t.me/${botUsername()}?start=alerts_${code}` };
+  });
+
+  admin("DELETE", "/api/admin/alerts/:chatId", ({ params }) => {
+    if (!unlinkChat(params.chatId)) throw new HttpError(404, "That chat isn't linked.");
+    return { ok: true };
+  });
+
+  admin("POST", "/api/admin/alerts/test", async () => {
+    if (!sendAlert) throw new InputError("The Telegram bot isn't running. Set TELEGRAM_BOT_TOKEN on the server and restart it.");
+    if (!alertChats().length) throw new InputError("Link a Telegram chat first.");
+    const sent = await broadcast({ text: `✅ Test alert from the ${settings().businessName} admin panel. New orders and enquiries will arrive here.` }, sendAlert);
+    return { sent };
+  });
 
   admin("PUT", "/api/admin/settings", ({ body }) =>
     transact((data) => {

@@ -12,7 +12,13 @@ export function h(tag, props = {}, ...children) {
     if (value === undefined || value === null || value === false) continue;
     if (key === "class") element.className = value;
     else if (key === "text") element.textContent = value;
-    else if (key === "style") Object.assign(element.style, value);
+    else if (key === "style") {
+      // Custom properties (--delay) need setProperty; plain assignment ignores them.
+      for (const [name, styleValue] of Object.entries(value)) {
+        if (name.startsWith("--")) element.style.setProperty(name, styleValue);
+        else element.style[name] = styleValue;
+      }
+    }
     else if (key.startsWith("on")) element.addEventListener(key.slice(2).toLowerCase(), value);
     else if (key === "dataset") Object.assign(element.dataset, value);
     else element.setAttribute(key, value === true ? "" : value);

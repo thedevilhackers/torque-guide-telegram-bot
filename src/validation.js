@@ -87,6 +87,19 @@ function checkPowerTorque(hp, nm, label) {
   if (ratio < 0.8 || ratio > 3.5) throw new InputError(`${label}: torque (Nm) must be between 0.8× and 3.5× the power (hp). Check the figures.`);
 }
 
+// Stage 2 and 3 are optional; each needs both figures and must beat the stage before it.
+function optionalStage(input, stage, previous, stock) {
+  const hp = number(input[`stage${stage}Hp`], `Stage ${stage} power`, { min: 40, max: 4000, integer: true, optional: true });
+  const nm = number(input[`stage${stage}Nm`], `Stage ${stage} torque`, { min: 50, max: 6000, integer: true, optional: true });
+  if (hp === null && nm === null) return undefined;
+  if (hp === null || nm === null) throw new InputError(`Enter both Stage ${stage} power and torque, or leave both empty.`);
+  if (!previous) throw new InputError(`Add Stage ${stage - 1} figures before Stage ${stage}.`);
+  if (hp < previous[0] * 1.02 || nm < previous[1] * 1.02) throw new InputError(`Stage ${stage} must be at least 2% above Stage ${stage - 1}.`);
+  if (hp > stock[0] * 3 || nm > stock[1] * 3) throw new InputError(`Stage ${stage} figures above 3× stock aren't realistic. Check the figures.`);
+  checkPowerTorque(hp, nm, `Stage ${stage}`);
+  return [hp, nm];
+}
+
 export function validateVehicle(input, { brandIds, ecuIds }) {
   const fuel = oneOf(input.fuel, "Fuel", FUELS);
   const aspiration = fuel === "diesel" ? "turbo" : oneOf(input.aspiration, "Aspiration", ASPIRATIONS);
@@ -98,6 +111,8 @@ export function validateVehicle(input, { brandIds, ecuIds }) {
   if (stage1[0] > stock[0] * 1.6 || stage1[1] > stock[1] * 1.6) throw new InputError("Stage 1 gains above 60% aren't realistic for software only. Check the figures.");
   checkPowerTorque(stock[0], stock[1], "Stock");
   checkPowerTorque(stage1[0], stage1[1], "Stage 1");
+  const stage2 = optionalStage(input, 2, stage1, stock);
+  const stage3 = optionalStage(input, 3, stage2, stock);
   const redline = number(input.redline, "Redline", { min: 3000, max: 10000, integer: true, optional: true });
   const torqueFrom = number(input.torqueFrom, "Peak torque from", { min: 1200, max: 7000, integer: true, optional: true });
   if (redline && torqueFrom && torqueFrom > redline - 1000) throw new InputError("Peak torque must start at least 1,000 rpm below the redline.");
@@ -115,6 +130,8 @@ export function validateVehicle(input, { brandIds, ecuIds }) {
     aspiration,
     stock,
     stage1,
+    ...(stage2 && { stage2 }),
+    ...(stage3 && { stage3 }),
     ecus,
     keywords: text(input.keywords, "Search keywords", { max: 120 }),
     ...(redline && { redline }),
@@ -164,6 +181,11 @@ export function validateSettings(input) {
     heroTitle: text(input.heroTitle, "Headline", { required: true, max: 60 }),
     heroSubtitle: text(input.heroSubtitle, "Sub-headline", { max: 200 }),
     heroImage: uploadedImage(input.heroImage, "Hero image"),
+    stage2Note: text(input.stage2Note, "Stage 2 note", { max: 400 }),
+    stage3Note: text(input.stage3Note, "Stage 3 note", { max: 400 }),
+    alertOrders: bool(input.alertOrders),
+    alertEnquiries: bool(input.alertEnquiries),
+    siteUrl: httpsUrl(input.siteUrl, "Website address").replace(/\/+$/, ""),
     announcement: text(input.announcement, "Announcement bar", { max: 140 }),
     currency,
     shopNote: text(input.shopNote, "Shop note", { max: 200 }),
@@ -193,6 +215,10 @@ export function vehicleFormValues(entry) {
     stockNm: entry.stock[1],
     stage1Hp: entry.stage1[0],
     stage1Nm: entry.stage1[1],
+    stage2Hp: entry.stage2?.[0] ?? "",
+    stage2Nm: entry.stage2?.[1] ?? "",
+    stage3Hp: entry.stage3?.[0] ?? "",
+    stage3Nm: entry.stage3?.[1] ?? "",
     redline: entry.redline ?? "",
     torqueFrom: entry.torqueFrom ?? ""
   };
