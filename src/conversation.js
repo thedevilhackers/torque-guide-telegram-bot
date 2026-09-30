@@ -1,6 +1,7 @@
-import { ECUS, ECU_STATUS, ecuById } from "./catalog.js";
-import { config } from "./config.js";
+import { ECU_STATUS, ecuById, ecus } from "./catalog.js";
+import { settings } from "./db.js";
 import { renderStage1Chart } from "./dyno-chart.js";
+import { recordTelegramEnquiry } from "./records.js";
 import { getSession, resetSession, setSession } from "./store.js";
 import * as telegramApi from "./telegram.js";
 import { escapeHtml as h } from "./telegram.js";
@@ -20,8 +21,10 @@ function customerFrom(from) {
   return { name: [from.first_name, from.last_name].filter(Boolean).join(" ").slice(0, 60), username: from.username };
 }
 
+const businessName = () => settings().businessName;
+
 function hasWorkshop() {
-  const { address, latitude, longitude } = config.workshop;
+  const { address, latitude, longitude } = settings();
   return Boolean(address) || (Number.isFinite(latitude) && Number.isFinite(longitude));
 }
 
@@ -58,9 +61,9 @@ export function createConversation({ telegram = telegramApi, ai = tuningService,
       [btn("🚗 Browse by brand", "browse"), ...(ai.aiEnabled() ? [btn("🤖 Ask AI", "ask")] : [])],
       [btn("🧾 ECUs we support", "ecus"), ...(hasWorkshop() ? [btn("📍 Our workshop", "workshop")] : [])]
     ];
-    if (config.whatsappNumber) rows.push([link("💬 Chat with us on WhatsApp", whatsappLink(`Hello ${config.businessName}, I have a question about tuning.`))]);
+    if (settings().whatsappNumber) rows.push([link("💬 Chat with us on WhatsApp", whatsappLink(`Hello ${businessName()}, I have a question about tuning.`))]);
     const text = [
-      `<b>🏁 ${h(config.businessName)}</b>`,
+      `<b>🏁 ${h(businessName())}</b>`,
       "See what Stage 1 does for your vehicle in three quick steps:",
       "1️⃣ Find your vehicle and get its Stage 1 power graph",
       "2️⃣ Add your location",
@@ -79,7 +82,7 @@ export function createConversation({ telegram = telegramApi, ai = tuningService,
   }
 
   async function showBrands(chatId) {
-    const brands = brandsWithVehicles().map(([id, brand]) => btn(brand.title, `brand:${id}`));
+    const brands = brandsWithVehicles().map((brand) => btn(brand.title, `brand:${brand.id}`));
     return telegram.sendText(chatId, "<b>🚗 Choose a brand</b>", { buttons: [...chunk(brands, 2), [btn("✍️ Not listed? Type it", "search")], menuRow()] });
   }
 
@@ -133,7 +136,7 @@ export function createConversation({ telegram = telegramApi, ai = tuningService,
     }
     await telegram.sendChatAction(chatId, "upload_photo");
     try {
-      await telegram.sendPhoto(chatId, renderChart(vehicle, { businessName: config.businessName }), { caption: performanceCaption(vehicle) });
+      await telegram.sendPhoto(chatId, renderChart(vehicle, { businessName: businessName() }), { caption: performanceCaption(vehicle) });
     } catch (error) {
       console.error("Stage 1 graph failed:", error.message);
       await telegram.sendText(chatId, performanceCaption(vehicle));
@@ -173,7 +176,7 @@ export function createConversation({ telegram = telegramApi, ai = tuningService,
   async function askEcu(chatId) {
     const { vehicle } = setSession(chatId, { awaiting: undefined });
     const common = (vehicle?.ecus ?? []).map(ecuById).filter(Boolean);
-    const others = ECUS.filter((ecu) => ecu.id !== "unknown" && !common.includes(ecu) && (!vehicle?.fuel || ecu.fuels.includes(vehicle.fuel)));
+    const others = ecus().filter((ecu) => !common.includes(ecu) && (!vehicle?.fuel || ecu.fuels.includes(vehicle.fuel)));
     const lines = ["<b>🧾 Step 3 of 3: ECU check</b>", "Which ECU is fitted? It's printed on the ECU label, and a diagnostic scan also shows it."];
     if (common.length) lines.push(`⭐ = commonly fitted to the ${h(vehicleName(vehicle))}`);
     return telegram.sendText(chatId, lines.join("\n"), {
@@ -193,6 +196,11 @@ export function createConversation({ telegram = telegramApi, ai = tuningService,
     const session = getSession(chatId);
     const { vehicle, location } = session;
     if (!vehicle) return promptSearch(chatId);
+    try {
+      recordTelegramEnquiry(chatId, session);
+    } catch (error) {
+      console.error("Could not record enquiry:", error.message);
+    }
     const ecu = ecuById(session.ecu);
     const lines = ["<b>📄 Your Stage 1 enquiry</b>", "", `<b>Vehicle:</b> ${h(vehicleName(vehicle))}${vehicle.years ? ` (${h(vehicle.years)})` : ""}`, `<b>Engine:</b> ${h(vehicle.engine)}, ${h(vehicle.fuel)}`];
     if (vehicle.tunable) {
@@ -203,7 +211,7 @@ export function createConversation({ telegram = telegramApi, ai = tuningService,
       const status = ECU_STATUS[ecu.status];
       lines.push(`<b>ECU:</b> ${ecu.id === "unknown" ? "Not sure, we'll identify it" : `${h(ecu.title)}, ${status.icon} ${h(status.label)}`}`);
     }
-    lines.push(`<b>Location:</b> ${h(locationText(location))}`, "", `Tap <b>Send full details on WhatsApp</b>. The message to ${h(config.businessName)} is already written; just press send.`);
+    lines.push(`<b>Location:</b> ${h(locationText(location))}`, "", `Tap <b>Send full details on WhatsApp</b>. The message to ${h(businessName())} is already written; just press send.`);
     return telegram.sendText(chatId, lines.join("\n"), {
       buttons: [
         [link("📲 Send full details on WhatsApp", whatsappLink(enquiryText(session)))],
@@ -215,20 +223,20 @@ export function createConversation({ telegram = telegramApi, ai = tuningService,
 
   async function showEcuList(chatId) {
     const groups = Object.entries(ECU_STATUS)
-      .map(([status, info]) => [info, ECUS.filter((ecu) => ecu.status === status && ecu.id !== "unknown")])
+      .map(([status, info]) => [info, ecus().filter((ecu) => ecu.status === status)])
       .filter(([, ecus]) => ecus.length)
       .map(([info, ecus]) => `<b>${info.icon} ${h(info.label)}</b>\n${ecus.map((ecu) => `• ${h(ecu.title)}: ${h(ecu.method)}`).join("\n")}`);
-    const text = [`<b>🧾 ECUs ${h(config.businessName)} tunes</b>`, ...groups, "Not sure which ECU you have? Search your vehicle and we'll help you check."].join("\n\n");
+    const text = [`<b>🧾 ECUs ${h(businessName())} tunes</b>`, ...groups, "Not sure which ECU you have? Search your vehicle and we'll help you check."].join("\n\n");
     return telegram.sendText(chatId, text, { buttons: [[btn("🔎 Search my vehicle", "search")], menuRow()] });
   }
 
   async function showWorkshop(chatId) {
-    const { address, latitude, longitude } = config.workshop;
+    const { address, latitude, longitude } = settings();
     if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
-      return telegram.sendVenue(chatId, { latitude, longitude, title: config.businessName, address: address || "Our workshop", buttons: [menuRow()] });
+      return telegram.sendVenue(chatId, { latitude, longitude, title: businessName(), address: address || "Our workshop", buttons: [menuRow()] });
     }
     if (address) {
-      return telegram.sendText(chatId, `<b>📍 ${h(config.businessName)}</b>\n${h(address)}`, {
+      return telegram.sendText(chatId, `<b>📍 ${h(businessName())}</b>\n${h(address)}`, {
         buttons: [[link("🗺️ Open in Google Maps", `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`)], menuRow()]
       });
     }

@@ -1,104 +1,102 @@
-# Unity Performance Telegram Bot
+# Unity Performance: website, shop, admin panel and Telegram bot
 
-A Node.js Telegram bot for Unity Performance's Stage 1 tuning enquiries. Customers find their vehicle and get a branded Stage 1 power graph. They then add their location and check their ECU. At the end they send you the full details on WhatsApp with one tap.
+One Node.js app runs four things that share one database:
+
+- **Website** (`/`): an Apple-style, scroll-animated site. It has a live "Find your car" search with interactive Stage 1 power and torque charts, Stage 1 booking, services, supported ECUs and a visit section.
+- **Shop** (`/shop`): products with categories, search and sorting, a bag and checkout. Orders are saved, and the customer sends the order to you on WhatsApp in one tap.
+- **Admin panel** (`/admin`): full access to orders, enquiries, products (with photo upload), the Stage 1 vehicle database, ECUs, brands, services, site settings and backups.
+- **Telegram bot**: vehicle search, the Stage 1 graph, location, ECU check and a WhatsApp summary. Every customer who reaches the summary appears under Admin → Enquiries.
+
+It has no npm dependencies. The Stage 1 graphs are drawn in plain JavaScript, so there's nothing native to install.
 
 ## What customers see
 
-1. **Vehicle search menu**: customers type their vehicle (for example `Golf GTI 2018` or `Hilux 2.8`) or browse by brand. Vehicles not in your list are identified by AI.
-2. **Stage 1 performance graph**: a dyno-style PNG showing stock against Stage 1 power and torque curves, with the gains (+hp, +Nm, %). A short Stage 1 report follows, covering what changes, what to prepare and what you check on the day.
-3. **Location**: customers tap **Share my location** (GPS) or type their city or area.
-4. **ECU check**: customers pick the ECU on their label. ⭐ marks the ECUs commonly fitted to their vehicle. The bot checks it against your supported-ECU list (✅ supported, ⚠️ on request, ❌ not supported, ❓ we'll identify it).
-5. **WhatsApp**: a summary with a **Send full details on WhatsApp** button. It opens WhatsApp with the enquiry already written to your number (name, vehicle, stock and Stage 1 figures, ECU and location), and the customer just presses send.
+**Website.** The hero and the "Read. Calibrate. Verify." story animate as you scroll, with a live power counter and a curve that draws itself. **Find your car** searches the database as you type, or browses by brand. It shows Stage 1 figures and an interactive chart, where you hover or use the arrow keys to read values; power and torque are separate panels on a shared rpm axis, and there's also a table view. **Book Stage 1** saves an enquiry and hands it to WhatsApp. If a car isn't listed and AI is on, "Ask AI to identify it" estimates it; the estimate is clearly labelled and kept within your gain limits.
 
-The main menu also has **🤖 Ask AI** (a tuning Q&A assistant), **🧾 ECUs we support**, **📍 Our workshop** (if configured) and **💬 Chat with us on WhatsApp**.
+**Shop.** Customers add items to the bag and choose collection or delivery. They get an order number (UP-1001, UP-1002, …) and a **Send order on WhatsApp** button with the order already written. Prices and stock always come from the server, and stock goes down when an order is placed.
 
-### Where AI is used
+There are no card payments: customers pay on collection or delivery once you confirm on WhatsApp. An online payment gateway (for example Stripe or PayHere) can be added later.
 
-With an `OPENAI_API_KEY`, the bot uses the OpenAI Responses API to:
+**Telegram bot.** Customers find their vehicle and get the Stage 1 graph. Then they add their location and check their ECU. Finally they send the full details to you on WhatsApp.
 
-- identify vehicles that aren't in your database and estimate their figures. These estimates are kept within your Stage 1 gain limits and marked **AI estimate** on the graph and in the WhatsApp message;
-- write a Stage 1 report for the selected vehicle, without changing your figures;
-- answer customer questions in **Ask AI** mode.
-
-Without a key the bot still works: search uses your database only, and the Stage 1 report uses built-in templates. The AI is instructed never to advise removing or disabling emissions (DPF, EGR, catalyst, AdBlue) or safety systems.
-
-## What you need
-
-- Node.js 20 or newer (no npm packages are needed; the graph is drawn in pure JavaScript)
-- A Telegram account
-- A WhatsApp number to receive enquiries
-- Optional: an OpenAI Platform API key (a ChatGPT subscription is not an API key)
-
-## 1. Create your Telegram bot
-
-1. In Telegram, open [@BotFather](https://t.me/BotFather).
-2. Send `/newbot`.
-3. Choose a display name, then a username ending in `bot`, for example `UnityPerformanceBot`.
-4. BotFather gives you a bot token. Treat it like a password: do not send it in chat or commit it to Git.
-
-## 2. Create your local settings file
-
-Copy `.env.example` to `.env` and fill it in:
-
-```dotenv
-TELEGRAM_BOT_TOKEN=paste-the-token-from-botfather
-OPENAI_API_KEY=paste-your-openai-platform-key
-OPENAI_MODEL=gpt-5.6-terra
-BUSINESS_NAME=Unity Performance
-WHATSAPP_NUMBER=94771234567
-```
-
-| Setting | Required | Purpose |
-| --- | --- | --- |
-| `TELEGRAM_BOT_TOKEN` | Yes | Token from BotFather. |
-| `OPENAI_API_KEY` | No | Turns on AI search, AI reports and Ask AI. |
-| `OPENAI_MODEL` | No | OpenAI model; defaults to `gpt-5.6-terra`. |
-| `BUSINESS_NAME` | No | Shown in messages and on the graph; defaults to `Unity Performance`. |
-| `WHATSAPP_NUMBER` | Recommended | Number that receives enquiries, in international format with digits only (e.g. `94771234567`). Without it, the WhatsApp button asks the customer to pick a contact. |
-| `WORKSHOP_ADDRESS` | No | Shows **📍 Our workshop** with a Google Maps link. |
-| `WORKSHOP_LATITUDE`, `WORKSHOP_LONGITUDE` | No | Sends your workshop as a Telegram map pin instead. |
-
-## 3. Start and test the bot
+## Quick start
 
 ```bash
+cp .env.example .env      # then set ADMIN_PASSWORD (10+ characters) at least
 npm test
 npm start
 ```
 
-When the terminal says the bot is running, open your bot in Telegram and press **Start** or send `/start`. The bot registers its commands (`/start`, `/search`, `/ask`, `/ecus`) so they appear in Telegram's menu.
+Open http://localhost:3000 for the site and http://localhost:3000/admin for the admin panel. Sign in with `ADMIN_USERNAME` (default `admin`) and `ADMIN_PASSWORD`.
 
-## 4. Host it on Render (24/7)
+| Setting | Required | Purpose |
+| --- | --- | --- |
+| `ADMIN_PASSWORD` | For the admin panel | At least 10 characters. The panel stays locked without it. |
+| `ADMIN_USERNAME` | No | Defaults to `admin`. |
+| `TELEGRAM_BOT_TOKEN` | For the bot | From [@BotFather](https://t.me/BotFather). Without it the website runs and the bot is off. |
+| `OPENAI_API_KEY` | No | Turns on AI vehicle search (website and bot), AI Stage 1 reports and the bot's Ask AI. |
+| `OPENAI_MODEL` | No | Defaults to `gpt-5.6-terra`. |
+| `BUSINESS_NAME`, `WHATSAPP_NUMBER`, `WORKSHOP_ADDRESS`, `WORKSHOP_LATITUDE`, `WORKSHOP_LONGITUDE` | No | Starting values for your business details. After the first run, manage them in **Admin → Settings**; empty settings fall back to these. |
+| `DATA_DIR` | No | Where the database and uploads live (default `./data`). |
+| `PORT` | No | Web port (default 3000). |
 
-This repository includes `render.yaml`, which packages the bot as a single Render **background worker**. It uses long polling, so it does not need a web address or a Telegram callback URL.
+## Admin panel
 
-1. Create a private GitHub repository and upload this project. Do not upload `.env`.
-2. In [Render](https://dashboard.render.com/), create a new **Blueprint** and select that GitHub repository.
-3. Render reads `render.yaml` and asks for `TELEGRAM_BOT_TOKEN`, `OPENAI_API_KEY` and `WHATSAPP_NUMBER`. Enter them only in Render's secret fields. To show your workshop, add `WORKSHOP_ADDRESS` (and optionally the coordinates) under the service's **Environment** tab.
-4. Create the service and wait for the deploy log to say `Unity Performance Telegram bot is running`.
-5. Stop any local `npm start` instance before testing the hosted bot. Telegram allows only one long-polling process to consume a bot's updates at a time.
+- **Dashboard**: revenue and orders for the last 30 days, open orders, new enquiries, a 14-day revenue chart, low stock, and recent orders and enquiries.
+- **Orders**: filter, search, change status (New → Confirmed → Ready → Completed) and keep private notes. You can call or WhatsApp the customer from the order. **Cancelling an order returns its items to stock**; reopening takes them out again.
+- **Enquiries**: Stage 1 requests from the website and the Telegram bot, with vehicle, figures, ECU and location, plus status and notes.
+- **Products**: name, category, price, compare-at (offer) price, stock (empty = unlimited), description, features, photo, featured, and shown/hidden.
+- **Vehicles**: the Stage 1 database used by the website, the bot and the graphs, with a live graph preview. Validation keeps the figures realistic (Stage 1 at least 3% above stock, torque between 0.8× and 3.5× the power), so every graph is exact.
+- **ECUs, Brands, Services**: the ECU support list, brands and search aliases, and the service cards.
+- **Settings**: business name, headline, hero photo, announcement bar, contact details, WhatsApp number, map location, opening hours, currency, delivery fee and social links.
+- **Backup**: download everything as one JSON file, or restore a backup. Uploaded photos are separate files in `DATA_DIR/uploads`.
 
-Render background workers are not available on its free plan. Review the displayed plan and cost before creating the service. The worker is deliberately configured with one instance, because the bot's file-based session store is intended for a single instance.
+**The included vehicles, Stage 1 figures, ECU statuses and products are sample data.** Replace them with your own dyno results, tools, prices and photos before launch.
 
-## Customise it
+## Security
 
-- **Vehicles and Stage 1 figures**: edit `VEHICLES` in `src/vehicles.js`. Each entry has factory `stock` and your `stage1` figures as `[hp, Nm]`, the ECUs commonly fitted, and search keywords. Optional `redline` and `torqueFrom` values reshape the graph for unusual engines. **The included Stage 1 figures are typical starting values. Replace them with your own dyno-verified results before quoting customers.**
-- **AI estimate limits**: `STAGE1_GAINS` in `src/vehicles.js` sets the minimum and maximum Stage 1 gain allowed for AI-identified vehicles, by fuel and aspiration.
-- **Supported ECUs**: edit `ECUS` in `src/catalog.js`. Set each ECU's `status` (`supported`, `on_request` or `not_supported`) and its read/write `method` to match your tools.
-- **Brands**: `BRANDS` in `src/catalog.js`, including search aliases such as `vw` or `merc`.
-- **Graph colours and layout**: `THEME` and the layout constants in `src/dyno-chart.js`.
+- The admin session is an HttpOnly, SameSite=Strict cookie. Every change must come from the admin panel itself (custom header plus same-origin check), and failed sign-ins are limited to 5 per 15 minutes per address.
+- Public order and enquiry forms accept JSON from this site only, and are rate-limited per address.
+- Uploads are checked to be real PNG, JPEG or WebP files, saved under random names, and served with a strict content type.
+- Every page is sent with a strict Content Security Policy, and all customer-entered text is inserted as text, never as HTML.
 
-The graph's curves are estimates generated from each vehicle's peak figures, shaped by engine type. The peaks always match your figures exactly, and the graph is labelled as an estimate to be confirmed on the dyno.
+## Host it on Render (24/7)
 
-## Before launching publicly
+`render.yaml` defines a single **web service** with a 1 GB **persistent disk** mounted at `/var/data` (`DATA_DIR`). The disk lets orders, products, settings and uploads survive redeploys.
 
-- Store API keys as host environment variables, not in source code.
-- Move `data/sessions.json` to a managed database before running multiple bot instances.
-- Add a privacy notice and data-retention policy, since the bot stores customers' names and locations.
-- Verify your vehicle database and ECU list, and have a qualified tuner confirm each vehicle before tuning.
+1. Put this project in a private GitHub repository. Do not upload `.env`.
+2. In [Render](https://dashboard.render.com/), create a **Blueprint** from the repository.
+3. Enter `ADMIN_PASSWORD`, `TELEGRAM_BOT_TOKEN`, `OPENAI_API_KEY` and `WHATSAPP_NUMBER` in Render's secret fields.
+4. Deploy. The log shows `Unity Performance website is running…` and, with a token, the bot line. Your site is at the `onrender.com` address Render shows, and you can add your own domain in Render's settings.
+5. Telegram allows only one process to read a bot's messages. Stop any local `npm start` that uses the same token. If you created the earlier background-worker version of this bot on Render, delete that service.
+
+Web services with disks need a paid instance type (the blueprint uses Starter). Check the price Render shows before creating it. Keep one instance, because the database is a file on the disk.
+
+## Customise
+
+- **Content and catalogue**: use the admin panel. The first-run defaults live in `src/seed-data.js`.
+- **Look**: `public/css/site.css` (colour tokens at the top) and `public/admin/admin.css`.
+- **Telegram PNG graph**: `THEME` in `src/dyno-chart.js`.
+- **AI gain limits**: `STAGE1_GAINS` in `src/vehicles.js`.
+
+## Project layout
+
+```
+src/server.js           starts the website + bot
+src/web/                HTTP router, public API, admin API, auth
+src/db.js               JSON database (DATA_DIR/db.json)
+src/seed-data.js        first-run vehicles, ECUs, brands, services, products, settings
+src/records.js          orders and enquiries
+src/validation.js       admin input validation
+src/conversation.js     Telegram conversation flow
+src/dyno-chart.js       Stage 1 curves + PNG graph
+public/                 website, shop and admin panel (no build step)
+test/                   node --test suites
+```
 
 ## Official references
 
 - [Telegram: creating a bot with BotFather](https://core.telegram.org/bots/tutorial)
 - [Telegram Bot API](https://core.telegram.org/bots/api)
-- [OpenAI model guidance](https://developers.openai.com/api/docs/guides/latest-model)
+- [Render Blueprints](https://render.com/docs/blueprint-spec) and [persistent disks](https://render.com/docs/disks)
 - [OpenAI API keys](https://platform.openai.com/api-keys)

@@ -1,38 +1,41 @@
-# Start your Unity Performance Telegram bot
+# Start your Unity Performance website, shop and bot
 
-Telegram is the easy route: you do **not** need a Meta app, WhatsApp Business API, callback URL, public tunnel or VM. Customers send their enquiry to your normal WhatsApp number themselves, with the message already filled in.
+Everything runs from this one project: the website, the shop, the admin panel and the Telegram bot.
 
-1. In Telegram, open [@BotFather](https://t.me/BotFather), send `/newbot`, choose a name and a username ending in `bot`.
-2. BotFather gives you a private token. Do not share it in chat.
-3. In the project folder, copy `.env.example` to `.env`.
-4. Open `.env` and add:
+1. In the project folder, copy `.env.example` to `.env` and fill in:
 
    ```dotenv
-   TELEGRAM_BOT_TOKEN=paste-botfather-token-here
-   OPENAI_API_KEY=paste-openai-platform-key-here
+   ADMIN_PASSWORD=choose-a-strong-password-10+-characters
    WHATSAPP_NUMBER=your-whatsapp-number-with-country-code-digits-only
+   TELEGRAM_BOT_TOKEN=paste-botfather-token-here     # optional
+   OPENAI_API_KEY=paste-openai-platform-key-here      # optional
    ```
 
-5. In Terminal, open the project folder and run:
+2. In Terminal, run:
 
    ```bash
    npm test
    npm start
    ```
 
-6. Search for your bot's username in Telegram and send `/start`.
+3. Open http://localhost:3000 for the website and http://localhost:3000/admin for the admin panel (username `admin`).
 
-Customers search their vehicle and receive a Stage 1 power graph. They then share their location and check their ECU against your supported list. Finally they tap **Send full details on WhatsApp** to message you everything.
+## First things to do in the admin panel
 
-Before going live, update the Stage 1 figures in `src/vehicles.js` and the ECU list in `src/catalog.js` to match your own dyno results and tools.
+1. **Settings**: your business name, WhatsApp number, address, opening hours, currency and a hero photo.
+2. **Products**: replace the sample products with yours, including prices, stock and photos.
+3. **Vehicles**: check the Stage 1 figures against your own dyno results.
+4. **ECUs**: set which ECUs you support.
+
+New shop orders and Stage 1 enquiries, from both the website and the Telegram bot, appear under **Orders** and **Enquiries**.
 
 ## Host it 24/7
 
-The project includes a Render hosting file named `render.yaml`.
+The project includes `render.yaml` for [Render](https://dashboard.render.com/). It creates one web service with a disk, so your orders and products are kept.
 
-1. Create a private GitHub repository and upload the project files. Do **not** upload `.env`.
-2. Open [Render](https://dashboard.render.com/), create a **Blueprint**, then choose your GitHub repository.
-3. Render asks for `TELEGRAM_BOT_TOKEN`, `OPENAI_API_KEY` and `WHATSAPP_NUMBER`. Paste them only into Render's secret-value fields.
-4. Start the deployment. When the log says the bot is running, stop the copy running on your Mac.
+1. Upload the project to a private GitHub repository (never upload `.env`).
+2. In Render, create a **Blueprint** from the repository.
+3. Enter `ADMIN_PASSWORD`, `WHATSAPP_NUMBER`, `TELEGRAM_BOT_TOKEN` and `OPENAI_API_KEY` in the secret fields.
+4. Deploy, then open the web address Render gives you. Stop the copy on your Mac so only one bot is running.
 
-The hosted bot has no callback URL because it uses Telegram long polling. Review the host's displayed cost before creating it; background workers are not on Render's free plan.
+Review the price Render shows before creating it; web services with disks need a paid plan.

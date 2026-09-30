@@ -1,15 +1,15 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { BRANDS, ecuById } from "../src/catalog.js";
-import { VEHICLES, getVehicle, searchVehicles, stage1Gain } from "../src/vehicles.js";
+import { brandById, ecuById } from "../src/catalog.js";
+import { getVehicle, searchVehicles, stage1Gain, vehicleEntries } from "../src/vehicles.js";
 
 test("vehicle database entries are complete and consistent", () => {
   const ids = new Set();
-  for (const entry of VEHICLES) {
+  for (const entry of vehicleEntries()) {
     assert.ok(!ids.has(entry.id), `duplicate id ${entry.id}`);
     ids.add(entry.id);
     assert.ok(Buffer.byteLength(`veh:${entry.id}`) <= 64, `${entry.id} is too long for Telegram callback data`);
-    assert.ok(BRANDS[entry.brand], `${entry.id} has unknown brand ${entry.brand}`);
+    assert.ok(brandById(entry.brand), `${entry.id} has unknown brand ${entry.brand}`);
     assert.ok(["petrol", "diesel"].includes(entry.fuel), `${entry.id} fuel`);
     for (const ecu of entry.ecus) assert.ok(ecuById(ecu), `${entry.id} has unknown ECU ${ecu}`);
     const [stockHp, stockNm] = entry.stock;

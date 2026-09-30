@@ -1,5 +1,7 @@
-import { config, missingRuntimeSettings, optionalSettingWarnings } from "./config.js";
+import { pathToFileURL } from "node:url";
+import { config } from "./config.js";
 import { handleConversation } from "./conversation.js";
+import { settings } from "./db.js";
 import { callTelegram, sendText } from "./telegram.js";
 
 const POLL_TIMEOUT_SECONDS = 25;
@@ -67,19 +69,21 @@ async function pollForever() {
   }
 }
 
-const missing = missingRuntimeSettings();
-if (missing.length) {
-  console.error(`Setup needed: ${missing.join(", ")}`);
-  process.exitCode = 1;
-} else {
-  try {
-    const bot = await callTelegram("getMe");
-    for (const warning of optionalSettingWarnings()) console.warn(`Note: ${warning}`);
-    await callTelegram("setMyCommands", { commands: COMMANDS }).catch((error) => console.error("setMyCommands failed:", error.message));
-    console.log(`${config.businessName} Telegram bot is running as @${bot.username}. Send it /start to begin.`);
-    await pollForever();
-  } catch (error) {
+// Starts long polling. Resolves with the bot's username once Telegram accepts the token;
+// polling then continues in the background.
+export async function startBot() {
+  if (!config.telegramBotToken) throw new Error("TELEGRAM_BOT_TOKEN is missing.");
+  const bot = await callTelegram("getMe");
+  await callTelegram("setMyCommands", { commands: COMMANDS }).catch((error) => console.error("setMyCommands failed:", error.message));
+  console.log(`${settings().businessName} Telegram bot is running as @${bot.username}. Send it /start to begin.`);
+  pollForever();
+  return bot.username;
+}
+
+// `npm run bot` runs the bot without the website.
+if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
+  startBot().catch((error) => {
     console.error("Telegram bot could not start:", error.message);
     process.exitCode = 1;
-  }
+  });
 }

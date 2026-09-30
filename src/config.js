@@ -15,29 +15,38 @@ function loadDotEnv() {
 
 loadDotEnv();
 
-const number = (value) => (value === undefined || value === "" ? NaN : Number(value));
+const number = (value) => (value === undefined || value === "" ? undefined : Number(value));
 
 export const config = {
   telegramBotToken: process.env.TELEGRAM_BOT_TOKEN ?? "",
   openaiApiKey: process.env.OPENAI_API_KEY ?? "",
   openaiModel: process.env.OPENAI_MODEL || "gpt-5.6-terra",
-  businessName: process.env.BUSINESS_NAME || "Unity Performance",
-  // International format, digits only, e.g. 94771234567. Customers' WhatsApp enquiries go here.
-  whatsappNumber: (process.env.WHATSAPP_NUMBER ?? "").replace(/\D/g, ""),
-  workshop: {
-    address: process.env.WORKSHOP_ADDRESS ?? "",
-    latitude: number(process.env.WORKSHOP_LATITUDE),
-    longitude: number(process.env.WORKSHOP_LONGITUDE)
-  }
+  port: Number(process.env.PORT) || 3000,
+  adminUsername: process.env.ADMIN_USERNAME || "admin",
+  adminPassword: process.env.ADMIN_PASSWORD ?? ""
 };
 
-export function missingRuntimeSettings() {
-  return [["TELEGRAM_BOT_TOKEN", config.telegramBotToken]].filter(([, value]) => !value).map(([name]) => name);
+export const MIN_ADMIN_PASSWORD_LENGTH = 10;
+
+// Business details from the environment. They seed the database and fill any setting left
+// empty in the admin panel.
+export function envSettings() {
+  const values = {
+    businessName: process.env.BUSINESS_NAME,
+    whatsappNumber: process.env.WHATSAPP_NUMBER?.replace(/\D/g, ""),
+    address: process.env.WORKSHOP_ADDRESS,
+    latitude: number(process.env.WORKSHOP_LATITUDE),
+    longitude: number(process.env.WORKSHOP_LONGITUDE)
+  };
+  return Object.fromEntries(Object.entries(values).filter(([, value]) => value !== undefined && value !== "" && !Number.isNaN(value)));
 }
 
 export function optionalSettingWarnings() {
   const warnings = [];
+  if (!config.telegramBotToken) warnings.push("TELEGRAM_BOT_TOKEN is not set: the website runs, but the Telegram bot is off.");
   if (!config.openaiApiKey) warnings.push("OPENAI_API_KEY is not set: AI search, AI reports and Ask AI are disabled; built-in reports are used.");
-  if (!config.whatsappNumber) warnings.push("WHATSAPP_NUMBER is not set: the WhatsApp button lets customers pick a contact instead of messaging you directly.");
+  if (config.adminPassword.length < MIN_ADMIN_PASSWORD_LENGTH) {
+    warnings.push(`ADMIN_PASSWORD is not set or shorter than ${MIN_ADMIN_PASSWORD_LENGTH} characters: the admin panel is locked.`);
+  }
   return warnings;
 }

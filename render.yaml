@@ -1,13 +1,24 @@
 services:
-  - type: worker
-    name: torque-guide-telegram-bot
+  # One web service runs the website, the admin panel and the Telegram bot, sharing one database
+  # on a persistent disk (orders, products, settings and uploaded photos survive redeploys).
+  - type: web
+    name: unity-performance
     runtime: node
     plan: starter
     region: singapore
     numInstances: 1
     buildCommand: npm install
     startCommand: npm start
+    healthCheckPath: /healthz
+    disk:
+      name: data
+      mountPath: /var/data
+      sizeGB: 1
     envVars:
+      - key: DATA_DIR
+        value: /var/data
+      - key: ADMIN_PASSWORD
+        sync: false
       - key: TELEGRAM_BOT_TOKEN
         sync: false
       - key: OPENAI_API_KEY

@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en" class="no-js">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Unity Performance · Stage 1 ECU tuning</title>
+  <meta name="description" content="Stage 1 ECU tuning with dyno-verified results. Find your car, see your gains and book in minutes.">
+  <meta name="theme-color" content="#000000">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/css/site.css">
+  <script type="module" src="/js/home.js"></script>
+</head>
+<body class="page-home">
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="nav" data-nav>
+    <nav class="nav-inner" aria-label="Main">
+      <a class="nav-logo" href="/"><span class="logo-mark" aria-hidden="true"></span><span data-business-name>Unity Performance</span></a>
+      <ul class="nav-links" id="nav-links" data-nav-links>
+        <li><a href="/#stage1">Stage 1</a></li>
+        <li><a href="/#find">Find your car</a></li>
+        <li><a href="/#services">Services</a></li>
+        <li><a href="/shop">Shop</a></li>
+        <li><a href="/#visit">Visit</a></li>
+      </ul>
+      <div class="nav-actions">
+        <button class="icon-button" type="button" data-bag-open aria-label="Open bag">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 8h12l-1 12H7L6 8Z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg>
+          <span class="bag-count" data-bag-count hidden>0</span>
+        </button>
+        <button class="icon-button menu-button" type="button" data-menu-toggle aria-controls="nav-links" aria-expanded="false" aria-label="Menu">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h16M4 15h16"/></svg>
+        </button>
+      </div>
+    </nav>
+  </header>
+  <div class="ribbon" data-announcement hidden></div>
+
+  <main id="main">
+    <section class="hero" data-hero>
+      <div class="hero-media" data-hero-media aria-hidden="true"></div>
+      <div class="hero-glow" aria-hidden="true"></div>
+      <svg class="hero-lines" viewBox="0 0 1200 400" preserveAspectRatio="none" aria-hidden="true">
+        <path class="hero-line hero-line-stock" d="M0 380 C 220 370, 360 300, 520 250 S 820 190, 1200 200"/>
+        <path class="hero-line hero-line-stage1" d="M0 372 C 200 350, 330 250, 500 180 S 800 90, 1200 110"/>
+      </svg>
+      <div class="hero-content" data-hero-content>
+        <p class="eyebrow" data-setting="tagline">ECU tuning &amp; performance</p>
+        <h1 class="hero-title" data-setting="heroTitle">Stage 1. Unleashed.</h1>
+        <p class="hero-subtitle" data-setting="heroSubtitle">Software-only performance for your car. More power, more torque, verified on our dyno.</p>
+        <div class="cta-row">
+          <a class="btn btn-primary" href="#find">Find your car</a>
+          <a class="link-arrow" href="/shop">Shop parts</a>
+        </div>
+      </div>
+      <a class="scroll-cue" href="#stage1" aria-label="Scroll to see how Stage 1 works"><span></span></a>
+    </section>
+
+    <section class="story" id="stage1" data-story aria-labelledby="story-title">
+      <div class="story-sticky">
+        <div class="container story-grid">
+          <div class="story-steps">
+            <p class="eyebrow" id="story-title">How Stage 1 works</p>
+            <ol class="story-list">
+              <li class="story-step is-active" data-step><h2>Read.</h2><p>We connect through the diagnostic port and back up your original software before anything changes.</p></li>
+              <li class="story-step" data-step><h2>Calibrate.</h2><p>Boost, fuelling and ignition are refined within safe limits for your engine and your fuel.</p></li>
+              <li class="story-step" data-step><h2>Verify.</h2><p>Before-and-after dyno runs show the gain. You leave with the graph.</p></li>
+            </ol>
+            <div class="story-progress" aria-hidden="true"><span data-story-bar></span></div>
+          </div>
+          <div class="story-visual" aria-hidden="true">
+            <p class="story-vehicle" data-story-vehicle>Volkswagen Golf GTI Mk7</p>
+            <p class="story-number"><span data-story-hp>220</span><small>hp</small></p>
+            <p class="story-delta" data-story-delta>Stock</p>
+            <svg class="story-curve" viewBox="0 0 600 260" preserveAspectRatio="none">
+              <path class="story-grid-line" d="M0 65H600M0 130H600M0 195H600"/>
+              <path class="curve-stock" data-story-stock d=""/>
+              <path class="curve-stage1" data-story-stage1 d=""/>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section finder" id="find" aria-labelledby="find-title">
+      <div class="container">
+        <header class="section-head reveal">
+          <p class="eyebrow">Find your car</p>
+          <h2 class="headline" id="find-title">See your gains<br>before you book.</h2>
+          <p class="lead">Search our Stage 1 database for your exact car, engine and year, and see the power and torque curves.</p>
+        </header>
+        <div class="finder-search reveal" role="search">
+          <label class="visually-hidden" for="vehicle-search">Search your vehicle</label>
+          <div class="search-field">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+            <input id="vehicle-search" type="search" placeholder="Try “Golf GTI 2018” or “Hilux 2.8”" autocomplete="off" spellcheck="false" data-search-input aria-controls="search-results">
+          </div>
+          <div class="chips" data-brand-chips aria-label="Browse by brand"></div>
+        </div>
+        <div class="search-results" id="search-results" data-search-results aria-live="polite"></div>
+        <article class="vehicle-panel" data-vehicle-panel aria-live="polite" hidden></article>
+      </div>
+    </section>
+
+    <section class="section numbers" aria-label="In numbers">
+      <div class="container numbers-grid">
+        <div class="number reveal"><strong data-stat="vehicles">—</strong><span>vehicles with Stage 1 figures</span></div>
+        <div class="number reveal"><strong data-stat="ecus">—</strong><span>ECU families we tune</span></div>
+        <div class="number reveal"><strong data-stat="gain">—</strong><span>average power gain across our database</span></div>
+      </div>
+    </section>
+
+    <section class="section services" id="services" aria-labelledby="services-title">
+      <div class="container">
+        <header class="section-head reveal">
+          <p class="eyebrow">Services</p>
+          <h2 class="headline" id="services-title">Everything your car needs<br>to perform.</h2>
+        </header>
+      </div>
+      <div class="gallery" data-services tabindex="0" aria-label="Services"></div>
+      <div class="container gallery-controls">
+        <button class="round-button" type="button" data-gallery-prev aria-label="Previous service"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 6-6 6 6 6"/></svg></button>
+        <button class="round-button" type="button" data-gallery-next aria-label="Next service"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m10 6 6 6-6 6"/></svg></button>
+      </div>
+    </section>
+
+    <section class="section ecus" aria-labelledby="ecus-title">
+      <div class="container">
+        <header class="section-head reveal">
+          <p class="eyebrow">ECU support</p>
+          <h2 class="headline" id="ecus-title">The ECUs we tune.</h2>
+          <p class="lead">Not sure which one your car has? Send us a photo of the ECU label and we'll check.</p>
+        </header>
+        <ul class="ecu-grid" data-ecus></ul>
+      </div>
+    </section>
+
+    <section class="section theme-light shop-teaser" aria-labelledby="shop-title">
+      <div class="container">
+        <header class="section-head reveal">
+          <p class="eyebrow">Shop</p>
+          <h2 class="headline" id="shop-title">Parts, tools and merch.</h2>
+          <p class="lead" data-setting="shopNote">Pay on collection or delivery. We confirm every order with you on WhatsApp.</p>
+        </header>
+        <div class="product-grid" data-featured-products></div>
+        <p class="center reveal"><a class="btn btn-dark" href="/shop">Visit the shop</a></p>
+      </div>
+    </section>
+
+    <section class="section visit" id="visit" aria-labelledby="visit-title">
+      <div class="container visit-grid">
+        <div class="reveal">
+          <p class="eyebrow">Visit</p>
+          <h2 class="headline" id="visit-title">Come and see<br>the dyno.</h2>
+          <dl class="visit-details" data-visit-details></dl>
+          <div class="cta-row" data-visit-actions></div>
+        </div>
+        <div class="visit-card reveal">
+          <h3>Ready for Stage 1?</h3>
+          <p>Find your car, check your ECU and send us the details. We'll confirm a time with you on WhatsApp.</p>
+          <a class="btn btn-primary" href="#find">Find your car</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="container footer-inner">
+      <p><strong data-business-name>Unity Performance</strong> · <span data-setting="tagline">ECU tuning &amp; performance</span></p>
+      <nav class="footer-links" aria-label="Footer"><a href="/#find">Find your car</a><a href="/shop">Shop</a><a href="/#visit">Visit</a><span data-socials></span></nav>
+      <p class="fineprint">Power figures are estimates for healthy, standard vehicles. Final results are confirmed on the dyno. © <span data-year></span> <span data-business-name>Unity Performance</span>.</p>
+    </div>
+  </footer>
+
+  <dialog class="sheet" data-enquiry-dialog aria-labelledby="enquiry-title"></dialog>
+</body>
+</html>

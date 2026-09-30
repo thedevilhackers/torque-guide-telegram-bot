@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en" class="no-js">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Shop · Unity Performance</title>
+  <meta name="description" content="Performance parts, tools, merch and Stage 1 vouchers. Order online and confirm on WhatsApp.">
+  <meta name="theme-color" content="#f5f5f7">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/css/site.css">
+  <script type="module" src="/js/shop.js"></script>
+</head>
+<body class="page-shop theme-light">
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="nav" data-nav>
+    <nav class="nav-inner" aria-label="Main">
+      <a class="nav-logo" href="/"><span class="logo-mark" aria-hidden="true"></span><span data-business-name>Unity Performance</span></a>
+      <ul class="nav-links" id="nav-links" data-nav-links>
+        <li><a href="/#stage1">Stage 1</a></li>
+        <li><a href="/#find">Find your car</a></li>
+        <li><a href="/#services">Services</a></li>
+        <li><a href="/shop" aria-current="page">Shop</a></li>
+        <li><a href="/#visit">Visit</a></li>
+      </ul>
+      <div class="nav-actions">
+        <button class="icon-button" type="button" data-bag-open aria-label="Open bag">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 8h12l-1 12H7L6 8Z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg>
+          <span class="bag-count" data-bag-count hidden>0</span>
+        </button>
+        <button class="icon-button menu-button" type="button" data-menu-toggle aria-controls="nav-links" aria-expanded="false" aria-label="Menu">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h16M4 15h16"/></svg>
+        </button>
+      </div>
+    </nav>
+  </header>
+  <div class="ribbon" data-announcement hidden></div>
+
+  <main id="main" class="shop-page">
+    <section class="container shop-hero">
+      <h1 class="headline reveal">Shop. <span class="headline-muted">Parts, tools and merch for cars that perform.</span></h1>
+      <p class="lead reveal" data-setting="shopNote">Pay on collection or delivery. We confirm every order with you on WhatsApp.</p>
+    </section>
+
+    <div class="container shop-toolbar">
+      <div class="chips" data-category-chips aria-label="Categories"></div>
+      <div class="shop-controls">
+        <label class="visually-hidden" for="product-search">Search products</label>
+        <div class="search-field search-field-small">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <input id="product-search" type="search" placeholder="Search" autocomplete="off" data-product-search>
+        </div>
+        <label class="visually-hidden" for="product-sort">Sort by</label>
+        <select id="product-sort" class="select" data-product-sort>
+          <option value="featured">Featured</option>
+          <option value="price-asc">Price: low to high</option>
+          <option value="price-desc">Price: high to low</option>
+          <option value="name">Name</option>
+        </select>
+      </div>
+    </div>
+
+    <section class="container product-grid product-grid-full" data-products aria-live="polite" aria-label="Products"></section>
+  </main>
+
+  <footer class="footer">
+    <div class="container footer-inner">
+      <p><strong data-business-name>Unity Performance</strong> · <span data-setting="tagline">ECU tuning &amp; performance</span></p>
+      <nav class="footer-links" aria-label="Footer"><a href="/#find">Find your car</a><a href="/shop">Shop</a><a href="/#visit">Visit</a><span data-socials></span></nav>
+      <p class="fineprint">Every order is confirmed with you on WhatsApp before you pay. ©<span data-year></span> <span data-business-name>Unity Performance</span>.</p>
+    </div>
+  </footer>
+
+  <dialog class="sheet" data-product-dialog></dialog>
+</body>
+</html>

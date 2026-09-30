@@ -3,10 +3,10 @@ import assert from "node:assert/strict";
 import { inflateSync } from "node:zlib";
 import { buildDynoCurves, renderStage1Chart } from "../src/dyno-chart.js";
 import { dashSegments } from "../src/raster.js";
-import { VEHICLES, getVehicle } from "../src/vehicles.js";
+import { getVehicle, vehicleEntries } from "../src/vehicles.js";
 
 test("curves peak at exactly the stock and Stage 1 figures for every vehicle", () => {
-  for (const { id } of VEHICLES) {
+  for (const { id } of vehicleEntries()) {
     const vehicle = getVehicle(id);
     const { stock, stage1 } = buildDynoCurves(vehicle);
     assert.ok(Math.abs(Math.max(...stock.power) - vehicle.stock.hp) < 0.5, `${id} stock power`);

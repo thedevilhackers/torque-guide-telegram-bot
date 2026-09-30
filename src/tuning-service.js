@@ -1,5 +1,5 @@
-import { ECUS } from "./catalog.js";
-import { config } from "./config.js";
+import { ecus } from "./catalog.js";
+import { settings } from "./db.js";
 import { aiEnabled, requestJson, requestText } from "./openai.js";
 import { escapeHtml } from "./telegram.js";
 import { gainPolicy, stage1Gain, vehicleName } from "./vehicles.js";
@@ -69,7 +69,7 @@ export async function makeStage1Report(userId, vehicle) {
     const report = await requestJson(userId, {
       name: "stage1_report",
       schema: reportSchema,
-      system: `You write short Stage 1 tuning notes for customers of ${config.businessName}, a vehicle performance tuning workshop. Return only the requested JSON. Use the vehicle data exactly as given and never state different power or torque figures. summary: 2-3 plain sentences on what Stage 1 changes for this specific engine and how it will feel to drive. prepare: short items the owner should have in order before the tune (servicing, fuel, widely documented weak points of this engine). checks: short items the workshop verifies on the day. Keep each item under 90 characters, manufacturer-neutral, and never quote prices. ${SAFETY_RULES}`,
+      system: `You write short Stage 1 tuning notes for customers of ${settings().businessName}, a vehicle performance tuning workshop. Return only the requested JSON. Use the vehicle data exactly as given and never state different power or torque figures. summary: 2-3 plain sentences on what Stage 1 changes for this specific engine and how it will feel to drive. prepare: short items the owner should have in order before the tune (servicing, fuel, widely documented weak points of this engine). checks: short items the workshop verifies on the day. Keep each item under 90 characters, manufacturer-neutral, and never quote prices. ${SAFETY_RULES}`,
       user: `Vehicle: ${JSON.stringify(vehicleFacts(vehicle))}`
     });
     const items = (list, fallbackList) => (Array.isArray(list) && list.length ? list.slice(0, 4).map((item) => clip(item, 140)) : fallbackList);
@@ -94,9 +94,10 @@ export function formatStage1Report(vehicle, report) {
   ].join("\n");
 }
 
-const ECU_IDS = ECUS.filter((ecu) => ecu.id !== "unknown").map((ecu) => ecu.id);
+const ecuIds = () => ecus().map((ecu) => ecu.id);
 
-const identifySchema = {
+// Built per request because the ECU list can change in the admin panel.
+const identifySchema = () => ({
   type: "object",
   additionalProperties: false,
   required: ["recognized", "brand", "model", "generation", "years", "engine", "fuel", "aspiration", "stock_hp", "stock_nm", "stage1_hp", "stage1_nm", "likely_ecus", "confidence", "notes"],
@@ -113,11 +114,11 @@ const identifySchema = {
     stock_nm: { type: "integer" },
     stage1_hp: { type: "integer" },
     stage1_nm: { type: "integer" },
-    likely_ecus: { type: "array", items: { type: "string", enum: ECU_IDS }, maxItems: 3 },
+    likely_ecus: { type: "array", items: { type: "string", enum: ecuIds() }, maxItems: 3 },
     confidence: { type: "string", enum: ["low", "medium", "high"] },
     notes: { type: "string" }
   }
-};
+});
 
 function clampGain(value, stock, [min, max], typical) {
   const ratio = value > 0 ? value / stock - 1 : typical;
@@ -136,7 +137,7 @@ export function vehicleFromAi(result) {
     years: clip(result.years, 20),
     engine: clipWords(result.engine, 50),
     fuel: result.fuel,
-    ecus: (result.likely_ecus ?? []).filter((id) => ECU_IDS.includes(id)),
+    ecus: (result.likely_ecus ?? []).filter((id) => ecuIds().includes(id)),
     confidence: result.confidence,
     notes: clip(result.notes, 200)
   };
@@ -158,8 +159,8 @@ export function vehicleFromAi(result) {
 export async function identifyVehicle(userId, query) {
   const result = await requestJson(userId, {
     name: "vehicle_identification",
-    schema: identifySchema,
-    system: `You identify vehicles for a Stage 1 tuning enquiry at ${config.businessName}. The customer typed a free-text description of their vehicle. Choose the single most likely real variant; if the text is ambiguous, choose the most common variant and say so in notes. stock_hp (metric hp/PS) and stock_nm must be the manufacturer-published figures for that variant. stage1_hp and stage1_nm are a conservative, typical software-only Stage 1 result on healthy standard hardware. If the text is not a real vehicle, set recognized to false and all numbers to 0. For hybrid or electric vehicles, give stock figures and set stage1 numbers to 0. likely_ecus: only ECU families you are confident are commonly fitted to this variant, otherwise an empty list. notes: one short sentence on what the owner should verify. ${SAFETY_RULES}`,
+    schema: identifySchema(),
+    system: `You identify vehicles for a Stage 1 tuning enquiry at ${settings().businessName}. The customer typed a free-text description of their vehicle. Choose the single most likely real variant; if the text is ambiguous, choose the most common variant and say so in notes. stock_hp (metric hp/PS) and stock_nm must be the manufacturer-published figures for that variant. stage1_hp and stage1_nm are a conservative, typical software-only Stage 1 result on healthy standard hardware. If the text is not a real vehicle, set recognized to false and all numbers to 0. For hybrid or electric vehicles, give stock figures and set stage1 numbers to 0. likely_ecus: only ECU families you are confident are commonly fitted to this variant, otherwise an empty list. notes: one short sentence on what the owner should verify. ${SAFETY_RULES}`,
     user: `Customer's vehicle description: ${clip(query, 120)}`
   });
   return vehicleFromAi(result);
@@ -168,7 +169,7 @@ export async function identifyVehicle(userId, query) {
 export async function askAssistant(userId, question, vehicle) {
   const context = vehicle ? ` The customer is currently looking at this vehicle: ${JSON.stringify(vehicleFacts(vehicle))}.` : "";
   const answer = await requestText(userId, {
-    system: `You are the AI tuning assistant for ${config.businessName}, a vehicle performance tuning workshop. Answer the customer's question in plain language, in their language, in at most 120 words. Be accurate and cautious: say when the answer depends on the exact vehicle, fuel quality or condition. Don't quote prices or booking times; suggest sending the details to the team on WhatsApp for a quote. ${SAFETY_RULES}${context}`,
+    system: `You are the AI tuning assistant for ${settings().businessName}, a vehicle performance tuning workshop. Answer the customer's question in plain language, in their language, in at most 120 words. Be accurate and cautious: say when the answer depends on the exact vehicle, fuel quality or condition. Don't quote prices or booking times; suggest sending the details to the team on WhatsApp for a quote. ${SAFETY_RULES}${context}`,
     user: clip(question, 800)
   });
   return clip(answer, 3000);

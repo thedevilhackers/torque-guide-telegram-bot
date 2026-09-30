@@ -2,13 +2,14 @@
   "name": "torque-guide-telegram-bot",
   "version": "1.0.0",
   "private": true,
-  "description": "Unity Performance Telegram bot: vehicle search, Stage 1 performance graphs, ECU check and WhatsApp enquiries, with OpenAI Responses API integration.",
+  "description": "Unity Performance website, shop, admin panel and Telegram bot: vehicle search, Stage 1 performance graphs, ECU check, orders and WhatsApp enquiries.",
   "type": "module",
   "engines": {
     "node": ">=20"
   },
   "scripts": {
-    "start": "node src/telegram-bot.js",
-    "test": "node --test"
+    "start": "node src/server.js",
+    "bot": "node src/telegram-bot.js",
+    "test": "node --test --import ./scripts/isolate-data.js"
   }
 }

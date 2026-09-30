@@ -1,6 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { DATA_DIR } from "./db.js";
 
-const DATA_DIR = process.env.DATA_DIR || "data";
+// Telegram conversation state, kept apart from the main database because it changes on every message.
 const STORE_FILE = `${DATA_DIR}/sessions.json`;
 const MAX_PROCESSED_IDS = 500;
 

@@ -1,10 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 
-process.env.DATA_DIR = mkdtempSync(join(tmpdir(), "unity-bot-"));
 process.env.WHATSAPP_NUMBER = "94770000000";
 process.env.BUSINESS_NAME = "Unity Performance";
 

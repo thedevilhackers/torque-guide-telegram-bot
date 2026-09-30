@@ -1,10 +1,10 @@
 import { ECU_STATUS, ecuById } from "./catalog.js";
-import { config } from "./config.js";
+import { settings } from "./db.js";
 import { stage1Gain, vehicleName } from "./vehicles.js";
 
 // Customers send enquiries themselves: a wa.me link opens WhatsApp with the message already
 // typed to the business number, so no WhatsApp Business API account is needed.
-export function whatsappLink(text, number = config.whatsappNumber) {
+export function whatsappLink(text, number = settings().whatsappNumber) {
   const digits = String(number ?? "").replace(/\D/g, "");
   return `https://wa.me/${digits}?text=${encodeURIComponent(text)}`;
 }
@@ -17,7 +17,7 @@ export function locationText(location) {
   return String(location.text ?? "").slice(0, 120);
 }
 
-export function enquiryText({ vehicle, location, ecu, customer } = {}, businessName = config.businessName) {
+export function enquiryText({ vehicle, location, ecu, customer, message } = {}, businessName = settings().businessName) {
   const lines = [`Hello ${businessName}, I'd like a Stage 1 tune. My details:`, ""];
   if (customer?.name) lines.push(`Name: ${customer.name.slice(0, 60)}`);
   if (customer?.username) lines.push(`Telegram: @${customer.username}`);
@@ -34,5 +34,6 @@ export function enquiryText({ vehicle, location, ecu, customer } = {}, businessN
   const ecuInfo = ecuById(ecu);
   if (ecuInfo) lines.push(`ECU: ${ecuInfo.id === "unknown" ? "Not sure, please help identify" : `${ecuInfo.title} (${ECU_STATUS[ecuInfo.status].label})`}`);
   if (location) lines.push(`Location: ${locationText(location)}`);
+  if (message) lines.push(`Message: ${message}`);
   return lines.join("\n");
 }
