@@ -539,7 +539,8 @@ table.data {
   white-space: nowrap;
 }
 
-.data tbody tr:last-child td {
+.data tbody tr:last-child td,
+.data tbody tr:last-child th {
   border-bottom: 0;
 }
 
