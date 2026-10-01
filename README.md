@@ -84,7 +84,22 @@ Any VPS running Ubuntu 22.04 or 24.04, or Debian 12, works; 1 vCPU and 1 GB of m
 - A daily backup of all data, keeping the last 14 days.
 
 1. Add a DNS **A** record pointing your domain (e.g. `shop.example.com`) to the VPS's IP address.
-2. Connect with SSH and put the code in `/opt/unity-performance`. For a private repository, give the server a read-only deploy key:
+2. Put the code in `/opt/unity-performance`, either from a zip or with git.
+
+   **From a zip (simplest).** Upload `unity-performance-vps.zip` to the server. From a Mac or Linux terminal, or Windows PowerShell, use the command below; WinSCP or FileZilla over SFTP also work. Use the username your provider gave you, e.g. `root` or `ubuntu`.
+
+   ```bash
+   scp unity-performance-vps.zip root@YOUR_SERVER_IP:~/
+   ```
+
+   Then, on the server:
+
+   ```bash
+   sudo apt-get update && sudo apt-get install -y unzip
+   sudo unzip -q ~/unity-performance-vps.zip -d /opt
+   ```
+
+   **With git (updates with one command).** Connect with SSH. For a private repository, give the server a read-only deploy key:
 
    ```bash
    sudo apt-get update && sudo apt-get install -y git
@@ -111,7 +126,7 @@ Any VPS running Ubuntu 22.04 or 24.04, or Debian 12, works; 1 vCPU and 1 GB of m
 
 Day to day:
 
-- **Update**: `sudo bash /opt/unity-performance/deploy/vps/update.sh`. It checks the new version in a separate copy first, switches only if the checks pass, and goes back to the previous version if the new one doesn't start.
+- **Update**: with git, `sudo bash /opt/unity-performance/deploy/vps/update.sh`. With a zip, upload the new zip and run `sudo bash /opt/unity-performance/deploy/vps/update.sh ~/unity-performance-vps.zip`. Either way it checks the new version in a separate copy first, switches only if the checks pass, and goes back to the previous version if the new one doesn't start. Your settings and data live outside the code folder, so updates never touch them.
 - **Change keys or the admin password**: `sudo nano /etc/unity-performance/env`, then `sudo systemctl restart unity-performance`.
 - **Logs and status**: `sudo journalctl -u unity-performance -f` and `systemctl status unity-performance`.
 - **Backups**: `/var/backups/unity-performance`. Copy them off the server now and then, or turn on your provider's snapshots, because a backup on the same server is lost with it. To restore one:

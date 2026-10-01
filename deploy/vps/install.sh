@@ -336,7 +336,11 @@ summary() {
   echo "  Settings:  $ENV_FILE  (then: sudo systemctl restart $APP_NAME)"
   echo "  Data:      $DATA_DIR   Backups: $BACKUP_DIR (daily, 14 kept)"
   echo "  Logs:      sudo journalctl -u $APP_NAME -f"
-  echo "  Update:    sudo bash $APP_DIR/deploy/vps/update.sh"
+  if [ -d "$APP_DIR/.git" ]; then
+    echo "  Update:    sudo bash $APP_DIR/deploy/vps/update.sh"
+  else
+    echo "  Update:    upload the new zip, then: sudo bash $APP_DIR/deploy/vps/update.sh ~/unity-performance-vps.zip"
+  fi
   if [ -z "$domain" ]; then
     warn "Without a domain the site has no HTTPS, so the admin password travels unencrypted. Point a domain at this server and run: sudo bash $APP_DIR/deploy/vps/install.sh your-domain.com"
   fi

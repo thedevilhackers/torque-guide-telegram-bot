@@ -36,10 +36,18 @@ New shop orders and Stage 1, 2 and 3 enquiries, from both the website and the Te
 You need a VPS (any provider) with Ubuntu 24.04, and a domain name.
 
 1. At your domain provider, add an **A record** for your domain (for example `shop.example.com`) pointing to the VPS's IP address.
-2. Connect to the VPS with SSH and copy the code to it. The README's **Host it on your own VPS** section has the exact commands, including how to give the server read-only access to a private GitHub repository.
-3. Run:
+2. Upload `unity-performance-vps.zip` to the server. On Mac, or in Windows PowerShell, run this on your computer, using the username your VPS provider gave you (often `root` or `ubuntu`):
 
    ```bash
+   scp unity-performance-vps.zip root@YOUR_SERVER_IP:~/
+   ```
+
+   WinSCP or FileZilla (SFTP) also work. Upload the zip as it is; don't unpack it on your computer first.
+3. Connect to the server (`ssh root@YOUR_SERVER_IP`) and run:
+
+   ```bash
+   sudo apt-get update && sudo apt-get install -y unzip
+   sudo unzip -q ~/unity-performance-vps.zip -d /opt
    sudo bash /opt/unity-performance/deploy/vps/install.sh shop.example.com
    ```
 
@@ -47,7 +55,7 @@ You need a VPS (any provider) with Ubuntu 24.04, and a domain name.
 4. Open `https://shop.example.com/admin` and sign in.
 5. Stop any other copy of the bot, such as the one on your computer. Only one can run at a time.
 
-To update later: `sudo bash /opt/unity-performance/deploy/vps/update.sh`. If anything goes wrong it keeps the current version running.
+To update later, upload the new zip the same way and run `sudo bash /opt/unity-performance/deploy/vps/update.sh ~/unity-performance-vps.zip`. It checks the new version before switching, and if anything goes wrong it keeps the current version running. Your orders, products and settings are never touched by an update.
 
 Your data is backed up every day to `/var/backups/unity-performance`. Download a copy to your computer now and then, or turn on your VPS provider's snapshots.
 
