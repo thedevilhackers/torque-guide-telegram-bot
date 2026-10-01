@@ -185,7 +185,9 @@ create_account() {
   install -d -o "$APP_USER" -g "$APP_USER" -m 750 "$DATA_DIR"
   install -d -o root -g "$APP_USER" -m 750 "$CONFIG_DIR"
   install -d -o root -g root -m 700 "$BACKUP_DIR"
-  runuser -u "$APP_USER" -- test -r "$APP_DIR/src/server.js" || fail "The $APP_USER account can't read $APP_DIR. Run: sudo chmod -R a+rX $APP_DIR"
+  # The code holds no secrets; make it readable whatever the unzip or clone left (a strict umask gives 600).
+  chmod -R a+rX "$APP_DIR"
+  runuser -u "$APP_USER" -- test -r "$APP_DIR/src/server.js" || fail "The $APP_USER account can't read $APP_DIR. Move it to /opt/$APP_NAME."
 }
 
 GENERATED_PASSWORD=""
