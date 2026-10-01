@@ -3,6 +3,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { alertChats, broadcast, createLinkCode, unlinkChat } from "../alerts.js";
 import { DATA_DIR, db, replaceData, settings, transact } from "../db.js";
+import { DEFAULT_SETTINGS } from "../seed-data.js";
 import { ENQUIRY_STATUSES, InputError, ORDER_STATUSES } from "../records.js";
 import { slugify, validateBrand, validateEcu, validateProduct, validateService, validateSettings, validateVehicle, vehicleFormValues } from "../validation.js";
 import { adminEnabled, checkCredentials, currentAdmin, endSession, startSession } from "./auth.js";
@@ -85,18 +86,75 @@ function dashboard(data) {
   };
 }
 
-function validateBackup(backup) {
-  if (!backup || typeof backup !== "object" || typeof backup.settings !== "object") throw new InputError("That file isn't a backup from this admin panel.");
+const ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,59}$/;
+const isDate = (value) => typeof value === "string" && !Number.isNaN(Date.parse(value));
+const isText = (value) => typeof value === "string";
+const dates = ({ createdAt, updatedAt }) => ({ ...(isDate(createdAt) && { createdAt }), ...(isDate(updatedAt) && { updatedAt }) });
+
+function validOrder(order) {
+  const customer = order.customer ?? {};
+  return (
+    isDate(order.createdAt) && isText(order.number) && ORDER_STATUSES.includes(order.status) && ["pickup", "delivery"].includes(order.fulfilment) &&
+    [order.subtotal, order.deliveryFee, order.total].every(Number.isFinite) && isText(order.currency) && isText(customer.name) && isText(customer.phone) &&
+    Array.isArray(order.items) && order.items.every((item) => isText(item?.productId) && isText(item.name) && Number.isInteger(item.qty) && Number.isFinite(item.lineTotal))
+  );
+}
+
+function validEnquiry(enquiry) {
+  return (
+    isDate(enquiry.createdAt) && ENQUIRY_STATUSES.includes(enquiry.status) && ["website", "telegram"].includes(enquiry.source) &&
+    enquiry.customer && typeof enquiry.customer === "object" && (enquiry.vehicle === null || isText(enquiry.vehicle?.name))
+  );
+}
+
+// A backup goes through the same checks as the admin forms, so a damaged or hand-edited file can't
+// leave the site or the admin panel unable to load. Returns the cleaned data to store.
+function cleanBackup(backup) {
+  if (!backup || typeof backup !== "object" || !backup.settings || typeof backup.settings !== "object") throw new InputError("That file isn't a backup from this admin panel.");
   for (const name of [...Object.keys(COLLECTIONS), "orders", "enquiries"]) {
     const list = backup[name];
-    if (!Array.isArray(list) || list.some((item) => !item || typeof item.id !== "string")) throw new InputError(`The backup's ${name} list is damaged.`);
+    if (!Array.isArray(list) || list.some((item) => !item || typeof item !== "object" || !ID.test(String(item.id)))) throw new InputError(`The backup's ${name} list is damaged.`);
     if (new Set(list.map((item) => item.id)).size !== list.length) throw new InputError(`The backup has duplicate ${name}.`);
   }
-  for (const vehicle of backup.vehicles) {
-    const pair = (value) => Array.isArray(value) && value.length === 2 && value.every((n) => Number.isFinite(n) && n > 0);
-    if (!pair(vehicle.stock) || !pair(vehicle.stage1) || !Array.isArray(vehicle.years)) throw new InputError(`Vehicle ${vehicle.id} in the backup is damaged.`);
+  const each = (name, label, clean) =>
+    backup[name].map((item) => {
+      try {
+        return { id: item.id, ...clean(item), ...dates(item) };
+      } catch (error) {
+        throw new InputError(`${label} "${item.id}" in the backup: ${error.message}`);
+      }
+    });
+  const brands = each("brands", "Brand", validateBrand);
+  const ecus = each("ecus", "ECU", validateEcu);
+  const known = { brandIds: brands.map((brand) => brand.id), ecuIds: ecus.map((ecu) => ecu.id) };
+  const vehicles = each("vehicles", "Vehicle", (item) => validateVehicle(vehicleFormValues(item), known));
+  const orders = backup.orders.filter((order) => !validOrder(order));
+  if (orders.length) throw new InputError(`Order "${orders[0].number ?? orders[0].id}" in the backup is damaged.`);
+  const enquiries = backup.enquiries.filter((enquiry) => !validEnquiry(enquiry));
+  if (enquiries.length) throw new InputError(`Enquiry "${enquiries[0].id}" in the backup is damaged.`);
+  let settingValues;
+  try {
+    settingValues = validateSettings({ ...DEFAULT_SETTINGS, ...backup.settings });
+  } catch (error) {
+    throw new InputError(`Settings in the backup: ${error.message}`);
   }
-  if (!Number.isInteger(backup.nextOrderNumber)) throw new InputError("The backup is missing its order counter.");
+  // The order counter must stay ahead of every order number, or new orders would reuse one.
+  const highest = Math.max(1000, ...backup.orders.map((order) => Number(/^UP-(\d+)$/.exec(order.number)?.[1]) || 0));
+  const alertChats = (Array.isArray(backup.alertChats) ? backup.alertChats : []).filter((chat) => /^-?\d+$/.test(String(chat?.chatId)));
+  return {
+    ...(Number.isInteger(backup.version) && { version: backup.version }),
+    ...(Number.isInteger(backup.catalogVersion) && { catalogVersion: backup.catalogVersion }),
+    settings: { ...DEFAULT_SETTINGS, ...settingValues },
+    brands,
+    ecus,
+    vehicles,
+    services: each("services", "Service", validateService),
+    products: each("products", "Product", validateProduct),
+    orders: backup.orders,
+    enquiries: backup.enquiries,
+    alertChats,
+    nextOrderNumber: Math.max(Number.isInteger(backup.nextOrderNumber) ? backup.nextOrderNumber : 0, highest + 1)
+  };
 }
 
 // sendAlert delivers a Telegram message; it is null when the bot isn't configured.
@@ -286,8 +344,7 @@ export function registerAdminRoutes(route, { botUsername = () => "", sendAlert =
     "POST",
     "/api/admin/import",
     ({ body }) => {
-      validateBackup(body);
-      replaceData(body);
+      replaceData(cleanBackup(body));
       return { ok: true };
     },
     { bodyLimit: 25_000_000 }

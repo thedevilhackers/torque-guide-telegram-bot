@@ -54,10 +54,10 @@ function load() {
 
 let data = load();
 
-function persist() {
+function persist(value) {
   mkdirSync(DATA_DIR, { recursive: true });
   const temp = `${DB_FILE}.tmp`;
-  writeFileSync(temp, JSON.stringify(data, null, 2));
+  writeFileSync(temp, JSON.stringify(value, null, 2));
   renameSync(temp, DB_FILE);
 }
 
@@ -66,19 +66,20 @@ export function db() {
   return data;
 }
 
-// Applies a change to a copy of the data, then swaps it in and saves. If the change throws,
-// nothing is modified.
+// Applies a change to a copy of the data, saves it, then swaps it in. If the change or the save
+// fails, nothing is modified, so the site never shows a change that wasn't stored.
 export function transact(change) {
   const draft = structuredClone(data);
   const result = change(draft);
+  persist(draft);
   data = draft;
-  persist();
   return result;
 }
 
 export function replaceData(next) {
-  data = migrate(next);
-  persist();
+  const migrated = migrate(next);
+  persist(migrated);
+  data = migrated;
 }
 
 const isEmpty = (value) => value === "" || value === null || value === undefined;

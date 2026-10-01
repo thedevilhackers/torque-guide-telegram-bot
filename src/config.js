@@ -23,7 +23,9 @@ export const config = {
   openaiModel: process.env.OPENAI_MODEL || "gpt-5.6-terra",
   port: Number(process.env.PORT) || 3000,
   adminUsername: process.env.ADMIN_USERNAME || "admin",
-  adminPassword: process.env.ADMIN_PASSWORD ?? ""
+  adminPassword: process.env.ADMIN_PASSWORD ?? "",
+  // Most AI requests a day across all customers, so a flood of messages can't run up the OpenAI bill.
+  aiDailyLimit: Number(process.env.AI_DAILY_LIMIT) || 400
 };
 
 export const MIN_ADMIN_PASSWORD_LENGTH = 10;

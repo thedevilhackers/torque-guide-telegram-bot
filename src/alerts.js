@@ -61,16 +61,23 @@ function contactButtons(customer, adminPath) {
   return row.length ? [row] : undefined;
 }
 
+// Telegram messages stop at 4,096 characters, so long orders list their first items and a count.
+const MAX_ALERT_ITEMS = 12;
+const MAX_ALERT_LENGTH = 3500;
+const fit = (text) => (text.length > MAX_ALERT_LENGTH ? `${text.slice(0, MAX_ALERT_LENGTH).replace(/&[^;]*$/, "")}…` : text);
+
 export function orderAlert(order) {
+  const extra = order.items.length - MAX_ALERT_ITEMS;
   const lines = [
     `🛒 <b>New order ${h(order.number)}</b> · ${h(money(order.total, order.currency))}`,
-    ...order.items.map((item) => `${item.qty} × ${h(item.name)}`),
+    ...order.items.slice(0, MAX_ALERT_ITEMS).map((item) => `${item.qty} × ${h(item.name)}`),
+    extra > 0 ? `…and ${extra} more item${extra === 1 ? "" : "s"}` : null,
     "",
     `👤 ${h(order.customer.name)} · ${h(order.customer.phone)}`,
     order.fulfilment === "delivery" ? `🚚 Delivery to ${h(order.address)}` : "🏁 Collection from the workshop",
     order.note ? `📝 ${h(order.note)}` : null
   ];
-  return { text: lines.filter((line) => line !== null).join("\n"), buttons: contactButtons(order.customer, `orders/${order.id}`) };
+  return { text: fit(lines.filter((line) => line !== null).join("\n")), buttons: contactButtons(order.customer, `orders/${order.id}`) };
 }
 
 export function enquiryAlert(enquiry) {
@@ -87,7 +94,7 @@ export function enquiryAlert(enquiry) {
     enquiry.location ? `📍 ${h(enquiry.location)}` : null,
     enquiry.message ? `📝 ${h(enquiry.message)}` : null
   ];
-  return { text: lines.filter((line) => line !== null).join("\n"), buttons: contactButtons(customer, `enquiries/${enquiry.id}`) };
+  return { text: fit(lines.filter((line) => line !== null).join("\n")), buttons: contactButtons(customer, `enquiries/${enquiry.id}`) };
 }
 
 // Sends to every linked chat. One failing chat (e.g. the bot was blocked) doesn't stop the others.
@@ -104,10 +111,22 @@ export async function broadcast({ text, buttons }, send = sendText) {
   return sent;
 }
 
+// Runs an alert without letting a failure reach the customer: by now the order or enquiry is saved,
+// and an error here would show them a failure page and invite a duplicate.
+function safely(enabled, build, send) {
+  return (record) => {
+    try {
+      if (enabled()) broadcast(build(record), send).catch((error) => console.error("Alert failed:", error.message));
+    } catch (error) {
+      console.error("Alert failed:", error.message);
+    }
+  };
+}
+
 // Subscribes to new orders and enquiries. Returns a function that stops the alerts.
 export function startAlerts({ send = sendText } = {}) {
-  const onOrder = (order) => settings().alertOrders && broadcast(orderAlert(order), send);
-  const onEnquiry = (enquiry) => settings().alertEnquiries && broadcast(enquiryAlert(enquiry), send);
+  const onOrder = safely(() => settings().alertOrders, orderAlert, send);
+  const onEnquiry = safely(() => settings().alertEnquiries, enquiryAlert, send);
   events.on("order", onOrder);
   events.on("enquiry", onEnquiry);
   return () => {

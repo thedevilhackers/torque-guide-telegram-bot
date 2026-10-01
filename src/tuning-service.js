@@ -62,9 +62,18 @@ export function fallbackStage1Report(vehicle) {
   };
 }
 
+// The same car gets the same notes, so a report is reused for a week instead of asking the AI on
+// every view.
+const REPORT_TTL_MS = 7 * 86_400_000;
+const REPORT_CACHE_SIZE = 300;
+const reportCache = new Map();
+
 export async function makeStage1Report(userId, vehicle) {
   const fallback = fallbackStage1Report(vehicle);
   if (!aiEnabled()) return fallback;
+  const key = JSON.stringify([settings().businessName, vehicleFacts(vehicle)]);
+  const cached = reportCache.get(key);
+  if (cached && cached.expires > Date.now()) return cached.report;
   try {
     const report = await requestJson(userId, {
       name: "stage1_report",
@@ -73,7 +82,11 @@ export async function makeStage1Report(userId, vehicle) {
       user: `Vehicle: ${JSON.stringify(vehicleFacts(vehicle))}`
     });
     const items = (list, fallbackList) => (Array.isArray(list) && list.length ? list.slice(0, 4).map((item) => clip(item, 140)) : fallbackList);
-    return { summary: clip(report.summary, 700) || fallback.summary, prepare: items(report.prepare, fallback.prepare), checks: items(report.checks, fallback.checks) };
+    const result = { summary: clip(report.summary, 700) || fallback.summary, prepare: items(report.prepare, fallback.prepare), checks: items(report.checks, fallback.checks) };
+    reportCache.delete(key);
+    reportCache.set(key, { report: result, expires: Date.now() + REPORT_TTL_MS });
+    if (reportCache.size > REPORT_CACHE_SIZE) reportCache.delete(reportCache.keys().next().value);
+    return result;
   } catch (error) {
     console.error("Stage 1 report AI error:", error.message);
     return fallback;

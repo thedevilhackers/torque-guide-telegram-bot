@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { db, replaceData } from "../src/db.js";
+import { mkdirSync, rmdirSync } from "node:fs";
+import { join } from "node:path";
+import { DATA_DIR, db, replaceData, transact } from "../src/db.js";
 import { CATALOG_UPDATES, CATALOG_VERSION, DEFAULT_SETTINGS, SEED_SERVICES, SEED_VEHICLES, seedData } from "../src/seed-data.js";
 
 const brandRefresh = CATALOG_UPDATES.find((update) => update.version === 3);
@@ -57,4 +59,19 @@ test("untouched launch wording and services move to the new branding; edited one
   assert.equal(db().settings.tagline, DEFAULT_SETTINGS.tagline, "other untouched settings still update");
   assert.equal(db().services[0].summary, "Our own words.");
   assert.equal(db().services.length, brandRefresh.services.from.length);
+});
+
+test("a change that can't be saved isn't applied", () => {
+  const before = db().nextOrderNumber;
+  // A folder where the temporary file should go makes the save fail, like a full disk would.
+  const blocker = join(DATA_DIR, "db.json.tmp");
+  mkdirSync(blocker, { recursive: true });
+  try {
+    assert.throws(() => transact((data) => {
+      data.nextOrderNumber += 100;
+    }));
+  } finally {
+    rmdirSync(blocker);
+  }
+  assert.equal(db().nextOrderNumber, before);
 });

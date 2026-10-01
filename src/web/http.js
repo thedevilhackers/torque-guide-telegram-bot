@@ -109,7 +109,8 @@ export function serveFile(req, res, root, relativePath, { cacheControl = "no-cac
   }
   res.writeHead(200, { ...headers, "Content-Length": stats.size });
   if (req.method === "HEAD") res.end();
-  else createReadStream(filePath).pipe(res);
+  // A file removed between the check above and the read would otherwise crash the server.
+  else createReadStream(filePath).on("error", () => res.destroy()).pipe(res);
   return true;
 }
 

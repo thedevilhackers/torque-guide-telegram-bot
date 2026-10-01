@@ -6,7 +6,7 @@ process.env.ADMIN_PASSWORD = "correct-horse-battery";
 process.env.WHATSAPP_NUMBER = "94770000000";
 
 const { createApp } = await import("../src/web/app.js");
-const { validateVehicle, vehicleFormValues } = await import("../src/validation.js");
+const { validateBrand, validateEcu, validateProduct, validateService, validateVehicle, vehicleFormValues } = await import("../src/validation.js");
 const { vehicleEntries } = await import("../src/vehicles.js");
 const { db } = await import("../src/db.js");
 
@@ -45,6 +45,55 @@ const order = (items, extra = {}) => ({ customer: { name: "Sam Perera", phone: "
 test("every seed vehicle passes the admin validation", () => {
   const context = { brandIds: db().brands.map((brand) => brand.id), ecuIds: db().ecus.map((ecu) => ecu.id) };
   for (const entry of vehicleEntries()) assert.doesNotThrow(() => validateVehicle(vehicleFormValues(entry), context), entry.id);
+});
+
+test("every seed brand, ECU, service and product passes the admin validation", () => {
+  for (const [name, validate] of [["brands", validateBrand], ["ecus", validateEcu], ["services", validateService], ["products", validateProduct]]) {
+    for (const item of db()[name]) assert.doesNotThrow(() => validate(item), `${name}: ${item.id}`);
+  }
+});
+
+test("orders can't get past the per-item limit by repeating a product", async (t) => {
+  const { request, close } = await startApp();
+  t.after(close);
+  const repeated = await request("/api/orders", { method: "POST", body: order(Array.from({ length: 3 }, () => ({ id: "stage1-voucher", qty: 20 }))) });
+  assert.equal(repeated.status, 400);
+  assert.match(repeated.data.error, /up to 20 of each item/);
+  const tooManyLines = await request("/api/orders", { method: "POST", body: order(Array.from({ length: 31 }, () => ({ id: "cap", qty: 1 }))) });
+  assert.equal(tooManyLines.status, 400);
+  assert.equal((await request("/api/orders", { method: "POST", body: order([{ id: "stage1-voucher", qty: 15 }, { id: "stage1-voucher", qty: 5 }]) })).status, 200);
+});
+
+test("one address can place five orders an hour; rejected orders don't count", async (t) => {
+  const { request, close } = await startApp();
+  t.after(close);
+  for (let i = 0; i < 3; i++) assert.equal((await request("/api/orders", { method: "POST", body: order([{ id: "missing", qty: 1 }]) })).status, 400);
+  for (let i = 0; i < 5; i++) assert.equal((await request("/api/orders", { method: "POST", body: order([{ id: "cap", qty: 1 }]) })).status, 200, `order ${i + 1}`);
+  const sixth = await request("/api/orders", { method: "POST", body: order([{ id: "cap", qty: 1 }]) });
+  assert.equal(sixth.status, 429);
+});
+
+test("orders sent at the same moment can't get past the limit", async (t) => {
+  const { request, close } = await startApp();
+  t.after(close);
+  const results = await Promise.all(Array.from({ length: 12 }, () => request("/api/orders", { method: "POST", body: order([{ id: "cap", qty: 1 }]) })));
+  assert.equal(results.filter((result) => result.status === 200).length, 5);
+  assert.equal(results.filter((result) => result.status === 429).length, 7);
+});
+
+test("graphs are drawn once and requests are limited per address", async (t) => {
+  const { request, close } = await startApp();
+  t.after(close);
+  let started = performance.now();
+  assert.equal((await request("/api/vehicles/ford_ranger_32/graph.png?stage=2")).status, 200);
+  const first = performance.now() - started;
+  started = performance.now();
+  const again = await request("/api/vehicles/ford_ranger_32/graph.png?stage=2");
+  assert.equal(again.status, 200);
+  assert.ok(performance.now() - started < Math.max(40, first / 3), "the second request is served from the cache");
+  let limited = 0;
+  for (let i = 0; i < 60; i++) if ((await request("/api/vehicles/ford_ranger_32/graph.png?stage=1")).status === 429) limited++;
+  assert.ok(limited > 0, "a burst of graph requests is limited");
 });
 
 test("public pages and APIs", async (t) => {
@@ -271,4 +320,23 @@ test("settings, uploads and backups", async (t) => {
   assert.equal((await request("/api/admin/import", { method: "POST", admin: true, body: { ...exported, vehicles: [{ id: "x" }] } })).status, 400);
   assert.equal((await request("/api/admin/import", { method: "POST", admin: true, body: exported })).status, 200);
   assert.equal((await request("/api/site")).data.settings.businessName, "Unity Performance Colombo");
+
+  // A damaged or hand-edited backup is refused with the reason, and the site keeps working.
+  const damaged = structuredClone(exported);
+  damaged.brands[0].title = "";
+  const brandError = await request("/api/admin/import", { method: "POST", admin: true, body: damaged });
+  assert.equal(brandError.status, 400);
+  assert.equal(brandError.data.error, 'Brand "audi" in the backup: Name is required.');
+  const badLink = await request("/api/admin/import", { method: "POST", admin: true, body: { ...exported, settings: { ...exported.settings, instagram: "javascript:alert(1)" } } });
+  assert.match(badLink.data.error, /Settings in the backup: Instagram must be a link starting with https/);
+  const badOrder = structuredClone(exported);
+  badOrder.orders = [{ ...badOrder.orders[0], createdAt: 7 }];
+  assert.equal((await request("/api/admin/import", { method: "POST", admin: true, body: badOrder })).status, 400);
+  assert.equal((await request("/api/admin/dashboard")).status, 200);
+
+  // The order counter is moved past the highest order number so numbers are never reused.
+  const behind = await request("/api/admin/import", { method: "POST", admin: true, body: { ...exported, nextOrderNumber: 1 } });
+  assert.equal(behind.status, 200);
+  const highest = Math.max(1000, ...exported.orders.map((item) => Number(item.number.slice(3))));
+  assert.equal(db().nextOrderNumber, highest + 1);
 });

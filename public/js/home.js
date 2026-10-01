@@ -129,6 +129,7 @@ async function identifyWithAi(query, container) {
   } catch (error) {
     button.disabled = false;
     button.textContent = "Ask AI to identify it";
+    $(".form-error", container)?.remove();
     container.append(h("p", { class: "form-error", role: "alert", text: error.message }));
   }
 }

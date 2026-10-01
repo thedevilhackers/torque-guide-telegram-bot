@@ -45,6 +45,7 @@ Open http://localhost:3000 for the site and http://localhost:3000/admin for the 
 | `TELEGRAM_BOT_TOKEN` | For the bot | From [@BotFather](https://t.me/BotFather). Without it the website runs and the bot is off. |
 | `OPENAI_API_KEY` | No | Turns on AI vehicle search (website and bot), AI Stage 1 reports and the bot's Ask AI. |
 | `OPENAI_MODEL` | No | Defaults to `gpt-5.6-terra`. |
+| `AI_DAILY_LIMIT` | No | Most AI requests a day across all customers (default 400). Each customer also gets 20 an hour; past either limit the bot uses its built-in answers. |
 | `BUSINESS_NAME`, `WHATSAPP_NUMBER`, `WORKSHOP_ADDRESS`, `WORKSHOP_LATITUDE`, `WORKSHOP_LONGITUDE` | No | Starting values for your business details. After the first run, manage them in **Admin → Settings**; empty settings fall back to these. |
 | `DATA_DIR` | No | Where the database and uploads live (default `./data`). |
 | `PORT` | No | Web port (default 3000). |
@@ -65,9 +66,13 @@ Open http://localhost:3000 for the site and http://localhost:3000/admin for the 
 ## Security
 
 - The admin session is an HttpOnly, SameSite=Strict cookie. Every change must come from the admin panel itself (custom header plus same-origin check), and failed sign-ins are limited to 5 per 15 minutes per address.
-- Public order and enquiry forms accept JSON from this site only, and are rate-limited per address.
+- Public order and enquiry forms accept JSON from this site only. Each address can place 5 orders and 10 enquiries an hour, and an order can hold up to 20 of each item, because an order holds stock as soon as it is placed.
+- Dyno graphs are drawn once and reused, and each address can request 60 a minute, so a burst of requests can't stall the site.
+- AI requests are limited to 20 an hour per customer and `AI_DAILY_LIMIT` (default 400) a day in total; Stage 1 reports for a car are reused for a week. Past a limit, the bot uses its built-in answers.
+- A Telegram chat raises at most 5 new enquiries (and alerts) a day; after that its latest enquiry is updated.
+- Backups are checked with the same rules as the admin forms before they replace anything.
 - Uploads are checked to be real PNG, JPEG or WebP files, saved under random names, and served with a strict content type.
-- Every page is sent with a strict Content Security Policy, and all customer-entered text is inserted as text, never as HTML.
+- Every page is sent with a strict Content Security Policy, all customer-entered text is inserted as text, never as HTML, and links that would run script are dropped.
 
 ## Host it on Render (24/7)
 

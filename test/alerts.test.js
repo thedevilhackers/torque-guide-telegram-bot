@@ -2,7 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { alertChats, broadcast, createLinkCode, enquiryAlert, linkChat, orderAlert, startAlerts, unlinkChat } from "../src/alerts.js";
 import { transact } from "../src/db.js";
-import { createEnquiry, createOrder } from "../src/records.js";
+import { events } from "../src/events.js";
+import { createEnquiry, createOrder, recordTelegramEnquiry } from "../src/records.js";
+import { getVehicle, vehicleEntries } from "../src/vehicles.js";
 
 const order = {
   id: "o1",
@@ -88,4 +90,35 @@ test("new orders and enquiries are sent to every linked chat, respecting the set
     stop();
   }
   assert.equal(await broadcast({ text: "hi" }, send), 1);
+});
+
+test("long orders are shortened to fit a Telegram message", () => {
+  const items = Array.from({ length: 30 }, (_, i) => ({ name: `Part number ${i} with a long descriptive name for the catalogue`, qty: 2 }));
+  const { text } = orderAlert({ ...order, items, note: "n".repeat(500), address: "a".repeat(240) });
+  assert.match(text, /…and 18 more items/);
+  assert.ok(text.length <= 3501);
+});
+
+test("a broken alert never turns a saved order into an error", () => {
+  transact((data) => {
+    data.settings.alertOrders = true;
+  });
+  const stop = startAlerts({ send: async () => {} });
+  try {
+    assert.doesNotThrow(() => events.emit("order", { number: "UP-1", items: null }));
+  } finally {
+    stop();
+  }
+});
+
+test("one Telegram chat can't flood the owner with enquiry alerts", () => {
+  let alerts = 0;
+  const count = () => alerts++;
+  events.on("enquiry", count);
+  try {
+    for (const entry of vehicleEntries().slice(0, 8)) recordTelegramEnquiry("flood-chat", { customer: { name: "Spammer" }, vehicle: getVehicle(entry.id), stage: 1 });
+  } finally {
+    events.off("enquiry", count);
+  }
+  assert.equal(alerts, 5);
 });

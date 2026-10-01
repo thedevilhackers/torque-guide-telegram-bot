@@ -1,10 +1,32 @@
 import { createHash } from "node:crypto";
 import { config } from "./config.js";
+import { rateLimiter } from "./web/http.js";
 
 const RESPONSES_URL = "https://api.openai.com/v1/responses";
 const TIMEOUT_MS = 60_000;
 
 export const aiEnabled = () => Boolean(config.openaiApiKey);
+
+// Thrown when a customer, or the business as a whole, has used its AI allowance. Callers fall back
+// to built-in answers; on the website it becomes a 429 with this message.
+export class AiLimitError extends Error {
+  constructor(message) {
+    super(message);
+    this.status = 429;
+  }
+}
+
+const AI_CALLS_PER_USER_PER_HOUR = 20;
+const perUser = rateLimiter({ windowMs: 60 * 60_000, max: AI_CALLS_PER_USER_PER_HOUR });
+const daily = { date: "", used: 0 };
+
+function spendAiCall(userId) {
+  const date = new Date().toISOString().slice(0, 10);
+  if (daily.date !== date) Object.assign(daily, { date, used: 0 });
+  if (daily.used >= config.aiDailyLimit) throw new AiLimitError("Our AI assistant is busy right now. Please try again later or message us.");
+  if (!perUser.hit(String(userId))) throw new AiLimitError("You've reached the AI limit for now. Please try again in an hour or message us.");
+  daily.used++;
+}
 
 // The REST API returns text inside output[].content[]; output_text is an SDK-only convenience.
 export function outputText(data) {
@@ -19,6 +41,7 @@ export function outputText(data) {
 
 async function createResponse(userId, { system, user, format }) {
   if (!aiEnabled()) throw new Error("OPENAI_API_KEY is not set.");
+  spendAiCall(userId);
   const response = await fetch(RESPONSES_URL, {
     method: "POST",
     headers: { Authorization: `Bearer ${config.openaiApiKey}`, "Content-Type": "application/json" },

@@ -5,7 +5,11 @@ export const $ = (selector, root = document) => root.querySelector(selector);
 export const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 export const reducedMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-// Builds elements without innerHTML: strings become text nodes, so data can never inject markup.
+// Links that would run code instead of opening a page.
+const UNSAFE_URL = /^\s*(javascript|vbscript|data):/i;
+
+// Builds elements without innerHTML: strings become text nodes, so data can never inject markup,
+// and href/src values that would run script are dropped.
 export function h(tag, props = {}, ...children) {
   const element = document.createElement(tag);
   for (const [key, value] of Object.entries(props ?? {})) {
@@ -21,6 +25,7 @@ export function h(tag, props = {}, ...children) {
     }
     else if (key.startsWith("on")) element.addEventListener(key.slice(2).toLowerCase(), value);
     else if (key === "dataset") Object.assign(element.dataset, value);
+    else if ((key === "href" || key === "src") && UNSAFE_URL.test(String(value)) && !/^data:image\//i.test(String(value))) continue;
     else element.setAttribute(key, value === true ? "" : value);
   }
   element.append(...children.flat().filter((child) => child !== null && child !== undefined && child !== false));
@@ -166,8 +171,12 @@ export function productCard(product, currency, onOpen, delay = 0) {
 // ---------- Bag ----------
 
 const BAG_KEY = "unity-bag";
+// The most of one item a single order can hold (the server checks the same limit).
+const MAX_QTY = 20;
 const listeners = new Set();
-let bagItems = (storage("get", BAG_KEY) ?? []).filter((item) => typeof item?.id === "string" && Number.isInteger(item.qty) && item.qty > 0);
+let bagItems = (storage("get", BAG_KEY) ?? [])
+  .filter((item) => typeof item?.id === "string" && Number.isInteger(item.qty) && item.qty > 0)
+  .map((item) => ({ id: item.id, qty: Math.min(MAX_QTY, item.qty) }));
 
 export const bag = {
   items: () => bagItems,
@@ -182,7 +191,7 @@ export const bag = {
   },
   add(id, qty = 1) {
     const current = bagItems.find((item) => item.id === id)?.qty ?? 0;
-    this.set(id, Math.min(20, current + qty));
+    this.set(id, Math.min(MAX_QTY, current + qty));
   },
   clear() {
     bagItems = [];
@@ -194,7 +203,7 @@ export const bag = {
 let productsPromise;
 export const loadProducts = () => (productsPromise ??= api("/api/products").then((data) => data.products));
 
-function stepper(value, onChange, max = 20) {
+function stepper(value, onChange, max = MAX_QTY) {
   const output = h("output", { text: String(value) });
   return h(
     "div",
@@ -278,7 +287,7 @@ function setupBag(site) {
             h("span", { class: "price", text: money(product.price * qty, currency) }),
             h("div", {}, h("button", { class: "remove", type: "button", text: "Remove", onclick: () => bag.set(product.id, 0) }))
           ),
-          stepper(qty, (next) => bag.set(product.id, next), product.stock ?? 20)
+          stepper(qty, (next) => bag.set(product.id, next), Math.min(MAX_QTY, product.stock ?? MAX_QTY))
         )
       )
     );

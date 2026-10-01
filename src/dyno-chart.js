@@ -171,7 +171,24 @@ function peakMarker(canvas, points, values, color, label) {
   canvas.text(label, left + 8, top + 6, 2, THEME.background);
 }
 
-export function renderStageChart(vehicle, { stage = 1, businessName = "Unity Performance", curves = buildDynoCurves(vehicle, stage) } = {}) {
+// Drawing a sheet takes a few hundred milliseconds and blocks everything else, so finished sheets are
+// kept (most recently used first). The key covers every field the drawing reads, so an edited vehicle
+// or business name draws a new sheet. Enough room for every catalogue vehicle at every stage.
+const SHEET_CACHE_SIZE = 600;
+const sheetCache = new Map();
+
+export function renderStageChart(vehicle, { stage = 1, businessName = "Unity Performance", curves } = {}) {
+  if (curves) return drawStageChart(vehicle, { stage, businessName, curves });
+  const key = JSON.stringify([vehicle, stage, businessName]);
+  let png = sheetCache.get(key);
+  if (png) sheetCache.delete(key);
+  else png = drawStageChart(vehicle, { stage, businessName, curves: buildDynoCurves(vehicle, stage) });
+  sheetCache.set(key, png);
+  if (sheetCache.size > SHEET_CACHE_SIZE) sheetCache.delete(sheetCache.keys().next().value);
+  return png;
+}
+
+function drawStageChart(vehicle, { stage, businessName, curves }) {
   const { stock, tuned } = curves;
   const target = stageFigures(vehicle, stage);
   const gain = stageGain(vehicle, stage);

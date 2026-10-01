@@ -153,7 +153,7 @@ export function validateEcu(input) {
 export function validateBrand(input) {
   return {
     title: text(input.title, "Name", { required: true, max: 40 }),
-    aliases: list(input.aliases, "Search aliases", { split: /[\n,]/, itemMax: 20 }).map((alias) => alias.toLowerCase())
+    aliases: list(input.aliases, "Search aliases", { split: /[\n,]/, itemMax: 40 }).map((alias) => alias.toLowerCase())
   };
 }
 

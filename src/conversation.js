@@ -127,6 +127,7 @@ export function createConversation({ telegram = telegramApi, ai = tuningService,
     try {
       vehicle = await ai.identifyVehicle(chatId, query);
     } catch (error) {
+      if (error.status === 429) return telegram.sendText(chatId, h(error.message), { buttons: retry });
       console.error("AI vehicle search failed:", error.message);
     }
     if (!vehicle) {
@@ -292,8 +293,8 @@ export function createConversation({ telegram = telegramApi, ai = tuningService,
     try {
       answer = await ai.askAssistant(chatId, question, vehicle);
     } catch (error) {
-      console.error("AI assistant failed:", error.message);
-      answer = "Sorry, I can't answer right now. Please try again shortly or message our team on WhatsApp.";
+      if (error.status !== 429) console.error("AI assistant failed:", error.message);
+      answer = error.status === 429 ? error.message : "Sorry, I can't answer right now. Please try again shortly or message our team on WhatsApp.";
     }
     return telegram.sendText(chatId, `🤖 ${h(answer)}\n\n<i>Type another question, or use the buttons below.</i>`, { buttons: [[btn("🔎 Search my vehicle", "search"), btn("🏠 Menu", "menu")]] });
   }

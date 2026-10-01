@@ -20,6 +20,11 @@ export const ENQUIRY_STATUSES = ["new", "contacted", "booked", "closed"];
 const clean = (value, max) => String(value ?? "").trim().replace(/\s+/g, " ").slice(0, max);
 const money = (value) => Math.round(value * 100) / 100;
 
+export const MAX_QTY_PER_ITEM = 20;
+const MAX_BAG_LINES = 30;
+// A Telegram customer's first few enquiries a day are recorded and alerted; after that the latest is updated.
+const TELEGRAM_ENQUIRIES_PER_DAY = 5;
+
 function required(value, label, { min = 1, max = 120 } = {}) {
   const text = clean(value, max);
   if (text.length < min) throw new InputError(`${label} is required.`);
@@ -59,14 +64,17 @@ export function createOrder(input) {
   const fulfilment = input?.fulfilment === "delivery" ? "delivery" : "pickup";
   const address = fulfilment === "delivery" ? required(input?.address, "A delivery address", { min: 5, max: 240 }) : "";
   const note = clean(input?.note, 500);
+  const lines = Array.isArray(input?.items) ? input.items : [];
+  if (lines.length > MAX_BAG_LINES) throw new InputError("Your bag has too many different items.");
   const requested = new Map();
-  for (const item of Array.isArray(input?.items) ? input.items : []) {
+  for (const item of lines) {
     const qty = Number(item?.qty);
-    if (typeof item?.id !== "string" || !Number.isInteger(qty) || qty < 1 || qty > 20) throw new InputError("Your bag has an invalid item.");
+    if (typeof item?.id !== "string" || !Number.isInteger(qty) || qty < 1) throw new InputError("Your bag has an invalid item.");
     requested.set(item.id, (requested.get(item.id) ?? 0) + qty);
   }
   if (!requested.size) throw new InputError("Your bag is empty.");
-  if (requested.size > 30) throw new InputError("Your bag has too many different items.");
+  // Checked after adding up repeated lines, so the same product can't be listed many times to get past the limit.
+  if ([...requested.values()].some((qty) => qty > MAX_QTY_PER_ITEM)) throw new InputError(`You can order up to ${MAX_QTY_PER_ITEM} of each item. For more, message us.`);
 
   const saved = transact((data) => {
     const items = [...requested].map(([id, qty]) => {
@@ -128,7 +136,7 @@ export function createEnquiry(input) {
   if (input?.ecu && !ecu) throw new InputError("Please choose your ECU again.");
   // Vehicles found by AI search aren't in the database, so the website sends their name instead.
   const vehicleText = clean(input?.vehicleText, 120);
-  const stage = Number(input?.stage) || 1;
+  const stage = [1, 2, 3].includes(Number(input?.stage)) ? Number(input.stage) : 1;
   if (vehicle && !availableStages(vehicle).includes(stage)) throw new InputError(`Stage ${stage} isn't available for this vehicle.`);
   const now = new Date().toISOString();
   const enquiry = {
@@ -150,7 +158,8 @@ export function createEnquiry(input) {
 }
 
 // Called when a Telegram customer reaches the summary. Revisiting it within a day updates the
-// same enquiry instead of creating duplicates; only a new enquiry fires the "enquiry" event.
+// same enquiry instead of creating duplicates, and so does going past the daily limit (the latest
+// enquiry is updated), so one chat can't flood the owner with alerts. Only a new enquiry fires "enquiry".
 export function recordTelegramEnquiry(chatId, session) {
   const customer = { name: session.customer?.name ?? "", username: session.customer?.username ?? "", chatId: String(chatId) };
   const vehicle = vehicleSnapshot(session.vehicle, session.stage);
@@ -158,9 +167,8 @@ export function recordTelegramEnquiry(chatId, session) {
   const now = new Date().toISOString();
   const { enquiry, created } = transact((data) => {
     const dayAgo = Date.now() - 86_400_000;
-    const existing = data.enquiries.find(
-      (enquiry) => enquiry.source === "telegram" && enquiry.customer?.chatId === customer.chatId && enquiry.vehicle?.name === vehicle?.name && Date.parse(enquiry.createdAt) > dayAgo
-    );
+    const recent = data.enquiries.filter((enquiry) => enquiry.source === "telegram" && enquiry.customer?.chatId === customer.chatId && Date.parse(enquiry.createdAt) > dayAgo);
+    const existing = recent.find((enquiry) => enquiry.vehicle?.name === vehicle?.name) ?? (recent.length >= TELEGRAM_ENQUIRIES_PER_DAY ? recent[0] : undefined);
     if (existing) {
       Object.assign(existing, { customer, vehicle, ecu: session.ecu ?? "", location, updatedAt: now });
       return { enquiry: existing, created: false };

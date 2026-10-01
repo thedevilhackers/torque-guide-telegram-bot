@@ -33,17 +33,31 @@ export function vehicleCurves(vehicle) {
   return { stock: sample(stages[1].stock), stages: Object.fromEntries(Object.entries(stages).map(([stage, curves]) => [stage, sample(curves.tuned)])) };
 }
 
-// Public POSTs must come from this site as JSON; each IP gets a modest allowance.
+// Public POSTs must come from this site as JSON; each IP gets a modest allowance of accepted orders
+// and enquiries (a rejected one holds no stock and sends no alert, so it isn't counted). An order
+// holds its items' stock straight away, so orders get the tightest limit.
+const tooMany = () => new HttpError(429, "Too many requests. Please wait a while and try again, or message us on WhatsApp.");
+
 async function publicPost(req, ip, limiter) {
   if (!sameOrigin(req)) throw new HttpError(403, "Requests must come from this website.");
-  if (!limiter.hit(ip)) throw new HttpError(429, "Too many requests. Please wait a few minutes and try again.");
+  if (limiter.blocked(ip)) throw tooMany();
   return readJson(req, 50_000);
 }
 
+// Checks the allowance again in the same step as saving: requests sent at the same moment all pass
+// the check above while their bodies arrive, so only this one can be relied on.
+function accept(limiter, ip, create) {
+  if (limiter.blocked(ip)) throw tooMany();
+  const result = create();
+  limiter.hit(ip);
+  return result;
+}
+
 export function registerPublicRoutes(route, { botUsername }) {
-  const orderLimiter = rateLimiter({ windowMs: 10 * 60_000, max: 10 });
-  const enquiryLimiter = rateLimiter({ windowMs: 10 * 60_000, max: 10 });
+  const orderLimiter = rateLimiter({ windowMs: 60 * 60_000, max: 5 });
+  const enquiryLimiter = rateLimiter({ windowMs: 60 * 60_000, max: 10 });
   const aiLimiter = rateLimiter({ windowMs: 60 * 60_000, max: 8 });
+  const graphLimiter = rateLimiter({ windowMs: 60_000, max: 60 });
 
   route("GET", "/healthz", ({ res }) => sendBuffer(res, 200, Buffer.from("ok"), "text/plain; charset=utf-8", { "Cache-Control": "no-store" }));
 
@@ -83,7 +97,8 @@ export function registerPublicRoutes(route, { botUsername }) {
     return { vehicle: vehicleSummary(vehicle), curves: vehicleCurves(vehicle) };
   });
 
-  route("GET", "/api/vehicles/:id/graph.png", ({ res, params, url }) => {
+  route("GET", "/api/vehicles/:id/graph.png", ({ res, params, url, ip }) => {
+    if (!graphLimiter.hit(ip)) throw new HttpError(429, "Too many graph requests. Please wait a minute.");
     const vehicle = getVehicle(params.id);
     const stage = Number(url.searchParams.get("stage") ?? 1);
     if (!vehicle) throw new HttpError(404, "Vehicle not found.");
@@ -98,7 +113,8 @@ export function registerPublicRoutes(route, { botUsername }) {
   }));
 
   route("POST", "/api/orders", async ({ req, ip }) => {
-    const order = createOrder(await publicPost(req, ip, orderLimiter));
+    const input = await publicPost(req, ip, orderLimiter);
+    const order = accept(orderLimiter, ip, () => createOrder(input));
     return {
       order: { number: order.number, items: order.items, subtotal: order.subtotal, deliveryFee: order.deliveryFee, total: order.total, currency: order.currency, fulfilment: order.fulfilment },
       whatsappUrl: whatsappLink(orderText(order, settings().businessName))
@@ -107,7 +123,7 @@ export function registerPublicRoutes(route, { botUsername }) {
 
   route("POST", "/api/enquiries", async ({ req, ip }) => {
     const input = await publicPost(req, ip, enquiryLimiter);
-    const { enquiry, vehicle, stage } = createEnquiry(input);
+    const { enquiry, vehicle, stage } = accept(enquiryLimiter, ip, () => createEnquiry(input));
     const text = enquiryText({
       vehicle,
       stage,

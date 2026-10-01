@@ -44,6 +44,8 @@ const cookie = (req, value, maxAgeSeconds) =>
   `${COOKIE}=${value}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${maxAgeSeconds}${isHttps(req) ? "; Secure" : ""}`;
 
 export function startSession(req, res) {
+  const now = Date.now();
+  for (const [token, session] of sessions) if (session.expires < now) sessions.delete(token);
   const token = randomBytes(32).toString("base64url");
   sessions.set(token, { username: config.adminUsername, expires: Date.now() + SESSION_MS });
   res.setHeader("Set-Cookie", cookie(req, token, SESSION_MS / 1000));
