@@ -53,13 +53,14 @@ async function setupStory() {
     data = await api(`/api/vehicles/${vehicles[0].id}`);
   }
   const { vehicle, curves } = data;
+  const stage1 = curves.stages[1];
   const minRpm = curves.stock.rpm[0];
-  const maxRpm = Math.max(curves.stock.rpm.at(-1), curves.stage1.rpm.at(-1));
+  const maxRpm = Math.max(curves.stock.rpm.at(-1), stage1.rpm.at(-1));
   const scaleMax = vehicle.stage1.hp * 1.05;
   const stockPath = $("[data-story-stock]", story);
   const stagePath = $("[data-story-stage1]", story);
   stockPath.setAttribute("d", curvePath(curves.stock.rpm, curves.stock.power, scaleMax, minRpm, maxRpm));
-  stagePath.setAttribute("d", curvePath(curves.stage1.rpm, curves.stage1.power, scaleMax, minRpm, maxRpm));
+  stagePath.setAttribute("d", curvePath(stage1.rpm, stage1.power, scaleMax, minRpm, maxRpm));
   $("[data-story-vehicle]", story).textContent = `${vehicle.brand} ${vehicle.model} ${vehicle.generation}`;
   const length = stagePath.getTotalLength();
   stagePath.style.strokeDasharray = `${length}`;
@@ -448,7 +449,9 @@ setupEcus();
 setupVisit();
 setupBrandChips();
 observeReveals();
-await Promise.allSettled([
+// Each section starts on its own, so one failing doesn't stop the rest; failures are still reported
+// so they show up in the browser console instead of silently leaving a section still.
+const sections = await Promise.allSettled([
   setupStory(),
   setupNumbers(),
   setupFeaturedProducts(),
@@ -457,3 +460,4 @@ await Promise.allSettled([
     if (car) return openVehicle(car, { scroll: true });
   })
 ]);
+for (const section of sections) if (section.status === "rejected") console.error("A section of the page couldn't start:", section.reason);

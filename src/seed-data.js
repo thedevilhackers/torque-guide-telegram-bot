@@ -199,7 +199,24 @@ const INDIA_VEHICLES = [
   { id: "ford_endeavour_32", brand: "ford", model: "Endeavour 3.2", generation: "3rd gen", years: [2016, 2019], engine: "3.2 TDCi 5-cyl", fuel: "diesel", aspiration: "turbo", stock: [200, 470], stage1: [235, 565], stage2: [250, 600], stage3: [275, 635], ecus: [], keywords: "endeavour everest tdci" }
 ];
 
-export const SEED_VEHICLES = [...LAUNCH_VEHICLES, ...INDIA_VEHICLES];
+// Volkswagen and Skoda TDI diesels sold in India (the market's diesels stopped in 2020 with BS6).
+const VAG_DIESELS = [
+  { id: "vw_polo_12tdi", brand: "volkswagen", model: "Polo 1.2 TDI", generation: "", years: [2010, 2014], engine: "1.2 TDI 3-cyl", fuel: "diesel", aspiration: "turbo", stock: [75, 180], stage1: [95, 225], stage2: [102, 240], stage3: [112, 255], ecus: [], keywords: "polo tdi cr" },
+  { id: "vw_polo_15tdi", brand: "volkswagen", model: "Polo 1.5 TDI", generation: "", years: [2014, 2020], engine: "1.5 TDI", fuel: "diesel", aspiration: "turbo", stock: [90, 230], stage1: [115, 285], stage2: [122, 300], stage3: [135, 320], ecus: [], keywords: "polo tdi" },
+  { id: "vw_vento_16tdi", brand: "volkswagen", model: "Vento / Polo GT 1.6 TDI", generation: "", years: [2010, 2015], engine: "1.6 TDI", fuel: "diesel", aspiration: "turbo", stock: [105, 250], stage1: [130, 305], stage2: [140, 325], stage3: [155, 345], ecus: [], keywords: "vento polo gt tdi" },
+  { id: "vw_vento_15tdi", brand: "volkswagen", model: "Vento / Polo GT / Ameo 1.5 TDI", generation: "", years: [2015, 2020], engine: "1.5 TDI 110 PS", fuel: "diesel", aspiration: "turbo", stock: [110, 250], stage1: [135, 310], stage2: [145, 330], stage3: [160, 350], ecus: [], keywords: "vento polo gt ameo tdi" },
+  { id: "vw_jetta_20tdi", brand: "volkswagen", model: "Jetta 2.0 TDI", generation: "Mk6", years: [2011, 2018], engine: "2.0 TDI", fuel: "diesel", aspiration: "turbo", stock: [140, 320], stage1: [175, 400], stage2: [190, 430], stage3: [210, 460], ecus: [], keywords: "jetta tdi" },
+  { id: "vw_passat_20tdi", brand: "volkswagen", model: "Passat 2.0 TDI", generation: "B8", years: [2017, 2020], engine: "2.0 TDI (EA288)", fuel: "diesel", aspiration: "turbo", stock: [177, 350], stage1: [210, 430], stage2: [225, 460], stage3: [245, 490], ecus: ["bosch_edc17"], keywords: "passat tdi" },
+  { id: "vw_tiguan_20tdi", brand: "volkswagen", model: "Tiguan 2.0 TDI", generation: "AD1", years: [2017, 2020], engine: "2.0 TDI (EA288)", fuel: "diesel", aspiration: "turbo", stock: [143, 340], stage1: [180, 410], stage2: [195, 440], stage3: [215, 470], ecus: ["bosch_edc17"], keywords: "tiguan tdi" },
+  { id: "skoda_fabia_12tdi", brand: "skoda", model: "Fabia 1.2 TDI", generation: "", years: [2010, 2013], engine: "1.2 TDI 3-cyl", fuel: "diesel", aspiration: "turbo", stock: [75, 180], stage1: [95, 225], stage2: [102, 240], stage3: [112, 255], ecus: [], keywords: "fabia tdi cr" },
+  { id: "skoda_rapid_16tdi", brand: "skoda", model: "Rapid 1.6 TDI", generation: "", years: [2011, 2016], engine: "1.6 TDI", fuel: "diesel", aspiration: "turbo", stock: [105, 250], stage1: [130, 305], stage2: [140, 325], stage3: [155, 345], ecus: [], keywords: "rapid tdi" },
+  { id: "skoda_rapid_15tdi", brand: "skoda", model: "Rapid 1.5 TDI", generation: "", years: [2016, 2020], engine: "1.5 TDI", fuel: "diesel", aspiration: "turbo", stock: [110, 250], stage1: [135, 310], stage2: [145, 330], stage3: [160, 350], ecus: [], keywords: "rapid tdi" },
+  { id: "skoda_octavia_20tdi", brand: "skoda", model: "Octavia 2.0 TDI", generation: "3rd gen", years: [2013, 2020], engine: "2.0 TDI (EA288)", fuel: "diesel", aspiration: "turbo", stock: [143, 320], stage1: [180, 400], stage2: [195, 430], stage3: [215, 460], ecus: ["bosch_edc17"], keywords: "octavia tdi" },
+  { id: "skoda_superb_20tdi", brand: "skoda", model: "Superb 2.0 TDI", generation: "3rd gen", years: [2016, 2020], engine: "2.0 TDI (EA288)", fuel: "diesel", aspiration: "turbo", stock: [177, 350], stage1: [210, 430], stage2: [225, 460], stage3: [245, 490], ecus: ["bosch_edc17"], keywords: "superb tdi" },
+  { id: "skoda_kodiaq_20tdi", brand: "skoda", model: "Kodiaq 2.0 TDI", generation: "", years: [2017, 2020], engine: "2.0 TDI (EA288)", fuel: "diesel", aspiration: "turbo", stock: [150, 340], stage1: [185, 410], stage2: [200, 440], stage3: [220, 470], ecus: ["bosch_edc17"], keywords: "kodiaq tdi" }
+];
+
+export const SEED_VEHICLES = [...LAUNCH_VEHICLES, ...INDIA_VEHICLES, ...VAG_DIESELS];
 
 // Services shown on the website. icon: bolt | gauge | wave | scan | chip | wrench | shield | sparkle
 export const SEED_SERVICES = [
@@ -277,7 +294,8 @@ export const CATALOG_UPDATES = [
       heroSubtitle: ["Software-only performance for your car. More power, more torque, verified on our dyno.", DEFAULT_SETTINGS.heroSubtitle]
     },
     services: { from: LAUNCH_SERVICES, to: SEED_SERVICES }
-  }
+  },
+  { version: 4, vehicles: VAG_DIESELS }
 ];
 export const CATALOG_VERSION = Math.max(1, ...CATALOG_UPDATES.map((update) => update.version));
 

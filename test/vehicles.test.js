@@ -35,6 +35,11 @@ test("fuel words and Indian brand names narrow the search", () => {
   assert.ok(searchVehicles("tata motors nexon").length >= 2);
 });
 
+test("a decimal comma in an engine size works like a point", () => {
+  assert.deepEqual(searchVehicles("polo 1,5 tdi").map((vehicle) => vehicle.id), searchVehicles("polo 1.5 tdi").map((vehicle) => vehicle.id));
+  assert.equal(searchVehicles("polo 1,2 tdi")[0].id, "vw_polo_12tdi");
+});
+
 test("a model year ranks the matching generation first", () => {
   assert.equal(searchVehicles("golf gti 2022")[0].id, "vw_golf8_gti");
   assert.equal(searchVehicles("golf gti 2016")[0].id, "vw_golf7_gti");

@@ -90,6 +90,8 @@ export function normalizeSearch(value) {
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
+    // A decimal comma ("1,5 tdi") means the same as a decimal point.
+    .replace(/(\d),(\d)/g, "$1.$2")
     .replace(/(?<!\d)\.|\.(?!\d)/g, " ")
     .replace(/[^a-z0-9.]+/g, " ")
     .trim();
