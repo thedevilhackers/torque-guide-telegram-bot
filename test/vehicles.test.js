@@ -27,6 +27,14 @@ test("search matches model names, aliases and engine sizes", () => {
   assert.ok(searchVehicles("D-Max").some((vehicle) => vehicle.id === "isuzu_dmax_30"));
 });
 
+test("fuel words and Indian brand names narrow the search", () => {
+  assert.deepEqual(searchVehicles("creta diesel").map((vehicle) => vehicle.id), ["hyundai_creta_crdi"]);
+  assert.deepEqual(searchVehicles("thar petrol").map((vehicle) => vehicle.id), ["mahindra_thar_20t"]);
+  assert.deepEqual(searchVehicles("m&m xuv700 diesel").map((vehicle) => vehicle.id), ["mahindra_xuv700_22d"]);
+  assert.ok(searchVehicles("suzuki swift").every((vehicle) => vehicle.brandId === "maruti"));
+  assert.ok(searchVehicles("tata motors nexon").length >= 2);
+});
+
 test("a model year ranks the matching generation first", () => {
   assert.equal(searchVehicles("golf gti 2022")[0].id, "vw_golf8_gti");
   assert.equal(searchVehicles("golf gti 2016")[0].id, "vw_golf7_gti");

@@ -5,12 +5,23 @@
 export const SEED_BRANDS = [
   { id: "audi", title: "Audi", aliases: [] },
   { id: "bmw", title: "BMW", aliases: [] },
+  { id: "citroen", title: "Citroen", aliases: [] },
+  { id: "fiat", title: "Fiat", aliases: [] },
   { id: "ford", title: "Ford", aliases: [] },
   { id: "honda", title: "Honda", aliases: [] },
+  { id: "hyundai", title: "Hyundai", aliases: [] },
   { id: "isuzu", title: "Isuzu", aliases: [] },
+  { id: "jeep", title: "Jeep", aliases: [] },
+  { id: "kia", title: "Kia", aliases: [] },
+  { id: "mahindra", title: "Mahindra", aliases: ["m&m", "mahindra and mahindra"] },
+  { id: "maruti", title: "Maruti Suzuki", aliases: ["maruti", "suzuki", "msil"] },
   { id: "mercedes", title: "Mercedes-Benz", aliases: ["mercedes", "merc", "benz", "mb", "amg"] },
+  { id: "mg", title: "MG", aliases: ["mg motor", "morris garages"] },
   { id: "mitsubishi", title: "Mitsubishi", aliases: [] },
   { id: "nissan", title: "Nissan", aliases: [] },
+  { id: "renault", title: "Renault", aliases: [] },
+  { id: "skoda", title: "Skoda", aliases: [] },
+  { id: "tata", title: "Tata", aliases: ["tata motors"] },
   { id: "toyota", title: "Toyota", aliases: [] },
   { id: "volkswagen", title: "Volkswagen", aliases: ["vw"] }
 ];
@@ -39,7 +50,7 @@ export const SEED_ECUS = [
 // stage2 / stage3 are optional sample figures for builds with supporting hardware (Stage 2) and an
 // upgraded turbo (Stage 3); naturally aspirated engines are Stage 1 only.
 // Optional: redline and torqueFrom (rpm) shape the graph for engines that differ from the defaults.
-export const SEED_VEHICLES = [
+const LAUNCH_VEHICLES = [
   { id: "vw_golf7_gti", brand: "volkswagen", model: "Golf GTI", generation: "Mk7", years: [2013, 2020], engine: "2.0 TSI (EA888 Gen3)", fuel: "petrol", aspiration: "turbo", stock: [220, 350], stage1: [290, 420], stage2: [320, 450], stage3: [375, 485], ecus: ["simos18", "bosch_med17"], keywords: "golf7 golf 7 mk7" },
   { id: "vw_golf8_gti", brand: "volkswagen", model: "Golf GTI", generation: "Mk8", years: [2020], engine: "2.0 TSI (EA888 Gen4)", fuel: "petrol", aspiration: "turbo", stock: [245, 370], stage1: [300, 430], stage2: [330, 460], stage3: [390, 495], ecus: ["simos18"], keywords: "golf8 golf 8 mk8" },
   { id: "vw_golf7_r", brand: "volkswagen", model: "Golf R", generation: "Mk7", years: [2014, 2020], engine: "2.0 TSI (EA888 Gen3)", fuel: "petrol", aspiration: "turbo", stock: [300, 380], stage1: [360, 470], stage2: [395, 505], stage3: [470, 540], ecus: ["simos18", "bosch_med17"], keywords: "golf7 golf 7 mk7", redline: 6800 },
@@ -97,8 +108,103 @@ export const SEED_VEHICLES = [
 
   { id: "nissan_navara_d23", brand: "nissan", model: "Navara", generation: "D23 / NP300", years: [2015], engine: "2.3 dCi twin-turbo", fuel: "diesel", aspiration: "turbo", stock: [190, 450], stage1: [220, 520], stage2: [240, 555], stage3: [270, 610], ecus: [], keywords: "np300" },
   { id: "mitsu_triton_24", brand: "mitsubishi", model: "Triton / L200", generation: "5th gen", years: [2015, 2023], engine: "2.4 MIVEC diesel (4N15)", fuel: "diesel", aspiration: "turbo", stock: [181, 430], stage1: [210, 500], stage2: [225, 535], stage3: [255, 585], ecus: [], keywords: "l200 strada 4n15" },
-  { id: "isuzu_dmax_30", brand: "isuzu", model: "D-Max 3.0", generation: "RG", years: [2020], engine: "3.0 (4JJ3-TCX)", fuel: "diesel", aspiration: "turbo", stock: [190, 450], stage1: [215, 510], stage2: [230, 545], stage3: [260, 595], ecus: ["transtron"], keywords: "dmax d max 4jj3" }
+  { id: "isuzu_dmax_30", brand: "isuzu", model: "D-Max 3.0", generation: "RG", years: [2020], engine: "3.0 (4JJ3-TCX)", fuel: "diesel", aspiration: "turbo", stock: [190, 450], stage1: [215, 510], stage2: [230, 545], stage3: [260, 595], ecus: ["transtron"], keywords: "dmax d max 4jj3" },
 ];
+
+// Popular Indian-market cars, petrol and diesel.
+const INDIA_VEHICLES = [
+  { id: "maruti_swift_k12", brand: "maruti", model: "Swift / Dzire", generation: "3rd gen", years: [2021, 2024], engine: "1.2 K12N DualJet", fuel: "petrol", aspiration: "naturally_aspirated", stock: [90, 113], stage1: [95, 120], ecus: [], keywords: "swift dzire k12n" },
+  { id: "maruti_swift_z12", brand: "maruti", model: "Swift / Dzire", generation: "4th gen", years: [2024], engine: "1.2 Z12E", fuel: "petrol", aspiration: "naturally_aspirated", stock: [82, 112], stage1: [85, 120], ecus: [], keywords: "swift dzire z12e" },
+  { id: "maruti_baleno_rs", brand: "maruti", model: "Baleno RS", generation: "1st gen", years: [2017, 2020], engine: "1.0 BoosterJet turbo", fuel: "petrol", aspiration: "turbo", stock: [102, 150], stage1: [120, 185], stage2: [130, 195], stage3: [150, 205], ecus: [], keywords: "baleno rs boosterjet" },
+  { id: "maruti_baleno_k12", brand: "maruti", model: "Baleno", generation: "2nd gen", years: [2022], engine: "1.2 K12N DualJet", fuel: "petrol", aspiration: "naturally_aspirated", stock: [90, 113], stage1: [95, 120], ecus: [], keywords: "baleno glanza k12n" },
+  { id: "maruti_fronx_10t", brand: "maruti", model: "Fronx Turbo", generation: "", years: [2023], engine: "1.0 BoosterJet turbo", fuel: "petrol", aspiration: "turbo", stock: [100, 148], stage1: [120, 180], stage2: [130, 190], stage3: [150, 200], ecus: [], keywords: "fronx taisor boosterjet" },
+  { id: "maruti_brezza_k15", brand: "maruti", model: "Brezza", generation: "2nd gen", years: [2022], engine: "1.5 K15C", fuel: "petrol", aspiration: "naturally_aspirated", stock: [103, 137], stage1: [110, 145], ecus: [], keywords: "vitara brezza k15c" },
+  { id: "maruti_ertiga_k15", brand: "maruti", model: "Ertiga / XL6", generation: "", years: [2022], engine: "1.5 K15C", fuel: "petrol", aspiration: "naturally_aspirated", stock: [103, 137], stage1: [110, 145], ecus: [], keywords: "ertiga xl6 k15c" },
+  { id: "maruti_ciaz_k15", brand: "maruti", model: "Ciaz", generation: "", years: [2018], engine: "1.5 K15B", fuel: "petrol", aspiration: "naturally_aspirated", stock: [105, 138], stage1: [110, 145], ecus: [], keywords: "ciaz k15b" },
+  { id: "maruti_jimny_k15", brand: "maruti", model: "Jimny", generation: "5-door", years: [2023], engine: "1.5 K15B", fuel: "petrol", aspiration: "naturally_aspirated", stock: [105, 134], stage1: [110, 140], ecus: [], keywords: "jimny k15b" },
+  { id: "maruti_vitara_k15", brand: "maruti", model: "Grand Vitara", generation: "", years: [2022], engine: "1.5 K15C mild hybrid", fuel: "petrol", aspiration: "naturally_aspirated", stock: [103, 137], stage1: [110, 145], ecus: [], keywords: "grand vitara hyryder k15c" },
+  { id: "maruti_ddis_190", brand: "maruti", model: "Swift / Dzire Diesel", generation: "", years: [2011, 2020], engine: "1.3 DDiS 190", fuel: "diesel", aspiration: "turbo", stock: [75, 190], stage1: [90, 230], stage2: [95, 245], stage3: [105, 260], ecus: ["marelli"], keywords: "swift dzire ddis multijet" },
+  { id: "maruti_ddis_200", brand: "maruti", model: "Brezza / Ertiga / Ciaz Diesel", generation: "", years: [2016, 2020], engine: "1.3 DDiS 200", fuel: "diesel", aspiration: "turbo", stock: [90, 200], stage1: [105, 240], stage2: [110, 255], stage3: [125, 270], ecus: ["marelli"], keywords: "vitara brezza ertiga ciaz s-cross scross ddis multijet" },
+  { id: "hyundai_creta_14t", brand: "hyundai", model: "Creta Turbo", generation: "2nd gen", years: [2020, 2023], engine: "1.4 T-GDi", fuel: "petrol", aspiration: "turbo", stock: [140, 242], stage1: [165, 290], stage2: [180, 305], stage3: [205, 325], ecus: [], keywords: "creta tgdi" },
+  { id: "hyundai_creta_15t", brand: "hyundai", model: "Creta Turbo", generation: "facelift", years: [2024], engine: "1.5 T-GDi", fuel: "petrol", aspiration: "turbo", stock: [160, 253], stage1: [190, 305], stage2: [205, 325], stage3: [240, 340], ecus: [], keywords: "creta n line nline tgdi" },
+  { id: "hyundai_creta_crdi", brand: "hyundai", model: "Creta Diesel", generation: "", years: [2020], engine: "1.5 CRDi", fuel: "diesel", aspiration: "turbo", stock: [116, 250], stage1: [135, 300], stage2: [145, 320], stage3: [160, 335], ecus: [], keywords: "creta crdi" },
+  { id: "hyundai_creta_mpi", brand: "hyundai", model: "Creta Petrol", generation: "", years: [2020], engine: "1.5 MPi", fuel: "petrol", aspiration: "naturally_aspirated", stock: [115, 144], stage1: [120, 150], ecus: [], keywords: "creta mpi" },
+  { id: "hyundai_verna_15t", brand: "hyundai", model: "Verna Turbo", generation: "6th gen", years: [2023], engine: "1.5 T-GDi", fuel: "petrol", aspiration: "turbo", stock: [160, 253], stage1: [190, 305], stage2: [205, 325], stage3: [240, 340], ecus: [], keywords: "verna tgdi" },
+  { id: "hyundai_verna_crdi", brand: "hyundai", model: "Verna Diesel", generation: "5th gen", years: [2020, 2023], engine: "1.5 CRDi", fuel: "diesel", aspiration: "turbo", stock: [116, 250], stage1: [135, 300], stage2: [145, 320], stage3: [160, 335], ecus: [], keywords: "verna crdi" },
+  { id: "hyundai_venue_10t", brand: "hyundai", model: "Venue Turbo", generation: "", years: [2019], engine: "1.0 T-GDi", fuel: "petrol", aspiration: "turbo", stock: [120, 172], stage1: [145, 210], stage2: [155, 225], stage3: [180, 235], ecus: [], keywords: "venue n line nline tgdi" },
+  { id: "hyundai_venue_crdi", brand: "hyundai", model: "Venue Diesel", generation: "", years: [2021], engine: "1.5 CRDi", fuel: "diesel", aspiration: "turbo", stock: [116, 250], stage1: [135, 300], stage2: [145, 320], stage3: [160, 335], ecus: [], keywords: "venue crdi" },
+  { id: "hyundai_i20_10t", brand: "hyundai", model: "i20 / i20 N Line", generation: "3rd gen", years: [2020], engine: "1.0 T-GDi", fuel: "petrol", aspiration: "turbo", stock: [120, 172], stage1: [145, 210], stage2: [155, 225], stage3: [180, 235], ecus: [], keywords: "i20 n line nline tgdi" },
+  { id: "hyundai_nios_10t", brand: "hyundai", model: "Grand i10 Nios / Aura Turbo", generation: "", years: [2020, 2023], engine: "1.0 T-GDi", fuel: "petrol", aspiration: "turbo", stock: [100, 172], stage1: [120, 210], stage2: [130, 225], stage3: [150, 235], ecus: [], keywords: "grand i10 nios aura tgdi" },
+  { id: "hyundai_alcazar_crdi", brand: "hyundai", model: "Alcazar Diesel", generation: "", years: [2021], engine: "1.5 CRDi", fuel: "diesel", aspiration: "turbo", stock: [116, 250], stage1: [135, 300], stage2: [145, 320], stage3: [160, 335], ecus: [], keywords: "alcazar crdi" },
+  { id: "hyundai_tucson_20d", brand: "hyundai", model: "Tucson Diesel", generation: "4th gen", years: [2022], engine: "2.0 CRDi", fuel: "diesel", aspiration: "turbo", stock: [186, 416], stage1: [220, 500], stage2: [235, 530], stage3: [260, 560], ecus: [], keywords: "tucson crdi" },
+  { id: "kia_seltos_14t", brand: "kia", model: "Seltos Turbo", generation: "1st gen", years: [2019, 2022], engine: "1.4 T-GDi", fuel: "petrol", aspiration: "turbo", stock: [140, 242], stage1: [165, 290], stage2: [180, 305], stage3: [205, 325], ecus: [], keywords: "seltos gtx tgdi" },
+  { id: "kia_seltos_15t", brand: "kia", model: "Seltos Turbo", generation: "facelift", years: [2023], engine: "1.5 T-GDi", fuel: "petrol", aspiration: "turbo", stock: [160, 253], stage1: [190, 305], stage2: [205, 325], stage3: [240, 340], ecus: [], keywords: "seltos gtx tgdi" },
+  { id: "kia_seltos_crdi", brand: "kia", model: "Seltos Diesel", generation: "", years: [2019], engine: "1.5 CRDi", fuel: "diesel", aspiration: "turbo", stock: [116, 250], stage1: [135, 300], stage2: [145, 320], stage3: [160, 335], ecus: [], keywords: "seltos crdi" },
+  { id: "kia_sonet_10t", brand: "kia", model: "Sonet Turbo", generation: "", years: [2020], engine: "1.0 T-GDi", fuel: "petrol", aspiration: "turbo", stock: [120, 172], stage1: [145, 210], stage2: [155, 225], stage3: [180, 235], ecus: [], keywords: "sonet gtx tgdi" },
+  { id: "kia_sonet_crdi", brand: "kia", model: "Sonet Diesel", generation: "", years: [2020], engine: "1.5 CRDi", fuel: "diesel", aspiration: "turbo", stock: [116, 250], stage1: [135, 300], stage2: [145, 320], stage3: [160, 335], ecus: [], keywords: "sonet crdi" },
+  { id: "kia_carens_15t", brand: "kia", model: "Carens Turbo", generation: "", years: [2023], engine: "1.5 T-GDi", fuel: "petrol", aspiration: "turbo", stock: [160, 253], stage1: [190, 305], stage2: [205, 325], stage3: [240, 340], ecus: [], keywords: "carens tgdi" },
+  { id: "kia_carens_crdi", brand: "kia", model: "Carens Diesel", generation: "", years: [2022], engine: "1.5 CRDi", fuel: "diesel", aspiration: "turbo", stock: [116, 250], stage1: [135, 300], stage2: [145, 320], stage3: [160, 335], ecus: [], keywords: "carens crdi" },
+  { id: "kia_carnival_22", brand: "kia", model: "Carnival", generation: "", years: [2020, 2023], engine: "2.2 CRDi", fuel: "diesel", aspiration: "turbo", stock: [200, 440], stage1: [235, 530], stage2: [250, 560], stage3: [275, 595], ecus: [], keywords: "carnival crdi" },
+  { id: "tata_nexon_12t", brand: "tata", model: "Nexon Petrol", generation: "", years: [2017], engine: "1.2 Revotron turbo", fuel: "petrol", aspiration: "turbo", stock: [120, 170], stage1: [145, 205], stage2: [155, 215], stage3: [180, 230], ecus: [], keywords: "nexon revotron" },
+  { id: "tata_nexon_15d", brand: "tata", model: "Nexon Diesel", generation: "", years: [2017], engine: "1.5 Revotorq", fuel: "diesel", aspiration: "turbo", stock: [110, 260], stage1: [130, 310], stage2: [140, 330], stage3: [155, 345], ecus: [], keywords: "nexon revotorq" },
+  { id: "tata_altroz_it", brand: "tata", model: "Altroz iTurbo", generation: "", years: [2021], engine: "1.2 iTurbo", fuel: "petrol", aspiration: "turbo", stock: [110, 140], stage1: [130, 170], stage2: [140, 180], stage3: [160, 190], ecus: [], keywords: "altroz racer revotron" },
+  { id: "tata_altroz_15d", brand: "tata", model: "Altroz Diesel", generation: "", years: [2020], engine: "1.5 Revotorq", fuel: "diesel", aspiration: "turbo", stock: [90, 200], stage1: [105, 240], stage2: [110, 255], stage3: [125, 270], ecus: [], keywords: "altroz revotorq" },
+  { id: "tata_harrier_20", brand: "tata", model: "Harrier / Safari", generation: "", years: [2020], engine: "2.0 Kryotec", fuel: "diesel", aspiration: "turbo", stock: [170, 350], stage1: [200, 420], stage2: [215, 445], stage3: [235, 470], ecus: ["bosch_edc17"], keywords: "harrier safari kryotec multijet" },
+  { id: "tata_tiago_jtp", brand: "tata", model: "Tiago / Tigor JTP", generation: "", years: [2018, 2020], engine: "1.2 Revotron turbo", fuel: "petrol", aspiration: "turbo", stock: [114, 150], stage1: [135, 185], stage2: [145, 195], stage3: [170, 205], ecus: [], keywords: "tiago tigor jtp" },
+  { id: "tata_curvv_12t", brand: "tata", model: "Curvv Turbo", generation: "", years: [2024], engine: "1.2 Hyperion GDi turbo", fuel: "petrol", aspiration: "turbo", stock: [125, 225], stage1: [150, 275], stage2: [160, 290], stage3: [190, 310], ecus: [], keywords: "curvv hyperion" },
+  { id: "tata_hexa_22", brand: "tata", model: "Hexa", generation: "", years: [2017, 2020], engine: "2.2 Varicor 400", fuel: "diesel", aspiration: "turbo", stock: [156, 400], stage1: [185, 480], stage2: [200, 510], stage3: [220, 540], ecus: [], keywords: "hexa varicor" },
+  { id: "tata_punch_12", brand: "tata", model: "Punch / Tiago", generation: "", years: [2021], engine: "1.2 Revotron", fuel: "petrol", aspiration: "naturally_aspirated", stock: [86, 113], stage1: [90, 120], ecus: [], keywords: "punch tiago tigor revotron" },
+  { id: "mahindra_thar_20t", brand: "mahindra", model: "Thar Petrol", generation: "2nd gen", years: [2020], engine: "2.0 mStallion turbo", fuel: "petrol", aspiration: "turbo", stock: [150, 320], stage1: [175, 385], stage2: [190, 410], stage3: [220, 430], ecus: [], keywords: "thar roxx mstallion" },
+  { id: "mahindra_thar_22d", brand: "mahindra", model: "Thar Diesel", generation: "2nd gen", years: [2020], engine: "2.2 mHawk", fuel: "diesel", aspiration: "turbo", stock: [130, 300], stage1: [155, 360], stage2: [165, 380], stage3: [185, 405], ecus: ["bosch_edc17"], keywords: "thar roxx mhawk" },
+  { id: "mahindra_scorpn_20t", brand: "mahindra", model: "Scorpio-N Petrol", generation: "", years: [2022], engine: "2.0 mStallion turbo", fuel: "petrol", aspiration: "turbo", stock: [203, 370], stage1: [240, 445], stage2: [260, 470], stage3: [300, 500], ecus: [], keywords: "scorpio n scorpion mstallion" },
+  { id: "mahindra_scorpn_22d", brand: "mahindra", model: "Scorpio-N Diesel", generation: "", years: [2022], engine: "2.2 mHawk", fuel: "diesel", aspiration: "turbo", stock: [175, 400], stage1: [205, 480], stage2: [220, 510], stage3: [240, 540], ecus: ["bosch_edc17"], keywords: "scorpio n scorpion mhawk" },
+  { id: "mahindra_scorpio_cl", brand: "mahindra", model: "Scorpio Classic", generation: "", years: [2022], engine: "2.2 mHawk", fuel: "diesel", aspiration: "turbo", stock: [132, 300], stage1: [155, 360], stage2: [165, 380], stage3: [185, 405], ecus: ["bosch_edc17"], keywords: "scorpio classic mhawk" },
+  { id: "mahindra_xuv700_20t", brand: "mahindra", model: "XUV700 Petrol", generation: "", years: [2021], engine: "2.0 mStallion turbo", fuel: "petrol", aspiration: "turbo", stock: [200, 380], stage1: [235, 455], stage2: [255, 480], stage3: [295, 510], ecus: [], keywords: "xuv700 xuv 700 mstallion" },
+  { id: "mahindra_xuv700_22d", brand: "mahindra", model: "XUV700 Diesel", generation: "", years: [2021], engine: "2.2 mHawk", fuel: "diesel", aspiration: "turbo", stock: [185, 420], stage1: [220, 505], stage2: [235, 535], stage3: [260, 565], ecus: ["bosch_edc17"], keywords: "xuv700 xuv 700 mhawk" },
+  { id: "mahindra_xuv500_22d", brand: "mahindra", model: "XUV500", generation: "", years: [2015, 2021], engine: "2.2 mHawk", fuel: "diesel", aspiration: "turbo", stock: [155, 360], stage1: [185, 430], stage2: [200, 455], stage3: [220, 480], ecus: ["bosch_edc17"], keywords: "xuv500 xuv 500 mhawk" },
+  { id: "mahindra_xuv300_12t", brand: "mahindra", model: "XUV300 / XUV 3XO Turbo", generation: "", years: [2022], engine: "1.2 TGDi", fuel: "petrol", aspiration: "turbo", stock: [130, 230], stage1: [155, 280], stage2: [165, 295], stage3: [195, 315], ecus: [], keywords: "xuv300 xuv 300 xuv3xo 3xo tgdi" },
+  { id: "mahindra_xuv300_15d", brand: "mahindra", model: "XUV300 / XUV 3XO Diesel", generation: "", years: [2019], engine: "1.5 turbo diesel", fuel: "diesel", aspiration: "turbo", stock: [117, 300], stage1: [140, 360], stage2: [150, 380], stage3: [165, 405], ecus: [], keywords: "xuv300 xuv 300 xuv3xo 3xo" },
+  { id: "mahindra_bolero_15d", brand: "mahindra", model: "Bolero", generation: "", years: [2020], engine: "1.5 mHawk75", fuel: "diesel", aspiration: "turbo", stock: [76, 210], stage1: [90, 250], stage2: [95, 265], stage3: [105, 280], ecus: [], keywords: "bolero mhawk" },
+  { id: "toyota_crysta_24", brand: "toyota", model: "Innova Crysta 2.4", generation: "", years: [2016], engine: "2.4 D-4D (2GD-FTV)", fuel: "diesel", aspiration: "turbo", stock: [150, 343], stage1: [175, 410], stage2: [185, 435], stage3: [205, 460], ecus: ["denso"], keywords: "innova crysta 2gd" },
+  { id: "toyota_crysta_28", brand: "toyota", model: "Innova Crysta 2.8", generation: "", years: [2016, 2020], engine: "2.8 D-4D (1GD-FTV)", fuel: "diesel", aspiration: "turbo", stock: [174, 360], stage1: [205, 430], stage2: [220, 455], stage3: [240, 480], ecus: ["denso"], keywords: "innova crysta 1gd" },
+  { id: "toyota_fortuner_27", brand: "toyota", model: "Fortuner 2.7 Petrol", generation: "", years: [2016], engine: "2.7 (2TR-FE)", fuel: "petrol", aspiration: "naturally_aspirated", stock: [166, 245], stage1: [175, 255], ecus: ["denso"], keywords: "fortuner 2tr" },
+  { id: "honda_city_15d", brand: "honda", model: "City Diesel", generation: "5th gen", years: [2020, 2023], engine: "1.5 i-DTEC", fuel: "diesel", aspiration: "turbo", stock: [100, 200], stage1: [120, 240], stage2: [130, 255], stage3: [140, 270], ecus: [], keywords: "city idtec" },
+  { id: "honda_elevate_15", brand: "honda", model: "Elevate", generation: "", years: [2023], engine: "1.5 i-VTEC", fuel: "petrol", aspiration: "naturally_aspirated", stock: [121, 145], stage1: [125, 150], ecus: [], keywords: "elevate ivtec" },
+  { id: "honda_amaze_15d", brand: "honda", model: "Amaze Diesel", generation: "", years: [2018, 2023], engine: "1.5 i-DTEC", fuel: "diesel", aspiration: "turbo", stock: [100, 200], stage1: [120, 240], stage2: [130, 255], stage3: [140, 270], ecus: [], keywords: "amaze idtec" },
+  { id: "vw_virtus_10", brand: "volkswagen", model: "Virtus / Taigun 1.0 TSI", generation: "", years: [2021], engine: "1.0 TSI", fuel: "petrol", aspiration: "turbo", stock: [115, 178], stage1: [140, 215], stage2: [150, 230], stage3: [175, 240], ecus: [], keywords: "virtus taigun tsi" },
+  { id: "vw_virtus_15", brand: "volkswagen", model: "Virtus / Taigun GT", generation: "", years: [2021], engine: "1.5 TSI EVO", fuel: "petrol", aspiration: "turbo", stock: [150, 250], stage1: [175, 300], stage2: [190, 320], stage3: [220, 335], ecus: [], keywords: "virtus taigun gt tsi" },
+  { id: "vw_polo_10tsi", brand: "volkswagen", model: "Polo 1.0 TSI", generation: "India", years: [2020, 2022], engine: "1.0 TSI", fuel: "petrol", aspiration: "turbo", stock: [110, 175], stage1: [130, 215], stage2: [140, 230], stage3: [160, 240], ecus: [], keywords: "polo tsi" },
+  { id: "skoda_slavia_10", brand: "skoda", model: "Slavia / Kushaq / Kylaq 1.0 TSI", generation: "", years: [2021], engine: "1.0 TSI", fuel: "petrol", aspiration: "turbo", stock: [115, 178], stage1: [140, 215], stage2: [150, 230], stage3: [175, 240], ecus: [], keywords: "slavia kushaq kylaq tsi" },
+  { id: "skoda_slavia_15", brand: "skoda", model: "Slavia / Kushaq 1.5 TSI", generation: "", years: [2021], engine: "1.5 TSI EVO", fuel: "petrol", aspiration: "turbo", stock: [150, 250], stage1: [175, 300], stage2: [190, 320], stage3: [220, 335], ecus: [], keywords: "slavia kushaq tsi" },
+  { id: "skoda_octavia_20", brand: "skoda", model: "Octavia / Superb / Kodiaq", generation: "", years: [2021], engine: "2.0 TSI", fuel: "petrol", aspiration: "turbo", stock: [190, 320], stage1: [225, 385], stage2: [245, 410], stage3: [280, 430], ecus: [], keywords: "octavia superb kodiaq tsi" },
+  { id: "skoda_octavia_rs", brand: "skoda", model: "Octavia RS 245", generation: "3rd gen", years: [2020], engine: "2.0 TSI", fuel: "petrol", aspiration: "turbo", stock: [245, 370], stage1: [290, 445], stage2: [315, 470], stage3: [360, 500], ecus: [], keywords: "octavia rs vrs tsi" },
+  { id: "mg_hector_15t", brand: "mg", model: "Hector Turbo", generation: "", years: [2019], engine: "1.5 turbo petrol", fuel: "petrol", aspiration: "turbo", stock: [143, 250], stage1: [170, 300], stage2: [185, 320], stage3: [210, 335], ecus: [], keywords: "hector plus" },
+  { id: "mg_hector_20d", brand: "mg", model: "Hector Diesel", generation: "", years: [2019], engine: "2.0 Multijet", fuel: "diesel", aspiration: "turbo", stock: [170, 350], stage1: [200, 420], stage2: [215, 445], stage3: [235, 470], ecus: ["bosch_edc17"], keywords: "hector plus multijet" },
+  { id: "mg_gloster_20", brand: "mg", model: "Gloster", generation: "", years: [2020], engine: "2.0 twin-turbo diesel", fuel: "diesel", aspiration: "turbo", stock: [218, 480], stage1: [255, 575], stage2: [275, 610], stage3: [300, 645], ecus: [], keywords: "gloster" },
+  { id: "mg_astor_13t", brand: "mg", model: "Astor Turbo", generation: "", years: [2021], engine: "1.3 turbo petrol", fuel: "petrol", aspiration: "turbo", stock: [140, 220], stage1: [165, 265], stage2: [180, 280], stage3: [205, 295], ecus: [], keywords: "astor" },
+  { id: "renault_kiger_10t", brand: "renault", model: "Kiger Turbo", generation: "", years: [2021], engine: "1.0 TCe turbo", fuel: "petrol", aspiration: "turbo", stock: [100, 160], stage1: [120, 195], stage2: [130, 205], stage3: [150, 220], ecus: [], keywords: "kiger tce" },
+  { id: "nissan_magnite_10t", brand: "nissan", model: "Magnite Turbo", generation: "", years: [2020], engine: "1.0 HRA0 turbo", fuel: "petrol", aspiration: "turbo", stock: [100, 160], stage1: [120, 195], stage2: [130, 205], stage3: [150, 220], ecus: [], keywords: "magnite" },
+  { id: "renault_duster_13t", brand: "renault", model: "Duster Turbo", generation: "", years: [2020, 2022], engine: "1.3 TCe turbo", fuel: "petrol", aspiration: "turbo", stock: [156, 254], stage1: [185, 305], stage2: [200, 325], stage3: [230, 340], ecus: [], keywords: "duster tce" },
+  { id: "renault_duster_15d", brand: "renault", model: "Duster Diesel", generation: "", years: [2012, 2020], engine: "1.5 dCi", fuel: "diesel", aspiration: "turbo", stock: [110, 245], stage1: [130, 295], stage2: [140, 315], stage3: [155, 330], ecus: [], keywords: "duster dci" },
+  { id: "jeep_compass_20d", brand: "jeep", model: "Compass / Meridian Diesel", generation: "", years: [2017], engine: "2.0 Multijet II", fuel: "diesel", aspiration: "turbo", stock: [170, 350], stage1: [200, 420], stage2: [215, 445], stage3: [235, 470], ecus: ["bosch_edc17"], keywords: "compass meridian multijet" },
+  { id: "jeep_compass_14t", brand: "jeep", model: "Compass Petrol", generation: "", years: [2017, 2022], engine: "1.4 MultiAir turbo", fuel: "petrol", aspiration: "turbo", stock: [163, 250], stage1: [190, 300], stage2: [205, 320], stage3: [240, 335], ecus: [], keywords: "compass multiair" },
+  { id: "citroen_c3_12t", brand: "citroen", model: "C3 / Basalt Turbo", generation: "", years: [2022], engine: "1.2 PureTech turbo", fuel: "petrol", aspiration: "turbo", stock: [110, 190], stage1: [130, 230], stage2: [140, 245], stage3: [160, 260], ecus: [], keywords: "c3 basalt aircross puretech" },
+  { id: "citroen_c5_20d", brand: "citroen", model: "C5 Aircross", generation: "", years: [2021], engine: "2.0 BlueHDi", fuel: "diesel", aspiration: "turbo", stock: [177, 400], stage1: [210, 480], stage2: [225, 510], stage3: [250, 540], ecus: [], keywords: "c5 aircross bluehdi" },
+  { id: "fiat_abarth_punto", brand: "fiat", model: "Abarth Punto", generation: "", years: [2015, 2019], engine: "1.4 T-Jet", fuel: "petrol", aspiration: "turbo", stock: [145, 212], stage1: [170, 255], stage2: [185, 270], stage3: [210, 285], ecus: [], keywords: "abarth punto tjet" },
+  { id: "fiat_linea_tjet", brand: "fiat", model: "Linea T-Jet", generation: "", years: [2010, 2019], engine: "1.4 T-Jet", fuel: "petrol", aspiration: "turbo", stock: [114, 207], stage1: [135, 250], stage2: [145, 265], stage3: [170, 280], ecus: [], keywords: "linea tjet" },
+  { id: "fiat_13_mjd", brand: "fiat", model: "Punto / Linea Multijet", generation: "", years: [2009, 2019], engine: "1.3 Multijet", fuel: "diesel", aspiration: "turbo", stock: [90, 209], stage1: [105, 250], stage2: [110, 265], stage3: [125, 280], ecus: ["marelli"], keywords: "punto linea multijet mjd" },
+  { id: "ford_ecosport_15d", brand: "ford", model: "EcoSport / Figo / Aspire Diesel", generation: "", years: [2013, 2021], engine: "1.5 TDCi", fuel: "diesel", aspiration: "turbo", stock: [100, 215], stage1: [120, 260], stage2: [130, 275], stage3: [140, 290], ecus: [], keywords: "ecosport figo aspire freestyle tdci" },
+  { id: "ford_ecosport_10e", brand: "ford", model: "EcoSport EcoBoost", generation: "", years: [2013, 2021], engine: "1.0 EcoBoost", fuel: "petrol", aspiration: "turbo", stock: [125, 170], stage1: [150, 205], stage2: [160, 215], stage3: [190, 230], ecus: [], keywords: "ecosport ecoboost" },
+  { id: "ford_endeavour_20", brand: "ford", model: "Endeavour 2.0", generation: "3rd gen", years: [2019, 2021], engine: "2.0 EcoBlue", fuel: "diesel", aspiration: "turbo", stock: [170, 420], stage1: [200, 505], stage2: [215, 535], stage3: [235, 565], ecus: [], keywords: "endeavour everest ecoblue" },
+  { id: "ford_endeavour_32", brand: "ford", model: "Endeavour 3.2", generation: "3rd gen", years: [2016, 2019], engine: "3.2 TDCi 5-cyl", fuel: "diesel", aspiration: "turbo", stock: [200, 470], stage1: [235, 565], stage2: [250, 600], stage3: [275, 635], ecus: [], keywords: "endeavour everest tdci" }
+];
+
+export const SEED_VEHICLES = [...LAUNCH_VEHICLES, ...INDIA_VEHICLES];
+
+// Catalogue additions made after launch. db.js adds each one once to an existing database (with any
+// brand it needs), so the owner's own edits and deletions are kept. Add new cars here with the next version.
+export const CATALOG_UPDATES = [{ version: 2, vehicles: INDIA_VEHICLES }];
+export const CATALOG_VERSION = Math.max(1, ...CATALOG_UPDATES.map((update) => update.version));
 
 // Services shown on the website. icon: bolt | gauge | wave | scan | chip | wrench
 export const SEED_SERVICES = [
@@ -159,6 +265,7 @@ const clone = (value) => structuredClone(value);
 export function seedData(envSettings = {}) {
   return {
     version: 1,
+    catalogVersion: CATALOG_VERSION,
     settings: { ...DEFAULT_SETTINGS, ...envSettings },
     brands: clone(SEED_BRANDS),
     ecus: clone(SEED_ECUS),

@@ -62,7 +62,9 @@ export function vehiclesForBrand(brandId) {
 }
 
 export function brandsWithVehicles() {
-  return brands().filter((brand) => vehicleEntries().some((vehicle) => vehicle.brand === brand.id));
+  return brands()
+    .filter((brand) => vehicleEntries().some((vehicle) => vehicle.brand === brand.id))
+    .sort((a, b) => a.title.localeCompare(b.title));
 }
 
 export function vehicleName(vehicle) {
@@ -93,9 +95,15 @@ export function normalizeSearch(value) {
     .trim();
 }
 
-function searchText(entry) {
+// Fuel and aspiration words let a search like "creta diesel" or "thar petrol" pick the right engine.
+const FUEL_WORDS = { petrol: "petrol gasoline", diesel: "diesel" };
+const ASPIRATION_WORDS = { turbo: "turbo", naturally_aspirated: "naturally aspirated" };
+
+export function vehicleSearchText(entry) {
   const brand = brandById(entry.brand);
-  return normalizeSearch([brand?.title, ...(brand?.aliases ?? []), entry.model, entry.generation, entry.engine, entry.keywords].join(" "));
+  return normalizeSearch(
+    [brand?.title, ...(brand?.aliases ?? []), entry.model, entry.generation, entry.engine, FUEL_WORDS[entry.fuel], ASPIRATION_WORDS[entry.aspiration], entry.keywords].join(" ")
+  );
 }
 
 // Every non-year word must match the start of a word (or appear inside the text for 3+ characters).
@@ -108,7 +116,7 @@ export function searchVehicles(query, limit = 8) {
   if (!wordTokens.length) return [];
   const results = [];
   vehicleEntries().forEach((entry, index) => {
-    const text = searchText(entry);
+    const text = vehicleSearchText(entry);
     const words = text.split(" ");
     const compact = text.replace(/ /g, "");
     let score = 0;

@@ -1,7 +1,7 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { envSettings } from "./config.js";
-import { DEFAULT_SETTINGS, seedData } from "./seed-data.js";
+import { CATALOG_UPDATES, CATALOG_VERSION, DEFAULT_SETTINGS, SEED_BRANDS, seedData } from "./seed-data.js";
 
 // A small JSON document store shared by the website, the admin panel and the Telegram bot.
 // Everything lives in DATA_DIR/db.json; writes go to a temporary file first, then replace it.
@@ -9,9 +9,28 @@ import { DEFAULT_SETTINGS, seedData } from "./seed-data.js";
 export const DATA_DIR = process.env.DATA_DIR || "data";
 const DB_FILE = join(DATA_DIR, "db.json");
 
-// Adds collections and settings introduced after the database was first created.
+// Adds catalogue cars released after this database was created. Each update is applied once:
+// cars already present (by id) are left alone, and a car the owner later deletes stays deleted.
+function applyCatalogUpdate(data, update) {
+  const ecuIds = new Set(data.ecus.map((ecu) => ecu.id));
+  for (const vehicle of update.vehicles) {
+    if (data.vehicles.some((entry) => entry.id === vehicle.id)) continue;
+    if (!data.brands.some((brand) => brand.id === vehicle.brand)) {
+      const brand = SEED_BRANDS.find((item) => item.id === vehicle.brand);
+      if (!brand) continue;
+      data.brands.push(structuredClone(brand));
+    }
+    data.vehicles.push({ ...structuredClone(vehicle), ecus: vehicle.ecus.filter((id) => ecuIds.has(id)) });
+  }
+}
+
+// Adds collections, settings and catalogue cars introduced after the database was first created.
 function migrate(stored) {
-  return { ...seedData(), ...stored, settings: { ...DEFAULT_SETTINGS, ...stored.settings } };
+  const data = { ...seedData(), ...structuredClone(stored), settings: { ...DEFAULT_SETTINGS, ...stored.settings } };
+  const from = stored.catalogVersion ?? 1;
+  for (const update of CATALOG_UPDATES) if (update.version > from) applyCatalogUpdate(data, update);
+  data.catalogVersion = Math.max(from, CATALOG_VERSION);
+  return data;
 }
 
 function load() {

@@ -216,7 +216,8 @@ test("admin manages products, vehicles, brands and ECUs", async (t) => {
 
   const brandInUse = await request("/api/admin/brands/nissan", { method: "DELETE", admin: true });
   assert.equal(brandInUse.status, 400);
-  assert.match(brandInUse.data.error, /used by 2 vehicles/);
+  const nissanCount = vehicleEntries().filter((entry) => entry.brand === "nissan").length;
+  assert.match(brandInUse.data.error, new RegExp(`used by ${nissanCount} vehicles`));
 
   assert.ok(vehicleEntries().some((entry) => entry.ecus.includes("denso")));
   assert.equal((await request("/api/admin/ecus/denso", { method: "DELETE", admin: true })).status, 200);
