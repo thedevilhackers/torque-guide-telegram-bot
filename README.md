@@ -12,13 +12,15 @@ It has no npm dependencies. The Stage 1 graphs are drawn in plain JavaScript, so
 
 ## What customers see
 
-**Website.** The hero and the "Read. Calibrate. Verify." story animate as you scroll, with a live power counter and a curve that draws itself. **Find your car** searches the database as you type, or browses by brand. It shows Stage 1 figures and an interactive chart, where you hover or use the arrow keys to read values; power and torque are separate panels on a shared rpm axis, and there's also a table view. A **Stage 1 / 2 / 3** switch shows each stage's figures, chart, the hardware it needs and a downloadable dyno sheet. **Book Stage 1** saves an enquiry and hands it to WhatsApp. If a car isn't listed and AI is on, "Ask AI to identify it" estimates it; the estimate is clearly labelled and kept within your gain limits.
+**Website.** The hero and the "Read. Calibrate. Verify." story animate as you scroll, with a live power counter and a curve that draws itself. **Find your car** searches the database as you type, or browses by brand. It shows Stage 1 figures and an interactive chart, where you hover or use the arrow keys to read values; power and torque are separate panels on a shared rpm axis, and there's also a table view. A **Stage 1 / 2 / 3** switch shows each stage's figures, chart, the hardware it needs and a downloadable power graph. **Book Stage 1** saves an enquiry and hands it to WhatsApp. If a car isn't listed and AI is on, "Ask AI to identify it" estimates it; the estimate is clearly labelled and kept within your gain limits.
 
 **Shop.** Customers add items to the bag and choose collection or delivery. They get an order number (UP-1001, UP-1002, …) and a **Send order on WhatsApp** button with the order already written. Prices and stock always come from the server, and stock goes down when an order is placed.
 
 There are no card payments: customers pay on collection or delivery once you confirm on WhatsApp. An online payment gateway (for example Stripe or PayHere) can be added later.
 
 **Telegram bot.** Customers find their vehicle and get the Stage 1 graph, with buttons for the Stage 2 and 3 graphs. Then they add their location and check their ECU. Finally they send the full details to you on WhatsApp. The enquiry is for the last stage they looked at.
+
+**Sharing and search.** Links to the site shared on WhatsApp, Instagram or Facebook show a preview with your banner. Pages carry your business details for search engines, along with `robots.txt` and `sitemap.xml`; the admin panel stays out of search results.
 
 ## Instant alerts
 
@@ -61,13 +63,13 @@ Open http://localhost:3000 for the site and http://localhost:3000/admin for the 
 - **Settings**: business name, headline, hero photo, announcement bar, contact details, WhatsApp number, map location, opening hours, currency, delivery fee, social links, the Stage 2 and 3 descriptions, and Telegram alerts.
 - **Backup**: download everything as one JSON file, or restore a backup. Uploaded photos are separate files in `DATA_DIR/uploads`.
 
-**The included vehicles, Stage 1, 2 and 3 figures, ECU statuses and products are sample data.** Replace them with your own dyno results, tools, prices and photos before launch.
+**The included vehicles, Stage 1, 2 and 3 figures, ECU statuses and products are sample data.** Replace them with your own figures, ECU statuses, prices and photos before launch.
 
 ## Security
 
 - The admin session is an HttpOnly, SameSite=Strict cookie. Every change must come from the admin panel itself (custom header plus same-origin check), and failed sign-ins are limited to 5 per 15 minutes per address.
 - Public order and enquiry forms accept JSON from this site only. Each address can place 5 orders and 10 enquiries an hour, and an order can hold up to 20 of each item, because an order holds stock as soon as it is placed.
-- Dyno graphs are drawn once and reused, and each address can request 60 a minute, so a burst of requests can't stall the site.
+- Power graph images are drawn once and reused, and each address can request 60 a minute, so a burst of requests can't stall the site.
 - AI requests are limited to 20 an hour per customer and `AI_DAILY_LIMIT` (default 400) a day in total; Stage 1 reports for a car are reused for a week. Past a limit, the bot uses its built-in answers.
 - A Telegram chat raises at most 5 new enquiries (and alerts) a day; after that its latest enquiry is updated.
 - Backups are checked with the same rules as the admin forms before they replace anything.
@@ -127,6 +129,7 @@ Any VPS running Ubuntu 22.04 or 24.04, or Debian 12, works; 1 vCPU and 1 GB of m
 Day to day:
 
 - **Update**: with git, `sudo bash /opt/unity-performance/deploy/vps/update.sh`. With a zip, upload the new zip and run `sudo bash /opt/unity-performance/deploy/vps/update.sh ~/unity-performance-vps.zip`. Either way it checks the new version in a separate copy first, switches only if the checks pass, and goes back to the previous version if the new one doesn't start. Your settings and data live outside the code folder, so updates never touch them.
+- **Switch back to the IP address** (for example after trying a domain that isn't ready): `sudo bash /opt/unity-performance/deploy/vps/install.sh --ip`. Run without a domain, the installer keeps the domain from last time only if it points at the server.
 - **Change keys or the admin password**: `sudo nano /etc/unity-performance/env`, then `sudo systemctl restart unity-performance`.
 - **Logs and status**: `sudo journalctl -u unity-performance -f` and `systemctl status unity-performance`.
 - **Backups**: `/var/backups/unity-performance`. Copy them off the server now and then, or turn on your provider's snapshots, because a backup on the same server is lost with it. To restore one:
@@ -163,7 +166,7 @@ Web services with disks need a paid instance type (the blueprint uses Starter). 
 
 The logo and icons were cut from the Unity Motorsports Performance banner; the original banner and poster are in `brand/source/`. The logo is chrome and red artwork with a transparent background, made for dark backgrounds, which is why the header stays dark on every page.
 
-- `public/brand/logo.webp`: the site header and the home page. `public/brand/logo.png`: the top of every dyno sheet.
+- `public/brand/logo.webp`: the site header and the home page. `public/brand/logo.png`: the top of every power graph image. `public/brand/share.jpg`: the picture shown when someone shares a link to the site.
 - `public/brand/icon-32.png` and `public/brand/apple-touch-icon.png`: the browser tab, phone home screen and admin panel.
 - `brand/logo-transparent.png` and `brand/turbo-symbol-transparent.png`: for print and social posts.
 - Telegram pictures, set in [@BotFather](https://t.me/BotFather) under `/mybots` → your bot → **Edit Bot**:
@@ -185,7 +188,7 @@ src/validation.js       admin input validation
 src/conversation.js     Telegram conversation flow
 src/dyno-chart.js       Stage 1 curves + PNG graph
 public/                 website, shop and admin panel (no build step)
-public/brand/           logo and icons used by the site and the dyno sheets
+public/brand/           logo, icons and link-preview picture used by the site and the power graphs
 deploy/vps/             VPS installer and updater (systemd, Caddy, firewall, backups)
 brand/                  brand kit: originals, transparent logo, Telegram pictures
 test/                   node --test suites

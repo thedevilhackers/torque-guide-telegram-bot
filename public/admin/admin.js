@@ -24,7 +24,7 @@ const ENQUIRY_LABELS = { new: "New", contacted: "Contacted", booked: "Booked", c
 const ECU_LABELS = { supported: "Supported", on_request: "On request", not_supported: "Not supported" };
 const FUEL_LABELS = { petrol: "Petrol", diesel: "Diesel" };
 const ASPIRATION_LABELS = { turbo: "Turbo", supercharged: "Supercharged", naturally_aspirated: "Naturally aspirated" };
-const ICONS = { bolt: "Lightning", gauge: "Gauge", wave: "Dyno curve", scan: "Diagnostics", chip: "Chip", wrench: "Wrench", shield: "Shield", sparkle: "Sparkle" };
+const ICONS = { bolt: "Lightning", gauge: "Gauge", wave: "Power curve", scan: "Diagnostics", chip: "Chip", wrench: "Wrench", shield: "Shield", sparkle: "Sparkle" };
 
 // ---------- Helpers ----------
 
@@ -788,7 +788,7 @@ const SETTINGS_SECTIONS = [
     { name: "heroTitle", label: "Headline" },
     { name: "announcement", label: "Announcement bar", help: "Optional message shown under the menu on every page." },
     { name: "heroSubtitle", label: "Sub-headline", type: "textarea", full: true },
-    { name: "heroImage", label: "Hero photo", type: "image", full: true, help: "Optional. A wide photo of a car or your dyno works best." }
+    { name: "heroImage", label: "Hero photo", type: "image", full: true, help: "Optional. A wide photo of a car or your workshop works best." }
   ]],
   ["Contact & location", [
     { name: "whatsappNumber", label: "WhatsApp number", help: "International format, digits only, e.g. 94771234567." },

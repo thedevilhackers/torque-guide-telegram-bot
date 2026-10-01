@@ -517,6 +517,8 @@ p {
     radial-gradient(28% 28% at 82% 72%, rgba(255, 140, 60, 0.14), transparent 70%);
   filter: blur(10px);
   animation: glow 12s var(--ease) infinite alternate;
+  /* Its own layer, so the slow drift moves a cached image instead of re-blurring every frame. */
+  will-change: transform;
 }
 
 @keyframes glow {
@@ -1314,13 +1316,28 @@ p {
 
 .numbers-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 32px;
+}
+
+.number {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+/* "Up to" above a figure that is a maximum rather than a count. */
+.number small {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--text-2);
+  font-size: 17px;
+  font-weight: 600;
 }
 
 .number strong {
   display: block;
-  font-size: clamp(56px, 8vw, 96px);
+  font-size: clamp(44px, 6.4vw, 88px);
   line-height: 1;
   font-weight: 800;
   letter-spacing: -0.05em;
@@ -1349,7 +1366,8 @@ p {
 
 @media (max-width: 720px) {
   .numbers-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 36px 20px;
   }
 }
 
@@ -1471,6 +1489,103 @@ p {
   margin-top: 6px;
   color: var(--muted);
   font-size: 14px;
+}
+
+/* ---------- Tools ---------- */
+
+.tool-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tool-card {
+  padding: 28px 24px;
+  border-radius: var(--radius);
+  background: linear-gradient(160deg, rgba(var(--glow), 0.16), transparent 60%), var(--surface);
+}
+
+.tool-card h3 {
+  margin: 0 0 10px;
+  font-size: 24px;
+  letter-spacing: -0.02em;
+}
+
+.tool-card p {
+  margin: 0;
+  color: var(--text-2);
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.tool-card:nth-child(2) {
+  --delay: 0.08s;
+}
+
+.tool-card:nth-child(3) {
+  --delay: 0.16s;
+}
+
+.tool-card:nth-child(4) {
+  --delay: 0.24s;
+}
+
+@media (max-width: 900px) {
+  .tool-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 520px) {
+  .tool-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---------- Floating WhatsApp button ---------- */
+
+.whatsapp-fab {
+  position: fixed;
+  right: max(18px, env(safe-area-inset-right));
+  bottom: max(18px, env(safe-area-inset-bottom));
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  background: #25d366;
+  color: #04260f;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  transition: transform 0.2s var(--ease);
+}
+
+.whatsapp-fab:hover {
+  transform: scale(1.06);
+  text-decoration: none;
+}
+
+.whatsapp-fab:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: 3px;
+}
+
+.whatsapp-fab svg {
+  width: 30px;
+  height: 30px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .whatsapp-fab {
+    transition: none;
+  }
 }
 
 .status {

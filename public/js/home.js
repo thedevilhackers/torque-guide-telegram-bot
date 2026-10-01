@@ -141,7 +141,7 @@ async function search(query) {
   const token = ++searchToken;
   for (const chip of $$(".chip", finder.chips)) chip.setAttribute("aria-pressed", "false");
   const trimmed = query.trim();
-  const { vehicles } = await api(trimmed ? `/api/vehicles?q=${encodeURIComponent(trimmed)}` : "/api/vehicles");
+  const { vehicles } = await api(trimmed ? `/api/vehicles?q=${encodeURIComponent(trimmed)}` : "/api/vehicles?limit=6");
   if (token !== searchToken) return;
   showResults(trimmed ? vehicles : vehicles.slice(0, 6), trimmed);
 }
@@ -215,7 +215,7 @@ function renderPanel({ vehicle, curves }, { scroll = true, query } = {}) {
       eyebrow.textContent = `Stage ${stage} estimate`;
       const actions = h("div", { class: "vehicle-actions" }, h("button", { class: "btn btn-primary", type: "button", text: `Book Stage ${stage}`, onclick: () => openEnquiry(vehicle, query, current) }));
       if (vehicle.source === "catalog") {
-        actions.append(h("a", { class: "link-arrow", href: `/api/vehicles/${encodeURIComponent(vehicle.id)}/graph.png?stage=${stage}`, download: `${vehicle.id}-stage${stage}.png`, text: "Download dyno sheet" }));
+        actions.append(h("a", { class: "link-arrow", href: `/api/vehicles/${encodeURIComponent(vehicle.id)}/graph.png?stage=${stage}`, download: `${vehicle.id}-stage${stage}.png`, text: "Download power graph" }));
       }
       body.replaceChildren(
         h("div", { class: "stat-tiles" }, statTile("Power", vehicle.stock.hp, current.hp, "hp", current.gain.hpPercent, stage), statTile("Torque", vehicle.stock.nm, current.nm, "Nm", current.gain.nmPercent, stage)),
@@ -232,7 +232,7 @@ function renderPanel({ vehicle, curves }, { scroll = true, query } = {}) {
           ))
       : null;
     show(1);
-    panel.replaceChildren(head, switcher, body, h("p", { class: "fineprint", text: "Estimates for a healthy vehicle on good fuel. Stage 2 and 3 figures depend on the parts fitted. Final figures are confirmed on our dyno." }));
+    panel.replaceChildren(head, switcher, body, h("p", { class: "fineprint", text: "Estimates for a healthy vehicle on good fuel. Stage 2 and 3 figures depend on the parts fitted. Real results vary from car to car." }));
   }
   panel.style.animation = "none";
   void panel.offsetWidth;
@@ -363,12 +363,12 @@ function countUp(element, target, { prefix = "", suffix = "" } = {}) {
   observer.observe(element);
 }
 
-async function setupNumbers() {
-  const { vehicles } = await api("/api/vehicles");
-  const average = vehicles.length ? vehicles.reduce((sum, vehicle) => sum + vehicle.gain.hpPercent, 0) / vehicles.length : 0;
-  countUp($('[data-stat="vehicles"]'), site.vehicleCount);
-  countUp($('[data-stat="ecus"]'), site.ecus.filter((ecu) => ecu.status === "supported").length);
-  countUp($('[data-stat="gain"]'), average, { prefix: "+", suffix: "%" });
+function setupNumbers() {
+  const { stats } = site;
+  countUp($('[data-stat="vehicles"]'), stats.vehicles);
+  countUp($('[data-stat="ecus"]'), stats.ecus);
+  countUp($('[data-stat="stage1"]'), stats.stage1Best, { prefix: "+", suffix: "%" });
+  countUp($('[data-stat="stage3"]'), stats.stage3Best, { prefix: "+", suffix: "%" });
 }
 
 function setupServices() {
@@ -424,6 +424,15 @@ async function setupFeaturedProducts() {
   );
 }
 
+// "https://www.instagram.com/unitytuners/" → "unitytuners".
+function instagramHandle(url) {
+  try {
+    return /instagram\.com$/.test(new URL(url).hostname) ? new URL(url).pathname.split("/").filter(Boolean)[0] ?? "" : "";
+  } catch {
+    return "";
+  }
+}
+
 function setupVisit() {
   const details = $("[data-visit-details]");
   const actions = $("[data-visit-actions]");
@@ -441,6 +450,8 @@ function setupVisit() {
   }
   if (settings.whatsappNumber) actions.append(h("a", { class: "btn btn-whatsapp", href: whatsappUrl(settings.whatsappNumber, `Hello ${settings.businessName}, I have a question about tuning.`), target: "_blank", rel: "noopener", text: "WhatsApp us" }));
   if (settings.telegramBot) actions.append(h("a", { class: "link-arrow", href: `https://t.me/${settings.telegramBot}`, target: "_blank", rel: "noopener", text: "Chat with our Telegram bot" }));
+  const instagram = instagramHandle(settings.instagram);
+  if (instagram) actions.append(h("a", { class: "link-arrow", href: settings.instagram, target: "_blank", rel: "noopener", text: `@${instagram} on Instagram` }));
   if (!rows.length && !actions.children.length) details.replaceChildren(h("dd", { class: "lead", text: "Message us to arrange a visit." }));
 }
 

@@ -1,6 +1,8 @@
+import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { UPLOAD_DIR, registerAdminRoutes } from "./admin-api.js";
-import { HttpError, applySecurityHeaders, clientIp, sendBuffer, sendJson, serveFile } from "./http.js";
+import { CONTENT_TYPES, HttpError, applySecurityHeaders, clientIp, sendBuffer, sendJson, serveFile } from "./http.js";
+import { renderPage, robotsTxt, sitemapXml } from "./pages.js";
 import { registerPublicRoutes } from "./public-api.js";
 
 const PUBLIC_DIR = fileURLToPath(new URL("../../public/", import.meta.url));
@@ -22,12 +24,26 @@ const notFoundPage = Buffer.from(
     '<div><h1 style="font-size:48px;margin:0 0 12px">Page not found.</h1><a href="/" style="color:#2997ff">Go to the home page ›</a></div></body></html>'
 );
 
+// Pages carry the site's address, so they're filled in per request; the ETag lets browsers reuse them.
+function sendPage(req, res, page) {
+  const html = Buffer.from(renderPage(req, PUBLIC_DIR, page));
+  const etag = `"${createHash("sha1").update(html).digest("base64url").slice(0, 16)}"`;
+  if (req.headers["if-none-match"] === etag) {
+    res.writeHead(304, { ETag: etag, "Cache-Control": "no-cache" });
+    res.end();
+    return;
+  }
+  sendBuffer(res, 200, html, CONTENT_TYPES[".html"], { ETag: etag, "Cache-Control": "no-cache" });
+}
+
 // Handlers return a value to send it as JSON, or write to res themselves.
 export function createApp({ botUsername = () => "", sendAlert = null } = {}) {
   const routes = [];
   const route = (method, path, handler) => routes.push({ method, handler, ...compile(path) });
   registerPublicRoutes(route, { botUsername });
   registerAdminRoutes(route, { botUsername, sendAlert });
+  route("GET", "/robots.txt", ({ req, res }) => sendBuffer(res, 200, Buffer.from(robotsTxt(req)), "text/plain; charset=utf-8", { "Cache-Control": "public, max-age=3600" }));
+  route("GET", "/sitemap.xml", ({ req, res }) => sendBuffer(res, 200, Buffer.from(sitemapXml(req)), "application/xml; charset=utf-8", { "Cache-Control": "public, max-age=3600" }));
 
   return async function app(req, res) {
     applySecurityHeaders(req, res);
@@ -55,10 +71,12 @@ export function createApp({ botUsername = () => "", sendAlert = null } = {}) {
       if (pathExists) throw new HttpError(405, "Method not allowed.");
       if (method === "GET") {
         const page = PAGES[pathname.replace(/\/+$/, "") || "/"];
-        if (page && serveFile(req, res, PUBLIC_DIR, page)) return;
+        if (page) return sendPage(req, res, page);
         const upload = UPLOAD_FILE.exec(pathname);
         if (upload && serveFile(req, res, UPLOAD_DIR, upload[1], { cacheControl: "public, max-age=31536000, immutable" })) return;
-        if (!pathname.startsWith("/api/") && serveFile(req, res, PUBLIC_DIR, pathname.slice(1))) return;
+        // Images rarely change, so browsers may keep them for a day; CSS and JS are checked each visit.
+        const cacheControl = /\.(png|jpe?g|webp|svg|ico)$/i.test(pathname) ? "public, max-age=86400" : "no-cache";
+        if (!pathname.startsWith("/api/") && serveFile(req, res, PUBLIC_DIR, pathname.slice(1), { cacheControl })) return;
       }
       throw new HttpError(404, "Not found.");
     } catch (error) {

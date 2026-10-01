@@ -393,6 +393,20 @@ function setupBag(site) {
   return { open };
 }
 
+// A chat button that stays in the corner, since WhatsApp is how customers reach the workshop.
+function addWhatsappButton(settings) {
+  if (!settings.whatsappNumber) return;
+  const svgNs = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(svgNs, "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("aria-hidden", "true");
+  const path = document.createElementNS(svgNs, "path");
+  path.setAttribute("d", "M12 3.5a8.5 8.5 0 0 0-7.4 12.7L3.5 20.5l4.4-1.1A8.5 8.5 0 1 0 12 3.5Z");
+  svg.append(path);
+  const link = h("a", { class: "whatsapp-fab", href: whatsappUrl(settings.whatsappNumber, `Hello ${settings.businessName}, I have a question.`), target: "_blank", rel: "noopener", "aria-label": "Chat with us on WhatsApp" }, svg);
+  document.body.append(link);
+}
+
 // ---------- Boot ----------
 
 export async function bootPage() {
@@ -401,6 +415,7 @@ export async function bootPage() {
   observeReveals();
   const site = await loadSite();
   applySettings(site);
+  addWhatsappButton(site.settings);
   const bagUi = setupBag(site);
   return { site, openBag: bagUi.open };
 }

@@ -23,6 +23,19 @@ export function vehicleSummary(vehicle) {
 
 const round = (value) => Math.round(value * 10) / 10;
 
+// The headline numbers on the home page, worked out from the database so they stay true as it changes.
+function siteStats() {
+  const vehicles = vehicleEntries().map((entry) => getVehicle(entry.id));
+  const best = (stage) => Math.max(0, ...vehicles.filter((vehicle) => availableStages(vehicle).includes(stage)).map((vehicle) => stageGain(vehicle, stage).hpPercent));
+  return {
+    vehicles: vehicles.length,
+    // ECU families the workshop tunes, including those done on request.
+    ecus: ecus().filter((ecu) => ecu.status !== "not_supported").length,
+    stage1Best: best(1),
+    stage3Best: best(3)
+  };
+}
+
 // Stock and every available stage, sampled every 100 rpm (plenty for a smooth SVG line).
 export function vehicleCurves(vehicle) {
   const sample = (curve) => {
@@ -69,6 +82,7 @@ export function registerPublicRoutes(route, { botUsername }) {
       ecus: ecus().map(({ id, title, fuels, status, method }) => ({ id, title, fuels, status, method })),
       services: db().services.filter((service) => service.active),
       vehicleCount: vehicleEntries().length,
+      stats: siteStats(),
       aiEnabled: aiEnabled()
     };
   });
@@ -76,7 +90,10 @@ export function registerPublicRoutes(route, { botUsername }) {
   route("GET", "/api/vehicles", ({ url }) => {
     const query = (url.searchParams.get("q") ?? "").slice(0, 80);
     const brand = url.searchParams.get("brand");
-    const vehicles = query ? searchVehicles(query, 12) : brand ? vehiclesForBrand(brand) : vehicleEntries().map((entry) => getVehicle(entry.id));
+    // limit lets the home page fetch just the cards it shows instead of the whole database.
+    const limit = Number(url.searchParams.get("limit"));
+    const entries = Number.isInteger(limit) && limit > 0 ? vehicleEntries().slice(0, limit) : vehicleEntries();
+    const vehicles = query ? searchVehicles(query, 12) : brand ? vehiclesForBrand(brand) : entries.map((entry) => getVehicle(entry.id));
     return { vehicles: vehicles.map(vehicleSummary) };
   });
 

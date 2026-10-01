@@ -6,6 +6,10 @@ import { gainPolicy, stage1Gain, vehicleName } from "./vehicles.js";
 
 export { aiEnabled };
 
+// The workshop has no dynamometer; tunes are checked with scans and data-logged road tests.
+const WORKSHOP_FACTS =
+  "The workshop uses Autotuner and KESS3 to read and write ECUs, and VCDS plus factory tools for diagnostics. It has no dynamometer: never mention dyno runs or dyno testing; tunes are checked with a diagnostic scan and a data-logged road test.";
+
 const SAFETY_RULES =
   "Never advise deleting, bypassing or disabling emissions equipment (DPF, EGR, catalytic converter, AdBlue/SCR), diagnostics, immobilisers, brakes, airbags or other safety systems; if asked, politely decline and say the workshop keeps them fully operational.";
 
@@ -58,7 +62,7 @@ export function fallbackStage1Report(vehicle) {
   return {
     summary,
     prepare,
-    checks: ["Diagnostic scan with no stored fault codes", "Before-and-after dyno run with data logs", "Cooling system, tyres and brakes in good condition", "Emissions and safety systems stay fully operational"]
+    checks: ["Diagnostic scan with no stored fault codes", "Data-logged road test before and after the tune", "Cooling system, tyres and brakes in good condition", "Emissions and safety systems stay fully operational"]
   };
 }
 
@@ -78,7 +82,7 @@ export async function makeStage1Report(userId, vehicle) {
     const report = await requestJson(userId, {
       name: "stage1_report",
       schema: reportSchema,
-      system: `You write short Stage 1 tuning notes for customers of ${settings().businessName}, a vehicle performance tuning workshop. Return only the requested JSON. Use the vehicle data exactly as given and never state different power or torque figures. summary: 2-3 plain sentences on what Stage 1 changes for this specific engine and how it will feel to drive. prepare: short items the owner should have in order before the tune (servicing, fuel, widely documented weak points of this engine). checks: short items the workshop verifies on the day. Keep each item under 90 characters, manufacturer-neutral, and never quote prices. ${SAFETY_RULES}`,
+      system: `You write short Stage 1 tuning notes for customers of ${settings().businessName}, a vehicle performance tuning workshop. Return only the requested JSON. Use the vehicle data exactly as given and never state different power or torque figures. summary: 2-3 plain sentences on what Stage 1 changes for this specific engine and how it will feel to drive. prepare: short items the owner should have in order before the tune (servicing, fuel, widely documented weak points of this engine). checks: short items the workshop verifies on the day. Keep each item under 90 characters, manufacturer-neutral, and never quote prices. ${WORKSHOP_FACTS} ${SAFETY_RULES}`,
       user: `Vehicle: ${JSON.stringify(vehicleFacts(vehicle))}`
     });
     const items = (list, fallbackList) => (Array.isArray(list) && list.length ? list.slice(0, 4).map((item) => clip(item, 140)) : fallbackList);
@@ -182,7 +186,7 @@ export async function identifyVehicle(userId, query) {
 export async function askAssistant(userId, question, vehicle) {
   const context = vehicle ? ` The customer is currently looking at this vehicle: ${JSON.stringify(vehicleFacts(vehicle))}.` : "";
   const answer = await requestText(userId, {
-    system: `You are the AI tuning assistant for ${settings().businessName}, a vehicle performance tuning workshop. Answer the customer's question in plain language, in their language, in at most 120 words. Be accurate and cautious: say when the answer depends on the exact vehicle, fuel quality or condition. Don't quote prices or booking times; suggest sending the details to the team on WhatsApp for a quote. ${SAFETY_RULES}${context}`,
+    system: `You are the AI tuning assistant for ${settings().businessName}, a vehicle performance tuning workshop. Answer the customer's question in plain language, in their language, in at most 120 words. Be accurate and cautious: say when the answer depends on the exact vehicle, fuel quality or condition. Don't quote prices or booking times; suggest sending the details to the team on WhatsApp for a quote. ${WORKSHOP_FACTS} ${SAFETY_RULES}${context}`,
     user: clip(question, 800)
   });
   return clip(answer, 3000);

@@ -2,10 +2,12 @@
 # Installs Unity Performance on an Ubuntu or Debian VPS: Node.js, the website + admin panel +
 # Telegram bot as an always-on service, Caddy for HTTPS, a firewall and daily backups.
 #
-#   sudo bash /opt/unity-performance/deploy/vps/install.sh shop.example.com
+#   sudo bash /opt/unity-performance/deploy/vps/install.sh unityperformance.in
 #
-# Safe to run again: settings and data are kept. Run it with a new domain to switch domains.
-# Without a domain the site is served over plain HTTP on the server's IP address (for testing only).
+# Safe to run again: settings and data are kept. Run it with a new domain to switch domains, or with
+# --ip to go back to the server's IP address. Run without either, it keeps the domain set up last
+# time if that domain points at this server, and otherwise uses the IP address. Without a domain the
+# site is plain HTTP on the server's IP address, which is fine for testing.
 set -euo pipefail
 
 APP_NAME=unity-performance
@@ -30,6 +32,45 @@ app_port() {
   local port=""
   [ -f "$ENV_FILE" ] && port=$(sed -n "s/^PORT=['\"]\{0,1\}\([0-9]*\).*/\1/p" "$ENV_FILE" | head -n 1)
   echo "${port:-3000}"
+}
+
+# Example names from the instructions: they can never get a certificate for this server.
+is_placeholder() {
+  case "${1,,}" in
+    example.com | *.example.com | example.org | *.example.org | example.net | *.example.net | yourdomain.com | *.yourdomain.com | your-domain.com | *.your-domain.com | mydomain.com | *.mydomain.com | domain.com)
+      return 0
+      ;;
+  esac
+  return 1
+}
+
+public_ip() {
+  curl -4 -fsS --max-time 5 https://api.ipify.org 2>/dev/null || true
+}
+
+# The domain an earlier run set Caddy up for, if any.
+configured_domain() {
+  [ -f "$CADDY_SITE" ] || return 0
+  awk '!/^[[:space:]]*#/ && NF { print $1; exit }' "$CADDY_SITE" | grep -v '^:' || true
+}
+
+# With no domain given: the one set up last time if it points at this server; otherwise none, so
+# the site works on the IP address. Notes go to stderr, because the domain is the output.
+previous_domain() {
+  local domain here there
+  domain=$(configured_domain)
+  [ -n "$domain" ] || return 0
+  if is_placeholder "$domain"; then
+    warn "This server was set up for \"$domain\", the example name from the instructions. Using its IP address instead." >&2
+    return 0
+  fi
+  here=$(public_ip)
+  there=$(getent ahostsv4 "$domain" 2>/dev/null | awk 'NR == 1 { print $1 }')
+  if [ -n "$here" ] && [ "$there" != "$here" ]; then
+    warn "$domain doesn't point at this server${there:+ (it points to $there)}, so the site uses the IP address for now. Once the domain's DNS \"A\" record points to $here, run this installer again with the domain at the end." >&2
+    return 0
+  fi
+  echo "$domain"
 }
 
 wait_healthy() {
@@ -150,7 +191,7 @@ EOF
 # ---------- Steps ----------
 
 check_system() {
-  [ "$(id -u)" -eq 0 ] || fail "Run this with sudo: sudo bash $0 ${1:-your-domain.com}"
+  [ "$(id -u)" -eq 0 ] || fail "Run this with sudo: sudo bash $0 $*"
   command -v apt-get >/dev/null || fail "This installer needs Ubuntu or Debian."
   [ -f "$APP_DIR/src/server.js" ] || fail "Run this script from inside the project (deploy/vps/install.sh)."
   # The service can't read home folders (ProtectHome), and the code shouldn't live in one.
@@ -158,7 +199,10 @@ check_system() {
     /home/* | /root/*) fail "Move the project to /opt/$APP_NAME first: sudo mv $APP_DIR /opt/$APP_NAME" ;;
   esac
   if [ -n "${1:-}" ] && ! [[ "$1" =~ ^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?\.[A-Za-z]{2,}$ ]]; then
-    fail "\"$1\" doesn't look like a domain. Use just the name, e.g. shop.example.com (no https://)."
+    fail "\"$1\" doesn't look like a domain. Use just the name, e.g. unityperformance.in (no https://), or --ip for the server's IP address."
+  fi
+  if [ -n "${1:-}" ] && is_placeholder "$1"; then
+    fail "\"$1\" is the example name from the instructions. Use your own domain, or run the installer without one to use the server's IP address."
   fi
 }
 
@@ -197,9 +241,8 @@ write_settings() {
   local domain=$1 public_url=""
   [ -n "$domain" ] && public_url="https://$domain"
   if [ -f "$ENV_FILE" ]; then
-    if [ -n "$domain" ]; then
-      if grep -q '^PUBLIC_URL=' "$ENV_FILE"; then sed -i "s|^PUBLIC_URL=.*|PUBLIC_URL=$public_url|" "$ENV_FILE"; else echo "PUBLIC_URL=$public_url" >>"$ENV_FILE"; fi
-    fi
+    # The public address follows the domain (empty on the IP address).
+    if grep -q '^PUBLIC_URL=' "$ENV_FILE"; then sed -i "s|^PUBLIC_URL=.*|PUBLIC_URL=$public_url|" "$ENV_FILE"; else echo "PUBLIC_URL=$public_url" >>"$ENV_FILE"; fi
     say "Keeping your settings in $ENV_FILE"
     return
   fi
@@ -273,17 +316,10 @@ check_dns() {
 }
 
 configure_caddy() {
-  local domain=$1 site
+  local domain=$1
   say "Setting up Caddy…"
   install -d -m 755 "$(dirname "$CADDY_SITE")"
-  if [ -n "$domain" ]; then
-    site=$domain
-  elif [ -f "$CADDY_SITE" ]; then
-    site=""
-  else
-    site=":80"
-  fi
-  [ -z "$site" ] || caddy_site "$site" "$(app_port)" >"$CADDY_SITE"
+  caddy_site "${domain:-:80}" "$(app_port)" >"$CADDY_SITE"
   # Point Caddy's main config at the sites folder: replace the stock welcome page, or add the
   # import to a config that already serves other sites.
   if [ ! -f /etc/caddy/Caddyfile ] || grep -q '/usr/share/caddy' /etc/caddy/Caddyfile; then
@@ -329,7 +365,8 @@ summary() {
   if [ -n "$domain" ]; then
     address="https://$domain"
   else
-    address="http://$(curl -4 -fsS --max-time 5 https://api.ipify.org 2>/dev/null || echo "YOUR-SERVER-IP")"
+    address="http://$(public_ip)"
+    [ "$address" != "http://" ] || address="http://YOUR-SERVER-IP"
   fi
   say "Unity Performance is running."
   echo "  Website:   $address"
@@ -344,7 +381,7 @@ summary() {
     echo "  Update:    upload the new zip, then: sudo bash $APP_DIR/deploy/vps/update.sh ~/unity-performance-vps.zip"
   fi
   if [ -z "$domain" ]; then
-    warn "Without a domain the site has no HTTPS, so the admin password travels unencrypted. Point a domain at this server and run: sudo bash $APP_DIR/deploy/vps/install.sh your-domain.com"
+    warn "Without a domain the site has no HTTPS, so the admin password travels unencrypted. Point a domain's DNS \"A\" record at this server, then run this installer again with the domain at the end."
   fi
   if grep -q '^TELEGRAM_BOT_TOKEN=.\+' "$ENV_FILE"; then
     warn "Only one copy of the bot can run. Stop any other copy (Render, your computer) that uses the same Telegram token."
@@ -352,13 +389,17 @@ summary() {
 }
 
 main() {
-  local domain=${1:-}
-  domain=${domain#https://}
-  domain=${domain#http://}
-  domain=${domain%%/*}
+  local arg=${1:-} domain=""
+  if [ "$arg" != "--ip" ]; then
+    domain=${arg#https://}
+    domain=${domain#http://}
+    domain=${domain%%/*}
+    domain=${domain,,}
+  fi
   check_system "$domain"
   install_packages
   create_account
+  [ -n "$arg" ] || domain=$(previous_domain)
   write_settings "$domain"
   run_tests
   start_app

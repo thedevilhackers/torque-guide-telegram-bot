@@ -158,7 +158,7 @@ export function createConversation({ telegram = telegramApi, ai = tuningService,
     const moreStages = availableStages(vehicle).filter((stage) => stage > 1);
     return telegram.sendText(
       chatId,
-      `${ai.formatStage1Report(vehicle, report)}\n\n<i>Figures are estimates for a healthy, standard vehicle. Final results are confirmed on our dyno.</i>\n\n<b>Next:</b> ${session.location ? "check your ECU" : "add your location"}${moreStages.length ? ", or see what Stage 2 and 3 builds make" : ""}.`,
+      `${ai.formatStage1Report(vehicle, report)}\n\n<i>Figures are estimates for a healthy, standard vehicle; real results depend on its condition and fuel. We check every tune with a data-logged road test.</i>\n\n<b>Next:</b> ${session.location ? "check your ECU" : "add your location"}${moreStages.length ? ", or see what Stage 2 and 3 builds make" : ""}.`,
       { buttons: [[next], ...(moreStages.length ? [moreStages.map((stage) => btn(`📈 Stage ${stage} graph`, `stage:${stage}`))] : []), [btn("🔎 Another vehicle", "search"), btn("🏠 Menu", "menu")]] }
     );
   }

@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { createServer } from "node:http";
 
 process.env.ADMIN_PASSWORD = "correct-horse-battery";
@@ -94,6 +95,49 @@ test("graphs are drawn once and requests are limited per address", async (t) => 
   let limited = 0;
   for (let i = 0; i < 60; i++) if ((await request("/api/vehicles/ford_ranger_32/graph.png?stage=1")).status === 429) limited++;
   assert.ok(limited > 0, "a burst of graph requests is limited");
+});
+
+test("the home page's figures come from the database, and it fetches only the cards it shows", async (t) => {
+  const { request, close } = await startApp();
+  t.after(close);
+  const { stats } = (await request("/api/site")).data;
+  assert.equal(stats.vehicles, vehicleEntries().length);
+  assert.equal(stats.ecus, db().ecus.filter((ecu) => ecu.status !== "not_supported").length);
+  assert.ok(stats.stage1Best >= 25 && stats.stage1Best <= 45, `best Stage 1 gain ${stats.stage1Best}%`);
+  assert.ok(stats.stage3Best > stats.stage1Best);
+  assert.equal((await request("/api/vehicles?limit=6")).data.vehicles.length, 6);
+});
+
+test("pages carry link previews, structured data and the site's own address", async (t) => {
+  const { request, close } = await startApp();
+  t.after(close);
+  const home = await request("/");
+  const html = home.data.toString();
+  const origin = html.match(/<link rel="canonical" href="(http:\/\/127\.0\.0\.1:\d+)\/">/)?.[1];
+  assert.ok(origin, "canonical link with the request's address");
+  assert.ok(html.includes(`<meta property="og:image" content="${origin}/brand/share.jpg">`));
+  assert.ok(!html.includes("%ORIGIN%"));
+  const data = JSON.parse(html.match(/<script type="application\/ld\+json">(.*?)<\/script>/)[1]);
+  assert.equal(data["@type"], "AutoRepair");
+  assert.ok(data.sameAs.includes("https://www.instagram.com/unitytuners/"));
+  assert.equal((await request("/", { headers: { "if-none-match": home.headers.get("etag") } })).status, 304);
+  assert.match((await request("/shop")).data.toString(), /<meta property="og:url" content="http:\/\/127\.0\.0\.1:\d+\/shop">/);
+
+  const robots = (await request("/robots.txt")).data.toString();
+  assert.match(robots, /Disallow: \/admin/);
+  assert.match(robots, new RegExp(`Sitemap: ${origin}/sitemap.xml`));
+  assert.match((await request("/sitemap.xml")).data.toString(), new RegExp(`<loc>${origin}/shop</loc>`));
+  assert.equal((await request("/brand/share.jpg")).headers.get("cache-control"), "public, max-age=86400");
+});
+
+test("nothing tells customers the workshop has a dyno", async (t) => {
+  const { request, close } = await startApp();
+  t.after(close);
+  const claim = /on (our|the) dyno|dyno (run|sheet|power run)|confirmed on the dyno|verified on our dyno/i;
+  for (const path of ["/", "/shop", "/api/site", "/api/products"]) assert.doesNotMatch((await request(path)).data.toString(), claim, path);
+  for (const file of ["public/js/home.js", "public/js/common.js", "public/admin/admin.js", "src/conversation.js", "src/dyno-chart.js"]) {
+    assert.doesNotMatch(readFileSync(new URL(`../${file}`, import.meta.url), "utf8").replace(/dyno-chart|dynoChart|dyno-\w+/g, ""), claim, file);
+  }
 });
 
 test("public pages and APIs", async (t) => {

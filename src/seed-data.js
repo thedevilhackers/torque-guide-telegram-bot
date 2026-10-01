@@ -7,6 +7,7 @@ export const SEED_BRANDS = [
   { id: "bmw", title: "BMW", aliases: [] },
   { id: "citroen", title: "Citroen", aliases: [] },
   { id: "fiat", title: "Fiat", aliases: [] },
+  { id: "force", title: "Force Motors", aliases: [] },
   { id: "ford", title: "Ford", aliases: [] },
   { id: "honda", title: "Honda", aliases: [] },
   { id: "hyundai", title: "Hyundai", aliases: [] },
@@ -28,7 +29,33 @@ export const SEED_BRANDS = [
 
 // ECU support list, used by the "ECU check" step.
 // status: "supported" | "on_request" | "not_supported". Edit this to match your tools and licences.
+// More ECU families, on request until confirmed per vehicle.
+const NEW_ECUS = [
+  { id: "kefico", title: "Kefico (Hyundai / Kia)", fuels: ["petrol"], status: "on_request", method: "Confirmed per vehicle" },
+  { id: "continental_ems3", title: "Continental EMS3 (Renault / Nissan)", fuels: ["petrol"], status: "on_request", method: "Confirmed per vehicle" },
+  { id: "bosch_me7", title: "Bosch ME7 / ME9", fuels: ["petrol"], status: "on_request", method: "OBD or bench, depending on version" },
+  { id: "bosch_edc16", title: "Bosch EDC15 / EDC16", fuels: ["diesel"], status: "on_request", method: "OBD or bench, depending on version" },
+  { id: "hitachi", title: "Hitachi (Nissan / Suzuki)", fuels: ["petrol"], status: "on_request", method: "Confirmed per vehicle" }
+];
+
 export const SEED_ECUS = [
+  { id: "bosch_med17", title: "Bosch MED17 / ME17 / MEVD17", fuels: ["petrol"], status: "supported", method: "OBD flash with Autotuner or KESS3, no ECU removal" },
+  { id: "bosch_mg1", title: "Bosch MG1", fuels: ["petrol"], status: "supported", method: "One-time bench unlock, then OBD flash" },
+  { id: "simos18", title: "Continental Simos 18", fuels: ["petrol"], status: "supported", method: "OBD flash with Autotuner or KESS3, no ECU removal" },
+  { id: "bosch_edc17", title: "Bosch EDC17", fuels: ["diesel"], status: "supported", method: "OBD flash with Autotuner or KESS3, no ECU removal" },
+  { id: "bosch_md1", title: "Bosch MD1", fuels: ["diesel"], status: "supported", method: "One-time bench unlock, then OBD flash" },
+  { id: "continental_sid", title: "Continental / Siemens SID", fuels: ["diesel"], status: "supported", method: "OBD or bench, depending on version" },
+  { id: "denso", title: "Denso", fuels: ["petrol", "diesel"], status: "supported", method: "OBD or bench, depending on model" },
+  { id: "delphi", title: "Delphi DCM", fuels: ["diesel"], status: "on_request", method: "Bench read, confirmed per vehicle" },
+  { id: "transtron", title: "Transtron (Isuzu)", fuels: ["diesel"], status: "on_request", method: "Bench read, confirmed per vehicle" },
+  { id: "continental_sim2k", title: "Continental SIM2K", fuels: ["petrol"], status: "on_request", method: "Bench read, confirmed per vehicle" },
+  { id: "keihin", title: "Keihin (Honda)", fuels: ["petrol"], status: "on_request", method: "Confirmed per vehicle" },
+  { id: "marelli", title: "Magneti Marelli", fuels: ["petrol", "diesel"], status: "on_request", method: "Confirmed per vehicle" },
+  ...NEW_ECUS
+];
+
+// The ECU list a database was first created with, updated while still unedited.
+const LAUNCH_ECUS = [
   { id: "bosch_med17", title: "Bosch MED17 / MEVD17", fuels: ["petrol"], status: "supported", method: "OBD flash — no ECU removal" },
   { id: "bosch_mg1", title: "Bosch MG1", fuels: ["petrol"], status: "supported", method: "One-time bench unlock, then OBD flash" },
   { id: "simos18", title: "Continental Simos 18", fuels: ["petrol"], status: "supported", method: "OBD flash — no ECU removal" },
@@ -45,7 +72,7 @@ export const SEED_ECUS = [
 
 // Vehicle database used by search, browse and the Stage 1 graph.
 // power/torque are [hp (metric PS), Nm]. Factory figures are manufacturer-published; the Stage 1
-// figures are typical starting values. Replace them with your own dyno-verified results.
+// figures are typical starting values. Replace them with your own verified results.
 // ecus lists ECU ids commonly fitted; the customer still confirms theirs.
 // stage2 / stage3 are optional sample figures for builds with supporting hardware (Stage 2) and an
 // upgraded turbo (Stage 3); naturally aspirated engines are Stage 1 only.
@@ -216,10 +243,56 @@ const VAG_DIESELS = [
   { id: "skoda_kodiaq_20tdi", brand: "skoda", model: "Kodiaq 2.0 TDI", generation: "", years: [2017, 2020], engine: "2.0 TDI (EA288)", fuel: "diesel", aspiration: "turbo", stock: [150, 340], stage1: [185, 410], stage2: [200, 440], stage3: [220, 470], ecus: ["bosch_edc17"], keywords: "kodiaq tdi" }
 ];
 
-export const SEED_VEHICLES = [...LAUNCH_VEHICLES, ...INDIA_VEHICLES, ...VAG_DIESELS];
+// More popular diesels and turbo petrols, older Indian favourites and premium models.
+const MORE_VEHICLES = [
+  { id: "hyundai_i20_15crdi", brand: "hyundai", model: "i20 1.5 CRDi", generation: "3rd gen", years: [2020, 2023], engine: "1.5 CRDi", fuel: "diesel", aspiration: "turbo", stock: [100, 240], stage1: [120, 295], stage2: [130, 315], stage3: [145, 340], ecus: ["bosch_edc17"], keywords: "i20 crdi" },
+  { id: "hyundai_i20_14crdi", brand: "hyundai", model: "i20 1.4 CRDi", generation: "Elite", years: [2014, 2020], engine: "1.4 CRDi", fuel: "diesel", aspiration: "turbo", stock: [90, 220], stage1: [110, 270], stage2: [120, 290], stage3: [130, 315], ecus: ["bosch_edc17"], keywords: "elite i20 crdi" },
+  { id: "hyundai_gi10_12crdi", brand: "hyundai", model: "Grand i10 / Xcent 1.2 CRDi", generation: "", years: [2017, 2019], engine: "1.2 CRDi 3-cyl", fuel: "diesel", aspiration: "turbo", stock: [75, 190], stage1: [90, 230], stage2: [95, 245], stage3: [105, 265], ecus: ["bosch_edc17"], keywords: "grand i10 xcent crdi" },
+  { id: "hyundai_verna_16crdi", brand: "hyundai", model: "Verna / Elantra 1.6 CRDi", generation: "", years: [2011, 2019], engine: "1.6 CRDi", fuel: "diesel", aspiration: "turbo", stock: [128, 260], stage1: [155, 315], stage2: [165, 335], stage3: [180, 360], ecus: ["bosch_edc17"], keywords: "verna fluidic elantra crdi" },
+  { id: "toyota_etios_14d", brand: "toyota", model: "Etios / Liva 1.4 D-4D", generation: "", years: [2011, 2020], engine: "1.4 D-4D", fuel: "diesel", aspiration: "turbo", stock: [68, 170], stage1: [85, 205], stage2: [90, 220], stage3: [100, 240], ecus: ["denso"], keywords: "etios liva cross d4d" },
+  { id: "toyota_innova_25", brand: "toyota", model: "Innova 2.5 D-4D", generation: "1st gen", years: [2005, 2016], engine: "2.5 D-4D (2KD)", fuel: "diesel", aspiration: "turbo", stock: [102, 200], stage1: [125, 245], stage2: [135, 260], stage3: [150, 280], ecus: ["denso"], keywords: "innova d4d 2kd" },
+  { id: "toyota_fortuner_30", brand: "toyota", model: "Fortuner 3.0 D-4D", generation: "1st gen", years: [2009, 2016], engine: "3.0 D-4D (1KD)", fuel: "diesel", aspiration: "turbo", stock: [171, 343], stage1: [210, 420], stage2: [225, 450], stage3: [250, 485], ecus: ["denso"], keywords: "fortuner d4d 1kd" },
+  { id: "toyota_altis_14d", brand: "toyota", model: "Corolla Altis 1.4 D-4D", generation: "", years: [2010, 2019], engine: "1.4 D-4D", fuel: "diesel", aspiration: "turbo", stock: [88, 205], stage1: [105, 250], stage2: [110, 270], stage3: [120, 290], ecus: ["denso"], keywords: "corolla altis d4d" },
+  { id: "honda_jazz_15d", brand: "honda", model: "Jazz / WR-V 1.5 i-DTEC", generation: "", years: [2015, 2020], engine: "1.5 i-DTEC", fuel: "diesel", aspiration: "turbo", stock: [100, 200], stage1: [120, 245], stage2: [130, 260], stage3: [145, 280], ecus: ["bosch_edc17"], keywords: "jazz wrv idtec" },
+  { id: "honda_civic_16d", brand: "honda", model: "Civic / CR-V 1.6 i-DTEC", generation: "", years: [2018, 2020], engine: "1.6 i-DTEC", fuel: "diesel", aspiration: "turbo", stock: [120, 300], stage1: [145, 365], stage2: [155, 390], stage3: [170, 420], ecus: ["bosch_edc17"], keywords: "civic crv idtec" },
+  { id: "mahindra_tuv300_15d", brand: "mahindra", model: "TUV300 / Bolero Neo 1.5", generation: "", years: [2016, 2024], engine: "1.5 mHawk100", fuel: "diesel", aspiration: "turbo", stock: [100, 240], stage1: [120, 295], stage2: [130, 315], stage3: [145, 340], ecus: ["bosch_edc17"], keywords: "tuv300 tuv bolero neo mhawk" },
+  { id: "mahindra_marazzo_15d", brand: "mahindra", model: "Marazzo 1.5", generation: "", years: [2018, 2023], engine: "1.5 D15", fuel: "diesel", aspiration: "turbo", stock: [123, 300], stage1: [150, 365], stage2: [160, 390], stage3: [175, 420], ecus: [], keywords: "marazzo" },
+  { id: "mahindra_kuv100_12d", brand: "mahindra", model: "KUV100 1.2 Diesel", generation: "", years: [2016, 2020], engine: "1.2 mFalcon D75", fuel: "diesel", aspiration: "turbo", stock: [78, 190], stage1: [95, 230], stage2: [100, 245], stage3: [110, 265], ecus: [], keywords: "kuv100 kuv mfalcon" },
+  { id: "mahindra_alturas_22d", brand: "mahindra", model: "Alturas G4 2.2", generation: "", years: [2018, 2022], engine: "2.2 e-XDi", fuel: "diesel", aspiration: "turbo", stock: [181, 420], stage1: [220, 510], stage2: [235, 545], stage3: [260, 590], ecus: [], keywords: "alturas g4" },
+  { id: "mahindra_thar_crde", brand: "mahindra", model: "Thar CRDe 2.5", generation: "1st gen", years: [2010, 2019], engine: "2.5 CRDe", fuel: "diesel", aspiration: "turbo", stock: [105, 247], stage1: [130, 300], stage2: [140, 320], stage3: [155, 345], ecus: [], keywords: "thar crde old" },
+  { id: "tata_zest_13d", brand: "tata", model: "Zest / Bolt 1.3 Quadrajet", generation: "", years: [2014, 2019], engine: "1.3 Quadrajet", fuel: "diesel", aspiration: "turbo", stock: [90, 200], stage1: [110, 245], stage2: [120, 260], stage3: [130, 280], ecus: ["marelli"], keywords: "zest bolt quadrajet" },
+  { id: "tata_storme_22d", brand: "tata", model: "Safari Storme 2.2", generation: "", years: [2015, 2019], engine: "2.2 VariCOR 400", fuel: "diesel", aspiration: "turbo", stock: [156, 400], stage1: [190, 490], stage2: [205, 525], stage3: [225, 565], ecus: [], keywords: "safari storme varicor" },
+  { id: "nissan_terrano_15d", brand: "nissan", model: "Terrano / Kicks 1.5 dCi", generation: "", years: [2013, 2020], engine: "1.5 dCi (K9K)", fuel: "diesel", aspiration: "turbo", stock: [110, 245], stage1: [135, 300], stage2: [145, 320], stage3: [160, 345], ecus: ["continental_sid"], keywords: "terrano kicks dci k9k" },
+  { id: "nissan_kicks_13t", brand: "nissan", model: "Kicks 1.3 Turbo", generation: "", years: [2020, 2022], engine: "1.3 turbo (HR13DDT)", fuel: "petrol", aspiration: "turbo", stock: [156, 254], stage1: [185, 310], stage2: [200, 330], stage3: [230, 365], ecus: [], keywords: "kicks turbo" },
+  { id: "renault_captur_15d", brand: "renault", model: "Captur / Lodgy 1.5 dCi", generation: "", years: [2015, 2020], engine: "1.5 dCi (K9K)", fuel: "diesel", aspiration: "turbo", stock: [110, 245], stage1: [135, 300], stage2: [145, 320], stage3: [160, 345], ecus: ["continental_sid"], keywords: "captur lodgy dci k9k" },
+  { id: "isuzu_vcross_19", brand: "isuzu", model: "D-Max V-Cross / MU-X 1.9", generation: "", years: [2020], engine: "1.9 (RZ4E)", fuel: "diesel", aspiration: "turbo", stock: [163, 360], stage1: [200, 440], stage2: [215, 470], stage3: [235, 510], ecus: ["transtron"], keywords: "vcross v cross mux rz4e" },
+  { id: "isuzu_vcross_25", brand: "isuzu", model: "D-Max V-Cross 2.5", generation: "", years: [2016, 2020], engine: "2.5 (4JK1)", fuel: "diesel", aspiration: "turbo", stock: [136, 320], stage1: [165, 390], stage2: [175, 415], stage3: [195, 450], ecus: ["transtron"], keywords: "vcross v cross 4jk1" },
+  { id: "force_gurkha_26", brand: "force", model: "Gurkha 2.6", generation: "", years: [2021, 2023], engine: "2.6 diesel", fuel: "diesel", aspiration: "turbo", stock: [91, 250], stage1: [110, 305], stage2: [120, 325], stage3: [130, 350], ecus: [], keywords: "gurkha" },
+  { id: "jeep_meridian_20d", brand: "jeep", model: "Meridian 2.0", generation: "", years: [2022], engine: "2.0 Multijet II", fuel: "diesel", aspiration: "turbo", stock: [170, 350], stage1: [205, 425], stage2: [220, 455], stage3: [240, 490], ecus: [], keywords: "meridian multijet" },
+  { id: "vw_polo_12tsi", brand: "volkswagen", model: "Polo GT / Vento 1.2 TSI", generation: "", years: [2013, 2020], engine: "1.2 TSI", fuel: "petrol", aspiration: "turbo", stock: [105, 175], stage1: [125, 215], stage2: [135, 230], stage3: [155, 255], ecus: ["bosch_med17"], keywords: "polo gt vento tsi" },
+  { id: "skoda_rapid_10tsi", brand: "skoda", model: "Rapid 1.0 TSI", generation: "", years: [2020, 2021], engine: "1.0 TSI", fuel: "petrol", aspiration: "turbo", stock: [110, 175], stage1: [130, 215], stage2: [140, 230], stage3: [160, 255], ecus: [], keywords: "rapid tsi" },
+  { id: "skoda_octavia_18tsi", brand: "skoda", model: "Octavia 1.8 TSI", generation: "3rd gen", years: [2013, 2020], engine: "1.8 TSI (EA888)", fuel: "petrol", aspiration: "turbo", stock: [180, 250], stage1: [215, 305], stage2: [230, 325], stage3: [265, 360], ecus: ["simos18"], keywords: "octavia tsi" },
+  { id: "skoda_octavia_14tsi", brand: "skoda", model: "Octavia 1.4 TSI", generation: "3rd gen", years: [2017, 2020], engine: "1.4 TSI (EA211)", fuel: "petrol", aspiration: "turbo", stock: [150, 250], stage1: [180, 305], stage2: [195, 325], stage3: [225, 360], ecus: ["bosch_med17"], keywords: "octavia tsi" },
+  { id: "bmw_520d_g30", brand: "bmw", model: "520d", generation: "G30", years: [2017, 2023], engine: "2.0d (B47)", fuel: "diesel", aspiration: "turbo", stock: [190, 400], stage1: [230, 490], stage2: [245, 525], stage3: [270, 565], ecus: ["bosch_edc17"], keywords: "5 series b47" },
+  { id: "mb_c220d_w205", brand: "mercedes", model: "C220d", generation: "W205", years: [2018, 2021], engine: "2.0d (OM654)", fuel: "diesel", aspiration: "turbo", stock: [194, 400], stage1: [235, 490], stage2: [250, 525], stage3: [275, 565], ecus: ["bosch_md1"], keywords: "c class om654" },
+  { id: "audi_q3_20tdi", brand: "audi", model: "Q3 2.0 TDI", generation: "8U", years: [2012, 2018], engine: "2.0 TDI", fuel: "diesel", aspiration: "turbo", stock: [177, 380], stage1: [215, 465], stage2: [230, 500], stage3: [255, 540], ecus: ["bosch_edc17"], keywords: "q3 tdi" },
+  { id: "audi_q5_40tdi", brand: "audi", model: "Q5 40 TDI", generation: "FY", years: [2018, 2020], engine: "2.0 TDI (EA288)", fuel: "diesel", aspiration: "turbo", stock: [190, 400], stage1: [230, 490], stage2: [245, 525], stage3: [270, 565], ecus: ["bosch_edc17"], keywords: "q5 tdi" },
+  { id: "audi_q7_45tdi", brand: "audi", model: "Q7 45 TDI", generation: "4M", years: [2015, 2019], engine: "3.0 V6 TDI", fuel: "diesel", aspiration: "turbo", stock: [249, 600], stage1: [305, 730], stage2: [325, 780], stage3: [360, 840], ecus: ["bosch_edc17"], keywords: "q7 tdi v6" }
+];
+
+export const SEED_VEHICLES = [...LAUNCH_VEHICLES, ...INDIA_VEHICLES, ...VAG_DIESELS, ...MORE_VEHICLES];
 
 // Services shown on the website. icon: bolt | gauge | wave | scan | chip | wrench | shield | sparkle
 export const SEED_SERVICES = [
+  { id: "remap", title: "ECU remapping", summary: "Unlock hidden potential. More power, better efficiency. Stage 1, 2 and 3, each with its own power graph.", priceLabel: "", icon: "chip", active: true },
+  { id: "ceramic", title: "Ceramic coating", summary: "Long-lasting protection. Mirror finish. Easy maintenance.", priceLabel: "", icon: "shield", active: true },
+  { id: "detailing", title: "Detailing", summary: "Deep clean. Showroom shine. Inside and out perfection.", priceLabel: "", icon: "sparkle", active: true },
+  { id: "diagnostics", title: "Scanning & diagnostics", summary: "Advanced diagnostics with VCDS and factory tools. Accurate fault detection and fast solutions.", priceLabel: "", icon: "scan", active: true },
+  { id: "servicing", title: "Servicing", summary: "Expert care. Genuine quality. Keep your vehicle running at its best.", priceLabel: "", icon: "wrench", active: true }
+];
+
+// The services after the Unity Motorsports artwork, before the tools were named.
+const BRAND_SERVICES = [
   { id: "remap", title: "ECU remapping", summary: "Unlock hidden potential. More power, better efficiency. Stage 1, 2 and 3, each with its own power graph.", priceLabel: "", icon: "chip", active: true },
   { id: "ceramic", title: "Ceramic coating", summary: "Long-lasting protection. Mirror finish. Easy maintenance.", priceLabel: "", icon: "shield", active: true },
   { id: "detailing", title: "Detailing", summary: "Deep clean. Showroom shine. Inside and out perfection.", priceLabel: "", icon: "sparkle", active: true },
@@ -237,11 +310,19 @@ const LAUNCH_SERVICES = [
   { id: "custom", title: "Custom calibration", summary: "Bespoke calibration for modified builds, verified with live data on our dyno.", priceLabel: "", icon: "wrench", active: true }
 ];
 
+const VOUCHER = { id: "stage1-voucher", name: "Stage 1 Remap Voucher", category: "Tuning", price: 350, compareAtPrice: null, stock: null, featured: true, active: true, image: "", description: "A prepaid Stage 1 remap for one vehicle, including a full diagnostic scan and before-and-after data logs. Book your slot on WhatsApp once your order is confirmed.", features: ["Full diagnostic scan", "Before-and-after data logs", "Original software backed up"] };
+const DIAGNOSTIC_SCAN = { id: "diagnostic-scan", name: "Full Diagnostic Scan", category: "Diagnostics", price: 40, compareAtPrice: null, stock: null, featured: false, active: true, image: "", description: "Every control module scanned for stored and pending fault codes, with live data checks and a written report. Ideal before a tune or before buying a used car.", features: ["All control modules scanned", "Live data checks and a written report", "VCDS and factory tools for VW group cars"] };
+// The sample products a database was first created with, replaced while still unedited.
+const LAUNCH_PRODUCTS = [
+  { id: "stage1-voucher", name: "Stage 1 Remap Voucher", category: "Tuning", price: 350, compareAtPrice: null, stock: null, featured: true, active: true, image: "", description: "A prepaid Stage 1 remap for one vehicle, including a health check and before-and-after dyno runs. Book your slot on WhatsApp once your order is confirmed.", features: ["Health check and diagnostic scan", "Before-and-after dyno runs", "Original software backed up"] },
+  { id: "dyno-run", name: "Dyno Power Run", category: "Tuning", price: 60, compareAtPrice: null, stock: null, featured: false, active: true, image: "", description: "Three back-to-back power runs on our dyno with a printed graph of your car's power and torque.", features: ["Three power runs", "Printed power and torque graph", "Ideal before any upgrade"] },
+];
+
 // Sample shop products. Prices are in the currency set under Settings; replace them with your own.
 // stock: a number, or null for items that never run out (services, vouchers).
 export const SEED_PRODUCTS = [
-  { id: "stage1-voucher", name: "Stage 1 Remap Voucher", category: "Tuning", price: 350, compareAtPrice: null, stock: null, featured: true, active: true, image: "", description: "A prepaid Stage 1 remap for one vehicle, including a health check and before-and-after dyno runs. Book your slot on WhatsApp once your order is confirmed.", features: ["Health check and diagnostic scan", "Before-and-after dyno runs", "Original software backed up"] },
-  { id: "dyno-run", name: "Dyno Power Run", category: "Tuning", price: 60, compareAtPrice: null, stock: null, featured: false, active: true, image: "", description: "Three back-to-back power runs on our dyno with a printed graph of your car's power and torque.", features: ["Three power runs", "Printed power and torque graph", "Ideal before any upgrade"] },
+  VOUCHER,
+  DIAGNOSTIC_SCAN,
   { id: "panel-air-filter", name: "High-Flow Panel Air Filter", category: "Performance parts", price: 65, compareAtPrice: 79, stock: 14, featured: true, active: true, image: "", description: "A washable, reusable cotton-gauze panel filter that drops straight into the factory airbox.", features: ["Washable and reusable", "Direct replacement for the factory filter", "Tell us your vehicle to confirm fitment"] },
   { id: "boost-hose-kit", name: "Silicone Boost Hose Kit", category: "Performance parts", price: 180, compareAtPrice: null, stock: 6, featured: true, active: true, image: "", description: "Reinforced silicone hoses that replace the factory rubber and plastic boost pipes.", features: ["Multi-ply reinforced silicone", "Stainless steel clamps included", "Vehicle-specific kits"] },
   { id: "uprated-intercooler", name: "Uprated Intercooler", category: "Performance parts", price: 890, compareAtPrice: null, stock: 2, featured: false, active: true, image: "", description: "A larger-core intercooler that keeps intake temperatures consistent on tuned cars.", features: ["Larger bar-and-plate core", "Bolt-on installation", "Recommended for Stage 2"] },
@@ -270,12 +351,12 @@ export const DEFAULT_SETTINGS = {
   latitude: null,
   longitude: null,
   hours: "Mon–Sat 9:00–18:00",
-  instagram: "",
+  instagram: "https://www.instagram.com/unitytuners/",
   facebook: "",
   tiktok: "",
   youtube: "",
   stage2Note: "Stage 2 adds supporting hardware to the software: a high-flow intake, an uprated intercooler and a freer-flowing exhaust, with the catalytic converter and all emissions equipment kept in place.",
-  stage3Note: "Stage 3 is a bigger build: an upgraded turbocharger with matching fuelling and a clutch or gearbox rated for the extra torque, finished with a custom calibration on our dyno.",
+  stage3Note: "Stage 3 is a bigger build: an upgraded turbocharger with matching fuelling and a clutch or gearbox rated for the extra torque, finished with a custom calibration checked by data-logged road tests.",
   alertOrders: true,
   alertEnquiries: true,
   siteUrl: ""
@@ -295,7 +376,24 @@ export const CATALOG_UPDATES = [
     },
     services: { from: LAUNCH_SERVICES, to: SEED_SERVICES }
   },
-  { version: 4, vehicles: VAG_DIESELS }
+  { version: 4, vehicles: VAG_DIESELS },
+  {
+    version: 5,
+    vehicles: MORE_VEHICLES,
+    add: { ecus: NEW_ECUS },
+    services: { from: BRAND_SERVICES, to: SEED_SERVICES },
+    replace: {
+      ecus: LAUNCH_ECUS.map((from) => ({ from, to: SEED_ECUS.find((ecu) => ecu.id === from.id) })),
+      products: [
+        { from: LAUNCH_PRODUCTS[0], to: VOUCHER },
+        { from: LAUNCH_PRODUCTS[1], to: DIAGNOSTIC_SCAN }
+      ]
+    },
+    settings: {
+      instagram: ["", DEFAULT_SETTINGS.instagram],
+      stage3Note: ["Stage 3 is a bigger build: an upgraded turbocharger with matching fuelling and a clutch or gearbox rated for the extra torque, finished with a custom calibration on our dyno.", DEFAULT_SETTINGS.stage3Note]
+    }
+  }
 ];
 export const CATALOG_VERSION = Math.max(1, ...CATALOG_UPDATES.map((update) => update.version));
 

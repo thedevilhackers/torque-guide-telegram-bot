@@ -36,7 +36,7 @@ const ART = [
   [/tun|remap|voucher|dyno/i, "ticket", ["#ffd6d3", "#fff4f3", "#b3261e"]],
   [/part|intake|exhaust|filter|intercooler/i, "filter", ["#d6e6ff", "#f3f7ff", "#1d4f9c"]],
   [/maint|oil|plug|service/i, "drop", ["#fff0c7", "#fffaf0", "#8a5a00"]],
-  [/tool|logger|obd/i, "tools", ["#d9f5e3", "#f3fbf6", "#17663a"]],
+  [/tool|logger|obd|diag|scan/i, "tools", ["#d9f5e3", "#f3fbf6", "#17663a"]],
   [/merch|apparel|cloth|hoodie|cap/i, "shirt", ["#e8e0ff", "#f7f4ff", "#4a3aa7"]]
 ];
 

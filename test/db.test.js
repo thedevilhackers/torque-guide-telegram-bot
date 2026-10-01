@@ -3,7 +3,7 @@ import test from "node:test";
 import { mkdirSync, rmdirSync } from "node:fs";
 import { join } from "node:path";
 import { DATA_DIR, db, replaceData, transact } from "../src/db.js";
-import { CATALOG_UPDATES, CATALOG_VERSION, DEFAULT_SETTINGS, SEED_SERVICES, SEED_VEHICLES, seedData } from "../src/seed-data.js";
+import { CATALOG_UPDATES, CATALOG_VERSION, DEFAULT_SETTINGS, SEED_ECUS, SEED_SERVICES, SEED_VEHICLES, seedData } from "../src/seed-data.js";
 
 const brandRefresh = CATALOG_UPDATES.find((update) => update.version === 3);
 
@@ -74,4 +74,37 @@ test("a change that can't be saved isn't applied", () => {
     rmdirSync(blocker);
   }
   assert.equal(db().nextOrderNumber, before);
+});
+
+test("update 5 swaps unedited sample products and ECU notes, adds ECU families and Instagram, and keeps edits", () => {
+  const update = CATALOG_UPDATES.find((entry) => entry.version === 5);
+  const before = (edit = () => {}) => {
+    const data = seedData();
+    data.catalogVersion = 4;
+    data.products = data.products.map((product) => {
+      const old = update.replace.products.find(({ to }) => to.id === product.id)?.from;
+      return old ? { ...structuredClone(old), createdAt: product.createdAt } : product;
+    });
+    data.ecus = update.replace.ecus.map(({ from }) => structuredClone(from));
+    data.settings.instagram = "";
+    data.settings.stage3Note = update.settings.stage3Note[0];
+    edit(data);
+    return data;
+  };
+
+  replaceData(before());
+  assert.ok(db().products.some((product) => product.id === "diagnostic-scan"));
+  assert.ok(!db().products.some((product) => product.id === "dyno-run"));
+  assert.doesNotMatch(JSON.stringify(db().products), /dyno/i);
+  assert.equal(db().ecus.length, SEED_ECUS.length);
+  assert.match(db().ecus.find((ecu) => ecu.id === "bosch_edc17").method, /Autotuner or KESS3/);
+  assert.equal(db().settings.instagram, "https://www.instagram.com/unitytuners/");
+  assert.doesNotMatch(db().settings.stage3Note, /dyno/i);
+
+  replaceData(before((data) => {
+    data.products.find((product) => product.id === "dyno-run").price = 75;
+    data.settings.instagram = "https://www.instagram.com/someone_else/";
+  }));
+  assert.equal(db().products.find((product) => product.id === "dyno-run").price, 75, "an edited product is the owner's to change");
+  assert.equal(db().settings.instagram, "https://www.instagram.com/someone_else/");
 });

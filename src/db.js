@@ -17,11 +17,26 @@ const sameRecords = (a, b) => {
 // Applies a change released after this database was created (see CATALOG_UPDATES). Each runs once:
 // cars already present (by id) are left alone, a car the owner later deletes stays deleted, and settings
 // or services the owner has edited are kept.
+const withoutDates = ({ createdAt, updatedAt, ...rest }) => rest;
+
 function applyCatalogUpdate(data, update) {
   for (const [key, [previous, next]] of Object.entries(update.settings ?? {})) {
     if (data.settings[key] === previous) data.settings[key] = next;
   }
   if (update.services && sameRecords(data.services, update.services.from)) data.services = structuredClone(update.services.to);
+  // New records (e.g. ECU families) are added unless one with the same id exists.
+  for (const [name, items] of Object.entries(update.add ?? {})) {
+    for (const item of items) if (!data[name].some((entry) => entry.id === item.id)) data[name].push(structuredClone(item));
+  }
+  // A record is replaced only while it still matches the old default exactly (dates aside).
+  for (const [name, pairs] of Object.entries(update.replace ?? {})) {
+    for (const { from, to } of pairs) {
+      const index = data[name].findIndex((entry) => entry.id === from.id && sameRecords([withoutDates(entry)], [from]));
+      if (index < 0 || data[name].some((entry, i) => i !== index && entry.id === to.id)) continue;
+      const { createdAt } = data[name][index];
+      data[name][index] = { ...structuredClone(to), ...(createdAt && { createdAt }) };
+    }
+  }
   const ecuIds = new Set(data.ecus.map((ecu) => ecu.id));
   for (const vehicle of update.vehicles ?? []) {
     if (data.vehicles.some((entry) => entry.id === vehicle.id)) continue;

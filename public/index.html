@@ -8,15 +8,30 @@
   <meta name="theme-color" content="#000000">
   <link rel="icon" href="/brand/icon-32.png" type="image/png" sizes="32x32">
   <link rel="apple-touch-icon" href="/brand/apple-touch-icon.png">
+  <link rel="canonical" href="%ORIGIN%/">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Unity Performance">
+  <meta property="og:title" content="Unity Performance · ECU remapping, ceramic coating &amp; detailing">
+  <meta property="og:description" content="ECU remapping with Stage 1, 2 and 3 power graphs for your car, plus ceramic coating, detailing, diagnostics and servicing. All under one roof.">
+  <meta property="og:url" content="%ORIGIN%/">
+  <meta property="og:image" content="%ORIGIN%/brand/share.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Unity Motorsports Performance: ECU remapping, ceramic coating and detailing">
+  <meta name="twitter:card" content="summary_large_image">
   <link rel="stylesheet" href="/css/site.css">
+  <link rel="modulepreload" href="/js/common.js">
+  <link rel="modulepreload" href="/js/chart.js">
+  <link rel="modulepreload" href="/js/icons.js">
   <script type="module" src="/js/home.js"></script>
+  <!--structured-data-->
 </head>
 <body class="page-home">
   <a class="skip-link" href="#main">Skip to content</a>
 
   <header class="nav" data-nav>
     <nav class="nav-inner" aria-label="Main">
-      <a class="nav-logo" href="/"><img class="nav-logo-image" src="/brand/logo.webp" width="961" height="285" alt=""><span class="visually-hidden" data-business-name>Unity Performance</span></a>
+      <a class="nav-logo" href="/"><img class="nav-logo-image" src="/brand/logo-header.webp" width="256" height="76" alt=""><span class="visually-hidden" data-business-name>Unity Performance</span></a>
       <ul class="nav-links" id="nav-links" data-nav-links>
         <li><a href="/#stage1">Stage 1</a></li>
         <li><a href="/#find">Find your car</a></li>
@@ -46,7 +61,7 @@
         <path class="hero-line hero-line-stage1" d="M0 372 C 200 350, 330 250, 500 180 S 800 90, 1200 110"/>
       </svg>
       <div class="hero-content" data-hero-content>
-        <img class="hero-logo" src="/brand/logo.webp" width="961" height="285" alt="Unity Motorsports Performance">
+        <img class="hero-logo" src="/brand/logo.webp" width="961" height="285" alt="Unity Motorsports Performance" fetchpriority="high">
         <p class="eyebrow" data-setting="tagline">Performance · Protection · Perfection</p>
         <h1 class="hero-title" data-setting="heroTitle">More power. More precision. More performance.</h1>
         <p class="hero-subtitle" data-setting="heroSubtitle">ECU remapping, ceramic coating, detailing, diagnostics and servicing. All under one roof.</p>
@@ -64,9 +79,9 @@
           <div class="story-steps">
             <p class="eyebrow" id="story-title">How Stage 1 works</p>
             <ol class="story-list">
-              <li class="story-step is-active" data-step><h2>Read.</h2><p>We connect through the diagnostic port and back up your original software before anything changes.</p></li>
+              <li class="story-step is-active" data-step><h2>Read.</h2><p>We connect through the diagnostic port with Autotuner or KESS3 and back up your original software before anything changes.</p></li>
               <li class="story-step" data-step><h2>Calibrate.</h2><p>Boost, fuelling and ignition are refined within safe limits for your engine and your fuel.</p></li>
-              <li class="story-step" data-step><h2>Verify.</h2><p>Before-and-after dyno runs show the gain. You leave with the graph.</p></li>
+              <li class="story-step" data-step><h2>Verify.</h2><p>A data-logged road test checks boost, fuelling and timing, and a full scan confirms there are no fault codes. You leave with your power graph.</p></li>
             </ol>
             <div class="story-progress" aria-hidden="true"><span data-story-bar></span></div>
           </div>
@@ -106,9 +121,10 @@
 
     <section class="section numbers" aria-label="In numbers">
       <div class="container numbers-grid">
-        <div class="number reveal"><strong data-stat="vehicles">—</strong><span>vehicles with Stage 1 figures</span></div>
+        <div class="number reveal"><strong data-stat="vehicles">—</strong><span>vehicles with power graphs</span></div>
         <div class="number reveal"><strong data-stat="ecus">—</strong><span>ECU families we tune</span></div>
-        <div class="number reveal"><strong data-stat="gain">—</strong><span>average power gain across our database</span></div>
+        <div class="number reveal"><small>Up to</small><strong data-stat="stage1">—</strong><span>more power from Stage 1 software</span></div>
+        <div class="number reveal"><small>Up to</small><strong data-stat="stage3">—</strong><span>more power with a Stage 3 build</span></div>
       </div>
     </section>
 
@@ -138,6 +154,22 @@
       </div>
     </section>
 
+    <section class="section tools" aria-labelledby="tools-title">
+      <div class="container">
+        <header class="section-head reveal">
+          <p class="eyebrow">Our tools</p>
+          <h2 class="headline" id="tools-title">Professional tools.<br>No guesswork.</h2>
+          <p class="lead">Every tune is read, written and checked with professional equipment, and your original software is always backed up first.</p>
+        </header>
+        <ul class="tool-grid">
+          <li class="tool-card reveal"><h3>Autotuner</h3><p>Reads and writes ECU software through the diagnostic port or on the bench.</p></li>
+          <li class="tool-card reveal"><h3>KESS3</h3><p>Alientech's tool for OBD, bench and boot-mode ECU work.</p></li>
+          <li class="tool-card reveal"><h3>VCDS</h3><p>Dealer-level diagnostics, coding and adaptations for Volkswagen, Audi, Skoda and SEAT.</p></li>
+          <li class="tool-card reveal"><h3>Factory tools</h3><p>Manufacturer diagnostic software for fault finding, coding and updates.</p></li>
+        </ul>
+      </div>
+    </section>
+
     <section class="section theme-light shop-teaser" aria-labelledby="shop-title">
       <div class="container">
         <header class="section-head reveal">
@@ -154,7 +186,7 @@
       <div class="container visit-grid">
         <div class="reveal">
           <p class="eyebrow">Visit</p>
-          <h2 class="headline" id="visit-title">Come and see<br>the dyno.</h2>
+          <h2 class="headline" id="visit-title">Come and see<br>the workshop.</h2>
           <dl class="visit-details" data-visit-details></dl>
           <div class="cta-row" data-visit-actions></div>
         </div>
@@ -171,7 +203,7 @@
     <div class="container footer-inner">
       <p><strong data-business-name>Unity Performance</strong> · <span data-setting="tagline">Performance · Protection · Perfection</span></p>
       <nav class="footer-links" aria-label="Footer"><a href="/#find">Find your car</a><a href="/shop">Shop</a><a href="/#visit">Visit</a><span data-socials></span></nav>
-      <p class="fineprint">Power figures are estimates for healthy, standard vehicles. Final results are confirmed on the dyno. © <span data-year></span> <span data-business-name>Unity Performance</span>.</p>
+      <p class="fineprint">Power figures are estimates for healthy, standard vehicles; real results depend on condition and fuel. © <span data-year></span> <span data-business-name>Unity Performance</span>.</p>
     </div>
   </footer>
 

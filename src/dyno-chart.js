@@ -253,7 +253,7 @@ function drawStageChart(vehicle, { stage, businessName, curves }) {
   legendItem(canvas, PLOT.left + 500, legendY, `STAGE ${stage} TORQUE`, THEME.torque, false);
   legendItem(canvas, PLOT.left + 750, legendY, "STOCK TORQUE", THEME.torqueStock, true);
   canvas.fillRect(48, 756, WIDTH - 96, 1, THEME.grid);
-  canvas.text("ESTIMATED CURVES - FINAL FIGURES CONFIRMED ON THE DYNO", 48, 770, 2, THEME.muted);
+  canvas.text("ESTIMATED CURVES - REAL RESULTS DEPEND ON CONDITION AND FUEL", 48, 770, 2, THEME.muted);
   if (vehicle.source === "ai") canvas.text("AI ESTIMATE - TO BE VERIFIED", WIDTH - 48, 770, 2, THEME.warning, "right");
   return canvas.toPng();
 }
