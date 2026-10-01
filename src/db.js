@@ -9,11 +9,21 @@ import { CATALOG_UPDATES, CATALOG_VERSION, DEFAULT_SETTINGS, SEED_BRANDS, seedDa
 export const DATA_DIR = process.env.DATA_DIR || "data";
 const DB_FILE = join(DATA_DIR, "db.json");
 
-// Adds catalogue cars released after this database was created. Each update is applied once:
-// cars already present (by id) are left alone, and a car the owner later deletes stays deleted.
+const sameRecords = (a, b) => {
+  const canonical = (list) => JSON.stringify(list.map((item) => Object.fromEntries(Object.entries(item).sort(([x], [y]) => x.localeCompare(y)))));
+  return canonical(a) === canonical(b);
+};
+
+// Applies a change released after this database was created (see CATALOG_UPDATES). Each runs once:
+// cars already present (by id) are left alone, a car the owner later deletes stays deleted, and settings
+// or services the owner has edited are kept.
 function applyCatalogUpdate(data, update) {
+  for (const [key, [previous, next]] of Object.entries(update.settings ?? {})) {
+    if (data.settings[key] === previous) data.settings[key] = next;
+  }
+  if (update.services && sameRecords(data.services, update.services.from)) data.services = structuredClone(update.services.to);
   const ecuIds = new Set(data.ecus.map((ecu) => ecu.id));
-  for (const vehicle of update.vehicles) {
+  for (const vehicle of update.vehicles ?? []) {
     if (data.vehicles.some((entry) => entry.id === vehicle.id)) continue;
     if (!data.brands.some((brand) => brand.id === vehicle.brand)) {
       const brand = SEED_BRANDS.find((item) => item.id === vehicle.brand);

@@ -88,6 +88,19 @@ Web services with disks need a paid instance type (the blueprint uses Starter). 
 - **Telegram PNG graph**: `THEME` in `src/dyno-chart.js`.
 - **AI gain limits**: `STAGE1_GAINS` in `src/vehicles.js`.
 
+## Brand
+
+The logo and icons were cut from the Unity Motorsports Performance banner; the original banner and poster are in `brand/source/`. The logo is chrome and red artwork with a transparent background, made for dark backgrounds, which is why the header stays dark on every page.
+
+- `public/brand/logo.webp`: the site header and the home page. `public/brand/logo.png`: the top of every dyno sheet.
+- `public/brand/icon-32.png` and `public/brand/apple-touch-icon.png`: the browser tab, phone home screen and admin panel.
+- `brand/logo-transparent.png` and `brand/turbo-symbol-transparent.png`: for print and social posts.
+- Telegram pictures, set in [@BotFather](https://t.me/BotFather) under `/mybots` → your bot → **Edit Bot**:
+  - **Edit Botpic**: send `brand/telegram-profile-photo.png`.
+  - **Edit Description Picture**: send `brand/telegram-description-picture.png` (640×360, shown before a customer presses Start).
+
+To change the logo later, replace `public/brand/logo.webp` and `public/brand/logo.png` with new files of the same names.
+
 ## Project layout
 
 ```
@@ -101,6 +114,8 @@ src/validation.js       admin input validation
 src/conversation.js     Telegram conversation flow
 src/dyno-chart.js       Stage 1 curves + PNG graph
 public/                 website, shop and admin panel (no build step)
+public/brand/           logo and icons used by the site and the dyno sheets
+brand/                  brand kit: originals, transparent logo, Telegram pictures
 test/                   node --test suites
 ```
 

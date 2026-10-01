@@ -201,13 +201,17 @@ const INDIA_VEHICLES = [
 
 export const SEED_VEHICLES = [...LAUNCH_VEHICLES, ...INDIA_VEHICLES];
 
-// Catalogue additions made after launch. db.js adds each one once to an existing database (with any
-// brand it needs), so the owner's own edits and deletions are kept. Add new cars here with the next version.
-export const CATALOG_UPDATES = [{ version: 2, vehicles: INDIA_VEHICLES }];
-export const CATALOG_VERSION = Math.max(1, ...CATALOG_UPDATES.map((update) => update.version));
-
-// Services shown on the website. icon: bolt | gauge | wave | scan | chip | wrench
+// Services shown on the website. icon: bolt | gauge | wave | scan | chip | wrench | shield | sparkle
 export const SEED_SERVICES = [
+  { id: "remap", title: "ECU remapping", summary: "Unlock hidden potential. More power, better efficiency. Stage 1, 2 and 3, each with its own power graph.", priceLabel: "", icon: "chip", active: true },
+  { id: "ceramic", title: "Ceramic coating", summary: "Long-lasting protection. Mirror finish. Easy maintenance.", priceLabel: "", icon: "shield", active: true },
+  { id: "detailing", title: "Detailing", summary: "Deep clean. Showroom shine. Inside and out perfection.", priceLabel: "", icon: "sparkle", active: true },
+  { id: "diagnostics", title: "Scanning & diagnostics", summary: "Advanced diagnostics. Accurate fault detection and fast solutions.", priceLabel: "", icon: "scan", active: true },
+  { id: "servicing", title: "Servicing", summary: "Expert care. Genuine quality. Keep your vehicle running at its best.", priceLabel: "", icon: "wrench", active: true }
+];
+
+// The services a database was first created with, before the Unity Motorsports artwork.
+const LAUNCH_SERVICES = [
   { id: "stage1", title: "Stage 1 remap", summary: "Software-only calibration for standard hardware. More power and torque, sharper response, smoother delivery.", priceLabel: "", icon: "bolt", active: true },
   { id: "stage2", title: "Stage 2 tuning", summary: "Calibration matched to supporting hardware such as intake, intercooler and exhaust upgrades.", priceLabel: "", icon: "gauge", active: true },
   { id: "dyno", title: "Dyno runs", summary: "Before-and-after power runs with a printed graph of your car's power and torque.", priceLabel: "", icon: "wave", active: true },
@@ -233,9 +237,9 @@ export const SEED_PRODUCTS = [
 
 export const DEFAULT_SETTINGS = {
   businessName: "Unity Performance",
-  tagline: "ECU tuning & performance",
-  heroTitle: "Stage 1. Unleashed.",
-  heroSubtitle: "Software-only performance for your car. More power, more torque, verified on our dyno.",
+  tagline: "Performance · Protection · Perfection",
+  heroTitle: "More power. More precision. More performance.",
+  heroSubtitle: "ECU remapping, ceramic coating, detailing, diagnostics and servicing. All under one roof.",
   heroImage: "",
   announcement: "",
   currency: "USD",
@@ -259,6 +263,23 @@ export const DEFAULT_SETTINGS = {
   alertEnquiries: true,
   siteUrl: ""
 };
+
+// Changes made after launch. db.js applies each one once to an existing database, keeping the owner's
+// own work: new cars are added (with any brand they need) unless already there, and settings or services
+// are only replaced while they still match the old defaults. Add new changes here with the next version.
+export const CATALOG_UPDATES = [
+  { version: 2, vehicles: INDIA_VEHICLES },
+  {
+    version: 3,
+    settings: {
+      tagline: ["ECU tuning & performance", DEFAULT_SETTINGS.tagline],
+      heroTitle: ["Stage 1. Unleashed.", DEFAULT_SETTINGS.heroTitle],
+      heroSubtitle: ["Software-only performance for your car. More power, more torque, verified on our dyno.", DEFAULT_SETTINGS.heroSubtitle]
+    },
+    services: { from: LAUNCH_SERVICES, to: SEED_SERVICES }
+  }
+];
+export const CATALOG_VERSION = Math.max(1, ...CATALOG_UPDATES.map((update) => update.version));
 
 const clone = (value) => structuredClone(value);
 

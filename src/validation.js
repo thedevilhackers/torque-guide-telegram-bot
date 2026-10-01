@@ -3,7 +3,7 @@ import { InputError } from "./records.js";
 // Validates admin-panel input and converts it to the stored shape. Throws InputError with a
 // message the admin can act on.
 
-const SERVICE_ICONS = ["bolt", "gauge", "wave", "scan", "chip", "wrench"];
+const SERVICE_ICONS = ["bolt", "gauge", "wave", "scan", "chip", "wrench", "shield", "sparkle"];
 const ECU_STATUSES = ["supported", "on_request", "not_supported"];
 const FUELS = ["petrol", "diesel"];
 const ASPIRATIONS = ["turbo", "supercharged", "naturally_aspirated"];

@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { inflateSync } from "node:zlib";
+import { deflateSync, inflateSync } from "node:zlib";
 import { buildDynoCurves, renderStageChart } from "../src/dyno-chart.js";
-import { dashSegments } from "../src/raster.js";
+import { dashSegments, decodePng } from "../src/raster.js";
 import { availableStages, getVehicle, stageFigures, vehicleEntries } from "../src/vehicles.js";
 
 test("curves peak at exactly the stock and stage figures for every vehicle and stage", () => {
@@ -46,6 +46,63 @@ test("chart renders as a valid 1200x800 PNG", () => {
   const idatLength = png.readUInt32BE(33);
   assert.equal(png.toString("ascii", 37, 41), "IDAT");
   assert.equal(inflateSync(png.subarray(41, 41 + idatLength)).length, (1200 * 3 + 1) * 800);
+});
+
+test("the sheet carries the logo at the top left", () => {
+  const sheet = decodePng(renderStageChart(getVehicle("vw_golf7_gti"), { stage: 1 }));
+  let red = 0;
+  let chrome = 0;
+  for (let y = 20; y < 74; y++) {
+    for (let x = 44; x < 226; x++) {
+      const i = (y * sheet.width + x) * 4;
+      const [r, g, b] = sheet.rgba.subarray(i, i + 3);
+      if (r > 150 && r > 2 * g && r > 2 * b) red++;
+      if (r > 170 && g > 170 && b > 170) chrome++;
+    }
+  }
+  assert.ok(red > 60, `red logo pixels: ${red}`);
+  assert.ok(chrome > 300, `chrome logo pixels: ${chrome}`);
+});
+
+// Builds an RGBA PNG whose rows cycle through all five PNG filter types.
+function filteredPng(width, height, pixel) {
+  const stride = width * 4;
+  const rows = Array.from({ length: height }, (_, y) => Buffer.from(Array.from({ length: width }, (_, x) => pixel(x, y)).flat()));
+  const raw = [];
+  rows.forEach((row, y) => {
+    const filter = y % 5;
+    const up = y ? rows[y - 1] : Buffer.alloc(stride);
+    raw.push(filter);
+    for (let i = 0; i < stride; i++) {
+      const left = i >= 4 ? row[i - 4] : 0;
+      const upLeft = i >= 4 ? up[i - 4] : 0;
+      const p = left + up[i] - upLeft;
+      const paeth = Math.abs(p - left) <= Math.abs(p - up[i]) && Math.abs(p - left) <= Math.abs(p - upLeft) ? left : Math.abs(p - up[i]) <= Math.abs(p - upLeft) ? up[i] : upLeft;
+      const predictor = [0, left, up[i], (left + up[i]) >> 1, paeth][filter];
+      raw.push((row[i] - predictor) & 0xff);
+    }
+  });
+  const chunk = (type, data) => {
+    const length = Buffer.alloc(4);
+    length.writeUInt32BE(data.length);
+    return Buffer.concat([length, Buffer.from(type, "ascii"), data, Buffer.alloc(4)]);
+  };
+  const header = Buffer.alloc(13);
+  header.writeUInt32BE(width, 0);
+  header.writeUInt32BE(height, 4);
+  header[8] = 8;
+  header[9] = 6;
+  return Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), chunk("IHDR", header), chunk("IDAT", deflateSync(Buffer.from(raw))), chunk("IEND", Buffer.alloc(0))]);
+}
+
+test("PNG decoding undoes every filter type", () => {
+  const pixel = (x, y) => [(x * 37 + y * 11) & 0xff, (x * x + y * 7) & 0xff, (200 - x * 3 + y * y) & 0xff, (x * 13 + y * 29) & 0xff];
+  const image = decodePng(filteredPng(9, 10, pixel));
+  assert.equal(image.width, 9);
+  assert.equal(image.height, 10);
+  for (let y = 0; y < 10; y++) {
+    for (let x = 0; x < 9; x++) assert.deepEqual([...image.rgba.subarray((y * 9 + x) * 4, (y * 9 + x) * 4 + 4)], pixel(x, y), `pixel ${x},${y}`);
+  }
 });
 
 test("AI-estimated vehicles render too", () => {

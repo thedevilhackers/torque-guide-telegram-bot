@@ -24,7 +24,7 @@ const ENQUIRY_LABELS = { new: "New", contacted: "Contacted", booked: "Booked", c
 const ECU_LABELS = { supported: "Supported", on_request: "On request", not_supported: "Not supported" };
 const FUEL_LABELS = { petrol: "Petrol", diesel: "Diesel" };
 const ASPIRATION_LABELS = { turbo: "Turbo", supercharged: "Supercharged", naturally_aspirated: "Naturally aspirated" };
-const ICONS = { bolt: "Lightning", gauge: "Gauge", wave: "Dyno curve", scan: "Diagnostics", chip: "Chip", wrench: "Wrench" };
+const ICONS = { bolt: "Lightning", gauge: "Gauge", wave: "Dyno curve", scan: "Diagnostics", chip: "Chip", wrench: "Wrench", shield: "Shield", sparkle: "Sparkle" };
 
 // ---------- Helpers ----------
 

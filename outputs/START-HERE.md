@@ -27,6 +27,7 @@ Everything runs from this one project: the website, the shop, the admin panel an
 3. **Vehicles**: check the Stage 1, 2 and 3 figures against your own dyno results. Clear Stage 2 and 3 for anything you don't offer.
 4. **ECUs**: set which ECUs you support.
 5. **Settings → Telegram alerts**: press **Connect a Telegram chat**, open the link on your phone and press Start. You'll get a message for every new order and enquiry.
+6. **Telegram bot picture**: in @BotFather, open `/mybots` → your bot → **Edit Bot**, then send `brand/telegram-profile-photo.png` for **Edit Botpic** and `brand/telegram-description-picture.png` for **Edit Description Picture**.
 
 New shop orders and Stage 1, 2 and 3 enquiries, from both the website and the Telegram bot, appear under **Orders** and **Enquiries**.
 

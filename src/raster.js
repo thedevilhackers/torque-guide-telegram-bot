@@ -1,4 +1,4 @@
-import { deflateSync } from "node:zlib";
+import { deflateSync, inflateSync } from "node:zlib";
 import { GLYPH_HEIGHT, GLYPH_WIDTH, fontText, glyph } from "./pixel-font.js";
 
 // A small dependency-free raster canvas. Shapes are drawn on a supersampled
@@ -42,6 +42,58 @@ export function encodePng(width, height, rgb) {
     pngChunk("IDAT", deflateSync(raw, { level: 9 })),
     pngChunk("IEND", Buffer.alloc(0))
   ]);
+}
+
+// Reads an 8-bit RGB or RGBA PNG without interlacing (such as the bundled logo) into RGBA pixels.
+export function decodePng(buffer) {
+  if (!buffer.subarray(0, 8).equals(PNG_SIGNATURE)) throw new Error("Not a PNG file");
+  let width = 0;
+  let height = 0;
+  let channels = 0;
+  const compressed = [];
+  for (let offset = 8; offset + 8 <= buffer.length; ) {
+    const length = buffer.readUInt32BE(offset);
+    const type = buffer.toString("ascii", offset + 4, offset + 8);
+    const data = buffer.subarray(offset + 8, offset + 8 + length);
+    if (type === "IHDR") {
+      width = data.readUInt32BE(0);
+      height = data.readUInt32BE(4);
+      channels = { 2: 3, 6: 4 }[data[9]] ?? 0;
+      if (data[8] !== 8 || !channels || data[12] !== 0) throw new Error("Only 8-bit RGB or RGBA PNGs without interlacing are supported");
+    } else if (type === "IDAT") {
+      compressed.push(data);
+    } else if (type === "IEND") {
+      break;
+    }
+    offset += length + 12;
+  }
+  const raw = inflateSync(Buffer.concat(compressed));
+  const stride = width * channels;
+  const pixels = Buffer.alloc(stride * height);
+  for (let y = 0; y < height; y++) {
+    const filter = raw[y * (stride + 1)];
+    const line = y * (stride + 1) + 1;
+    const out = y * stride;
+    for (let x = 0; x < stride; x++) {
+      const left = x >= channels ? pixels[out + x - channels] : 0;
+      const up = y > 0 ? pixels[out - stride + x] : 0;
+      const upLeft = x >= channels && y > 0 ? pixels[out - stride + x - channels] : 0;
+      let predictor = 0;
+      if (filter === 1) predictor = left;
+      else if (filter === 2) predictor = up;
+      else if (filter === 3) predictor = (left + up) >> 1;
+      else if (filter === 4) {
+        const p = left + up - upLeft;
+        const [pa, pb, pc] = [Math.abs(p - left), Math.abs(p - up), Math.abs(p - upLeft)];
+        predictor = pa <= pb && pa <= pc ? left : pb <= pc ? up : upLeft;
+      } else if (filter !== 0) throw new Error(`Unknown PNG filter ${filter}`);
+      pixels[out + x] = (raw[line + x] + predictor) & 0xff;
+    }
+  }
+  if (channels === 4) return { width, height, rgba: pixels };
+  const rgba = Buffer.alloc(width * height * 4, 255);
+  for (let i = 0, j = 0; i < pixels.length; i += 3, j += 4) pixels.copy(rgba, j, i, i + 3);
+  return { width, height, rgba };
 }
 
 export function hex(color, alpha = 1) {
@@ -161,6 +213,51 @@ export class Canvas {
     for (const segment of dash ? dashSegments(points, dash) : [points]) {
       for (let i = 1; i < segment.length; i++) this.line(...segment[i - 1], ...segment[i], width, color);
       for (const [x, y] of segment) this.fillCircle(x, y, width / 2, color);
+    }
+  }
+
+  // Draws an image from decodePng() scaled into the box, with bilinear sampling and alpha blending.
+  drawImage({ width: iw, height: ih, rgba }, x, y, width, height) {
+    const s = this.ss;
+    const left = Math.round(x * s);
+    const top = Math.round(y * s);
+    const w = Math.round(width * s);
+    const h = Math.round(height * s);
+    const d = this.data;
+    const clampTo = (value, max) => Math.min(Math.max(value, 0), max);
+    for (let row = Math.max(0, -top); row < h && top + row < this.h; row++) {
+      const v = clampTo(((row + 0.5) / h) * ih - 0.5, ih - 1);
+      const y0 = Math.floor(v);
+      const y1 = Math.min(y0 + 1, ih - 1);
+      const fy = v - y0;
+      for (let col = Math.max(0, -left); col < w && left + col < this.w; col++) {
+        const u = clampTo(((col + 0.5) / w) * iw - 0.5, iw - 1);
+        const x0 = Math.floor(u);
+        const x1 = Math.min(x0 + 1, iw - 1);
+        const fx = u - x0;
+        // Interpolate premultiplied colour so transparent pixels don't darken the edges.
+        let r = 0;
+        let g = 0;
+        let b = 0;
+        let a = 0;
+        const sample = (sx, sy, weight) => {
+          const i = (sy * iw + sx) * 4;
+          const alpha = (rgba[i + 3] / 255) * weight;
+          r += rgba[i] * alpha;
+          g += rgba[i + 1] * alpha;
+          b += rgba[i + 2] * alpha;
+          a += alpha;
+        };
+        sample(x0, y0, (1 - fx) * (1 - fy));
+        sample(x1, y0, fx * (1 - fy));
+        sample(x0, y1, (1 - fx) * fy);
+        sample(x1, y1, fx * fy);
+        if (a <= 0) continue;
+        const o = ((top + row) * this.w + left + col) * 3;
+        d[o] = d[o] * (1 - a) + r;
+        d[o + 1] = d[o + 1] * (1 - a) + g;
+        d[o + 2] = d[o + 2] * (1 - a) + b;
+      }
     }
   }
 

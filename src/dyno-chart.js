@@ -1,4 +1,5 @@
-import { Canvas, hex } from "./raster.js";
+import { readFileSync } from "node:fs";
+import { Canvas, decodePng, hex } from "./raster.js";
 import { stageFigures, stageGain, vehicleName } from "./vehicles.js";
 
 // Builds estimated stock and tuned (Stage 1, 2 or 3) power/torque curves from peak figures, then
@@ -116,6 +117,20 @@ const THEME = {
   warning: hex("#ffb020")
 };
 const DASH = [10, 7];
+const LOGO_HEIGHT = 54;
+const LOGO_FILE = new URL("../public/brand/logo.png", import.meta.url);
+
+let logoCache;
+function sheetLogo() {
+  if (logoCache === undefined) {
+    try {
+      logoCache = decodePng(readFileSync(LOGO_FILE));
+    } catch {
+      logoCache = null;
+    }
+  }
+  return logoCache;
+}
 
 function niceStep(raw) {
   const magnitude = 10 ** Math.floor(Math.log10(raw));
@@ -162,16 +177,19 @@ export function renderStageChart(vehicle, { stage = 1, businessName = "Unity Per
   const gain = stageGain(vehicle, stage);
   const canvas = new Canvas(WIDTH, HEIGHT, THEME.background);
 
-  // Header and headline gains.
-  canvas.text(businessName, 48, 34, 4, THEME.text);
-  canvas.text(`STAGE ${stage} PERFORMANCE GRAPH`, 48, 76, 2, THEME.power);
+  // Header and headline gains. The logo goes top left; without it, the business name is written instead.
+  const logo = sheetLogo();
+  if (logo) canvas.drawImage(logo, 44, 20, Math.round((LOGO_HEIGHT * logo.width) / logo.height), LOGO_HEIGHT);
+  else canvas.text(businessName, 48, 34, 4, THEME.text);
+  const rows = logo ? { label: 86, title: 110, engine: 142 } : { label: 76, title: 104, engine: 140 };
+  canvas.text(`STAGE ${stage} PERFORMANCE GRAPH`, 48, rows.label, 2, THEME.power);
   const title = fitText(canvas, vehicleName(vehicle), 672, [3, 2]);
-  canvas.text(title.text, 48, 104, title.size, THEME.text);
+  canvas.text(title.text, 48, rows.title, title.size, THEME.text);
   const aspiration = { turbo: "TURBO", supercharged: "SUPERCHARGED", naturally_aspirated: "NA" }[vehicle.aspiration] ?? "";
   // Shorten the engine name rather than losing the fuel type or years.
   const suffix = ["", [vehicle.fuel, aspiration].join(" ").trim(), vehicle.years].filter((part, i) => i === 0 || part).join(" - ");
   const engine = fitText(canvas, vehicle.engine, 672 - canvas.measureText(suffix, 2), [2]);
-  canvas.text(`${engine.text}${suffix}`, 48, 140, 2, THEME.muted);
+  canvas.text(`${engine.text}${suffix}`, 48, rows.engine, 2, THEME.muted);
   statCard(canvas, 744, 32, { label: "POWER", percent: gain.hpPercent, gain: `+${gain.hp} HP`, detail: `${vehicle.stock.hp} > ${target.hp} HP`, color: THEME.power });
   statCard(canvas, 956, 32, { label: "TORQUE", percent: gain.nmPercent, gain: `+${gain.nm} NM`, detail: `${vehicle.stock.nm} > ${target.nm} NM`, color: THEME.torque });
 
