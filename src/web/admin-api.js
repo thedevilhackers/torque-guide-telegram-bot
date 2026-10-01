@@ -5,7 +5,7 @@ import { alertChats, broadcast, createLinkCode, unlinkChat } from "../alerts.js"
 import { DATA_DIR, db, replaceData, settings, transact } from "../db.js";
 import { DEFAULT_SETTINGS } from "../seed-data.js";
 import { ENQUIRY_STATUSES, InputError, ORDER_STATUSES } from "../records.js";
-import { slugify, validateBrand, validateEcu, validateProduct, validateService, validateSettings, validateVehicle, vehicleFormValues } from "../validation.js";
+import { slugify, validateBrand, validateEcu, validatePhoto, validateProduct, validateService, validateSettings, validateVehicle, vehicleFormValues } from "../validation.js";
 import { adminEnabled, checkCredentials, currentAdmin, endSession, startSession } from "./auth.js";
 import { HttpError, rateLimiter, readJson, sameOrigin, sendJson } from "./http.js";
 
@@ -18,6 +18,7 @@ const IMAGE_SIGNATURES = [
 ];
 
 // Editable collections. id() builds a readable id for new entries; ids never change afterwards.
+// prepend puts new entries first (the photo gallery shows the newest first).
 const COLLECTIONS = {
   products: { validate: (input) => validateProduct(input), id: (entry) => slugify(entry.name) },
   vehicles: {
@@ -27,7 +28,8 @@ const COLLECTIONS = {
   },
   ecus: { validate: (input) => validateEcu(input), id: (entry) => slugify(entry.title, "_") },
   brands: { validate: (input) => validateBrand(input), id: (entry) => slugify(entry.title, "_") },
-  services: { validate: (input) => validateService(input), id: (entry) => slugify(entry.title) }
+  services: { validate: (input) => validateService(input), id: (entry) => slugify(entry.title) },
+  photos: { validate: (input) => validatePhoto(input), id: (entry) => slugify(entry.caption) || "photo", prepend: true }
 };
 
 function uniqueId(base, taken) {
@@ -111,7 +113,10 @@ function validEnquiry(enquiry) {
 // leave the site or the admin panel unable to load. Returns the cleaned data to store.
 function cleanBackup(backup) {
   if (!backup || typeof backup !== "object" || !backup.settings || typeof backup.settings !== "object") throw new InputError("That file isn't a backup from this admin panel.");
-  for (const name of [...Object.keys(COLLECTIONS), "orders", "enquiries"]) {
+  // Backups made before the photo gallery existed have no photos list; restoring one adds the
+  // gallery's first photos, as for any older database.
+  const hasPhotos = backup.photos !== undefined;
+  for (const name of [...Object.keys(COLLECTIONS), "orders", "enquiries"].filter((list) => list !== "photos" || hasPhotos)) {
     const list = backup[name];
     if (!Array.isArray(list) || list.some((item) => !item || typeof item !== "object" || !ID.test(String(item.id)))) throw new InputError(`The backup's ${name} list is damaged.`);
     if (new Set(list.map((item) => item.id)).size !== list.length) throw new InputError(`The backup has duplicate ${name}.`);
@@ -150,6 +155,7 @@ function cleanBackup(backup) {
     vehicles,
     services: each("services", "Service", validateService),
     products: each("products", "Product", validateProduct),
+    ...(hasPhotos && { photos: each("photos", "Photo", validatePhoto) }),
     orders: backup.orders,
     enquiries: backup.enquiries,
     alertChats,
@@ -209,7 +215,8 @@ export function registerAdminRoutes(route, { botUsername = () => "", sendAlert =
         const values = collection.validate(body, data);
         const now = new Date().toISOString();
         const item = { id: uniqueId(collection.id(values), new Set(data[name].map((entry) => entry.id))), ...values, createdAt: now, updatedAt: now };
-        data[name].push(item);
+        if (collection.prepend) data[name].unshift(item);
+        else data[name].push(item);
         return { item: toForm(item) };
       })
     );

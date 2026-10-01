@@ -1,4 +1,4 @@
-// Line icons for services, and generated artwork for products without a photo.
+// Line icons for services and links, and generated artwork for products without a photo.
 // All markup here is static; no data is ever inserted into it.
 
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -16,7 +16,8 @@ const PATHS = {
   tools: ["M4 20l7-7", "M14 4a4 4 0 0 0 5 5l-4 4-5-5 4-4Z", "M3 5l3-2 3 3-2 3-3-1-1-3Z"],
   shirt: ["M8 4 4 7l2 4 2-1v10h8V10l2 1 2-4-4-3a4 4 0 0 1-8 0Z"],
   drop: ["M12 3s6 7 6 11a6 6 0 0 1-12 0c0-4 6-11 6-11Z"],
-  ticket: ["M4 7h16v3a2 2 0 0 0 0 4v3H4v-3a2 2 0 0 0 0-4V7Z", "M14 7v10"]
+  ticket: ["M4 7h16v3a2 2 0 0 0 0 4v3H4v-3a2 2 0 0 0 0-4V7Z", "M14 7v10"],
+  instagram: ["M8 3.5h8A4.5 4.5 0 0 1 20.5 8v8a4.5 4.5 0 0 1-4.5 4.5H8A4.5 4.5 0 0 1 3.5 16V8A4.5 4.5 0 0 1 8 3.5Z", "M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Z", "M17.2 6.8h.01"]
 };
 
 export function icon(name) {

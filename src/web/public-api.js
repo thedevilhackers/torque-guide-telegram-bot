@@ -12,6 +12,9 @@ const PUBLIC_SETTINGS = [
   "phone", "email", "address", "latitude", "longitude", "hours", "instagram", "facebook", "tiktok", "youtube", "stage2Note", "stage3Note"
 ];
 
+// The "Our work" gallery shows the newest photos; older ones stay in the admin panel.
+const MAX_SITE_PHOTOS = 24;
+
 export function vehicleSummary(vehicle) {
   const { id, source, brand, brandId, model, generation, years, engine, fuel, aspiration, ecus: ecuIds = [], stock, stage1, tunable, confidence, notes } = vehicle;
   return {
@@ -81,6 +84,7 @@ export function registerPublicRoutes(route, { botUsername }) {
       brands: brandsWithVehicles().map(({ id, title }) => ({ id, title })),
       ecus: ecus().map(({ id, title, fuels, status, method }) => ({ id, title, fuels, status, method })),
       services: db().services.filter((service) => service.active),
+      photos: db().photos.filter((photo) => photo.active).slice(0, MAX_SITE_PHOTOS).map(({ id, image, caption, link }) => ({ id, image, caption, link })),
       vehicleCount: vehicleEntries().length,
       stats: siteStats(),
       aiEnabled: aiEnabled()

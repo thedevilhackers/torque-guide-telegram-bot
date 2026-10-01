@@ -108,3 +108,23 @@ test("update 5 swaps unedited sample products and ECU notes, adds ECU families a
   assert.equal(db().products.find((product) => product.id === "dyno-run").price, 75, "an edited product is the owner's to change");
   assert.equal(db().settings.instagram, "https://www.instagram.com/someone_else/");
 });
+
+test("update 6 adds the gallery's first photos once, after the owner's own, and deletions stick", () => {
+  const SEED_PHOTOS = CATALOG_UPDATES.find((entry) => entry.version === 6).add.photos;
+  const before = seedData();
+  before.catalogVersion = 5;
+  delete before.photos;
+  replaceData(before);
+  assert.deepEqual(db().photos.map((photo) => photo.id), SEED_PHOTOS.map((photo) => photo.id), "a database from before the gallery gets its photos");
+
+  const withOwnPhoto = seedData();
+  withOwnPhoto.catalogVersion = 5;
+  withOwnPhoto.photos = [{ id: "my-build", image: "/uploads/0123456789abcdef0123456789abcdef.jpg", caption: "My build", link: "", active: true }];
+  replaceData(withOwnPhoto);
+  assert.deepEqual(db().photos.map((photo) => photo.id), ["my-build", ...SEED_PHOTOS.map((photo) => photo.id)], "the owner's newer photos stay first");
+
+  const current = structuredClone(db());
+  current.photos = current.photos.filter((photo) => photo.id !== SEED_PHOTOS[0].id);
+  replaceData(current);
+  assert.ok(!db().photos.some((photo) => photo.id === SEED_PHOTOS[0].id), "a deleted photo isn't added again");
+});

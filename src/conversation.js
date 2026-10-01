@@ -72,6 +72,8 @@ export function createConversation({ telegram = telegramApi, ai = tuningService,
       [btn("🧾 ECUs we support", "ecus"), ...(hasWorkshop() ? [btn("📍 Our workshop", "workshop")] : [])]
     ];
     if (settings().whatsappNumber) rows.push([link("💬 Chat with us on WhatsApp", whatsappLink(`Hello ${businessName()}, I have a question about tuning.`))]);
+    const { instagram } = settings();
+    if (/^https:\/\//.test(instagram ?? "")) rows.push([link("📸 See our work on Instagram", instagram)]);
     const text = [
       `<b>🏁 ${h(businessName())}</b>`,
       "See what Stage 1 does for your vehicle in three quick steps:",

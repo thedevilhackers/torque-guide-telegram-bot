@@ -385,17 +385,57 @@ function setupServices() {
       )
     )
   );
-  const previous = $("[data-gallery-prev]");
-  const next = $("[data-gallery-next]");
-  const step = () => ($(".service-card", gallery)?.offsetWidth ?? 320) + 20;
+  carousel(gallery, gallery.closest("section"));
+}
+
+// Previous and next buttons for a sideways-scrolling row of cards; each press moves one card.
+function carousel(track, section) {
+  const previous = $("[data-gallery-prev]", section);
+  const next = $("[data-gallery-next]", section);
+  const step = () => (track.firstElementChild?.offsetWidth ?? 320) + 20;
   const sync = () => {
-    previous.disabled = gallery.scrollLeft <= 4;
-    next.disabled = gallery.scrollLeft + gallery.clientWidth >= gallery.scrollWidth - 4;
+    previous.disabled = track.scrollLeft <= 4;
+    next.disabled = track.scrollLeft + track.clientWidth >= track.scrollWidth - 4;
   };
-  previous.addEventListener("click", () => gallery.scrollBy({ left: -step(), behavior: "smooth" }));
-  next.addEventListener("click", () => gallery.scrollBy({ left: step(), behavior: "smooth" }));
-  gallery.addEventListener("scroll", sync, { passive: true });
+  const move = (direction) => track.scrollBy({ left: direction * step(), behavior: reducedMotion() ? "auto" : "smooth" });
+  previous.addEventListener("click", () => move(-1));
+  next.addEventListener("click", () => move(1));
+  track.addEventListener("scroll", sync, { passive: true });
+  addEventListener("resize", sync, { passive: true });
   sync();
+}
+
+const isInstagram = (url) => {
+  try {
+    return /(^|\.)instagram\.com$/.test(new URL(url).hostname);
+  } catch {
+    return false;
+  }
+};
+
+// "Our work": the owner's photos from the admin panel, newest first. A photo opens its own link
+// (usually the Instagram post), or else the Instagram profile.
+function setupWork() {
+  const section = $("[data-work]");
+  if (!site.photos?.length) return;
+  const handle = instagramHandle(settings.instagram);
+  if (handle) {
+    $("[data-work-actions]", section).append(h("a", { class: "btn btn-instagram", href: settings.instagram, target: "_blank", rel: "noopener" }, icon("instagram"), `Follow @${handle}`));
+  }
+  const track = $("[data-work-photos]", section);
+  track.replaceChildren(
+    ...site.photos.map((photo) => {
+      const href = photo.link || settings.instagram || "";
+      // The caption already describes the picture, so the image itself isn't announced twice.
+      const frame = h("span", { class: "photo-frame" }, h("img", { src: photo.image, alt: photo.caption ? "" : "A car from our workshop", width: 750, height: 1000, loading: "lazy", decoding: "async" }));
+      if (!href) return h("figure", { class: "photo-card" }, frame, photo.caption ? h("figcaption", { class: "photo-caption", text: photo.caption }) : null);
+      const onInstagram = isInstagram(href);
+      const caption = h("span", { class: "photo-caption" }, h("span", { text: photo.caption || (onInstagram ? "See it on Instagram" : "See more") }), onInstagram ? icon("instagram") : null);
+      return h("a", { class: "photo-card", href, target: "_blank", rel: "noopener" }, frame, caption);
+    })
+  );
+  section.hidden = false;
+  carousel(track, section);
 }
 
 function setupEcus() {
@@ -427,7 +467,7 @@ async function setupFeaturedProducts() {
 // "https://www.instagram.com/unitytuners/" → "unitytuners".
 function instagramHandle(url) {
   try {
-    return /instagram\.com$/.test(new URL(url).hostname) ? new URL(url).pathname.split("/").filter(Boolean)[0] ?? "" : "";
+    return isInstagram(url) ? new URL(url).pathname.split("/").filter(Boolean)[0] ?? "" : "";
   } catch {
     return "";
   }
@@ -456,6 +496,7 @@ function setupVisit() {
 }
 
 setupServices();
+setupWork();
 setupEcus();
 setupVisit();
 setupBrandChips();

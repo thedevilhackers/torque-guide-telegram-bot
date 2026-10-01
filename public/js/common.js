@@ -85,6 +85,13 @@ function applySettings({ settings }) {
   }
   const socials = [["Instagram", settings.instagram], ["Facebook", settings.facebook], ["TikTok", settings.tiktok], ["YouTube", settings.youtube]].filter(([, url]) => /^https:\/\//.test(url ?? ""));
   for (const slot of $$("[data-socials]")) slot.replaceChildren(...socials.map(([label, url]) => h("a", { href: url, rel: "noopener", target: "_blank", text: label })));
+  if (/^https:\/\//.test(settings.instagram ?? "")) {
+    for (const link of $$("[data-instagram-link]")) {
+      link.href = settings.instagram;
+      link.setAttribute("aria-label", `${settings.businessName} on Instagram`);
+      link.hidden = false;
+    }
+  }
   if (document.title.includes("Unity Performance")) document.title = document.title.replace("Unity Performance", settings.businessName);
 }
 

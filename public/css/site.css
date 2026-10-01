@@ -1462,6 +1462,92 @@ p {
   margin-top: 8px;
 }
 
+/* ---------- Our work (photo gallery) ---------- */
+
+/* Captions sit under the picture, since many posts carry their own text. */
+.photo-card {
+  flex: none;
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  width: min(320px, 72vw);
+  margin: 0;
+  color: var(--text-2);
+  scroll-snap-align: start;
+}
+
+a.photo-card:hover {
+  text-decoration: none;
+}
+
+.photo-frame {
+  display: block;
+  aspect-ratio: 3 / 4;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.photo-frame img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.9s var(--ease-out);
+}
+
+a.photo-card:hover .photo-frame img {
+  transform: scale(1.04);
+}
+
+a.photo-card:focus-visible {
+  outline: none;
+}
+
+a.photo-card:focus-visible .photo-frame {
+  outline: 3px solid var(--link);
+  outline-offset: 3px;
+}
+
+.photo-caption {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 4px;
+  font-size: 15px;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+}
+
+a.photo-card:hover .photo-caption {
+  color: var(--text);
+}
+
+.photo-caption svg,
+.btn-instagram svg {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.btn-instagram {
+  background: linear-gradient(45deg, #f58529, #dd2a7b 50%, #8134af);
+  color: #fff;
+}
+
+.btn-instagram:hover {
+  filter: brightness(1.08);
+}
+
+.icon-button[hidden] {
+  display: none;
+}
+
 /* ---------- ECUs ---------- */
 
 .ecu-grid {

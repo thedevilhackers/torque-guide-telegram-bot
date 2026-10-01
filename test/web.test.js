@@ -7,7 +7,7 @@ process.env.ADMIN_PASSWORD = "correct-horse-battery";
 process.env.WHATSAPP_NUMBER = "94770000000";
 
 const { createApp } = await import("../src/web/app.js");
-const { validateBrand, validateEcu, validateProduct, validateService, validateVehicle, vehicleFormValues } = await import("../src/validation.js");
+const { validateBrand, validateEcu, validatePhoto, validateProduct, validateService, validateVehicle, vehicleFormValues } = await import("../src/validation.js");
 const { vehicleEntries } = await import("../src/vehicles.js");
 const { db } = await import("../src/db.js");
 
@@ -48,8 +48,8 @@ test("every seed vehicle passes the admin validation", () => {
   for (const entry of vehicleEntries()) assert.doesNotThrow(() => validateVehicle(vehicleFormValues(entry), context), entry.id);
 });
 
-test("every seed brand, ECU, service and product passes the admin validation", () => {
-  for (const [name, validate] of [["brands", validateBrand], ["ecus", validateEcu], ["services", validateService], ["products", validateProduct]]) {
+test("every seed brand, ECU, service, product and photo passes the admin validation", () => {
+  for (const [name, validate] of [["brands", validateBrand], ["ecus", validateEcu], ["services", validateService], ["products", validateProduct], ["photos", validatePhoto]]) {
     for (const item of db()[name]) assert.doesNotThrow(() => validate(item), `${name}: ${item.id}`);
   }
 });
@@ -334,6 +334,60 @@ test("cancelling an order returns stock and reopening takes it again", async (t)
   const dashboard = await request("/api/admin/dashboard");
   assert.ok(dashboard.data.revenue30 >= 75);
   assert.equal(dashboard.data.daily.length, 14);
+});
+
+test("admin adds photos to the Our work gallery, newest first", async (t) => {
+  const { request, login, close } = await startApp();
+  t.after(close);
+  const starters = db().photos.map((photo) => photo.id);
+  assert.ok(starters.length >= 4, "the gallery starts with the workshop's own photos");
+  const first = (await request("/api/site")).data.photos[0];
+  assert.match(first.image, /^\/gallery\/[a-z0-9-]+\.webp$/);
+  assert.equal((await request(first.image)).status, 200, "the starting photos are served");
+  await login();
+  const png = Buffer.from("89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d4944415478da63f8ffff3f0005fe02fea7d6a4530000000049454e44ae426082", "hex");
+  const upload = async () => (await request("/api/admin/uploads", { method: "POST", admin: true, body: { data: `data:image/png;base64,${png.toString("base64")}` } })).data.url;
+
+  const polo = await request("/api/admin/photos", { method: "POST", admin: true, body: { image: await upload(), caption: "Polo GT TSI · Stage 1", link: "https://www.instagram.com/p/abc123/", active: true } });
+  assert.equal(polo.status, 200);
+  assert.equal(polo.data.item.id, "polo-gt-tsi-stage-1");
+  const plain = await request("/api/admin/photos", { method: "POST", admin: true, body: { image: await upload(), caption: "", active: true } });
+  assert.equal(plain.data.item.id, "photo");
+  let photos = (await request("/api/site")).data.photos;
+  assert.deepEqual(photos.map((photo) => photo.id), ["photo", "polo-gt-tsi-stage-1", ...starters]);
+  assert.deepEqual(Object.keys(photos[1]).sort(), ["caption", "id", "image", "link"]);
+
+  await request("/api/admin/photos/photo", { method: "PUT", admin: true, body: { ...plain.data.item, active: false } });
+  photos = (await request("/api/site")).data.photos;
+  assert.deepEqual(photos.map((photo) => photo.id), ["polo-gt-tsi-stage-1", ...starters], "hidden photos stay off the website");
+  const starter = db().photos.find((photo) => photo.id === starters[0]);
+  assert.equal((await request(`/api/admin/photos/${starter.id}`, { method: "PUT", admin: true, body: { ...starter, caption: "Edited caption" } })).status, 200, "a starting photo can be edited");
+
+  for (const [body, error] of [
+    [{ caption: "No picture", active: true }, /Upload a photo/],
+    [{ image: "/brand/logo.webp", active: true }, /upload the image with the Upload button/],
+    [{ image: "/gallery/../brand/logo.webp", active: true }, /upload the image with the Upload button/],
+    [{ image: ["/gallery/polo-1-0-tsi-ethanol.webp", "x"], active: true }, /upload the image with the Upload button/],
+    [{ image: polo.data.item.image, link: "javascript:alert(1)", active: true }, /Link must be a link starting with https/]
+  ]) {
+    const response = await request("/api/admin/photos", { method: "POST", admin: true, body });
+    assert.equal(response.status, 400);
+    assert.match(response.data.error, error);
+  }
+
+  // A backup made before the gallery existed still restores, and gets the starting photos.
+  const exported = (await request("/api/admin/export")).data;
+  assert.equal(exported.photos.length, starters.length + 2);
+  const older = { ...exported, catalogVersion: 5 };
+  delete older.photos;
+  assert.equal((await request("/api/admin/import", { method: "POST", admin: true, body: older })).status, 200);
+  assert.deepEqual(db().photos.map((photo) => photo.id), starters);
+  assert.equal((await request("/api/admin/import", { method: "POST", admin: true, body: exported })).status, 200);
+  assert.deepEqual(db().photos.map((photo) => photo.id), ["photo", "polo-gt-tsi-stage-1", ...starters]);
+  assert.equal(db().photos.find((photo) => photo.id === starters[0]).caption, "Edited caption");
+
+  for (const id of ["photo", "polo-gt-tsi-stage-1"]) assert.equal((await request(`/api/admin/photos/${id}`, { method: "DELETE", admin: true })).status, 200);
+  assert.deepEqual(db().photos.map((photo) => photo.id), starters);
 });
 
 test("settings, uploads and backups", async (t) => {

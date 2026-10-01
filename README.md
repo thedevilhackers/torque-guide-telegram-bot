@@ -2,9 +2,9 @@
 
 One Node.js app runs four things that share one database:
 
-- **Website** (`/`): an Apple-style, scroll-animated site. It has a live "Find your car" search with interactive Stage 1 power and torque charts, Stage 1 booking, services, supported ECUs and a visit section.
+- **Website** (`/`): an Apple-style, scroll-animated site. It has a live "Find your car" search with interactive Stage 1 power and torque charts, Stage 1 booking, services, an "Our work" photo gallery, supported ECUs and a visit section.
 - **Shop** (`/shop`): products with categories, search and sorting, a bag and checkout. Orders are saved, and the customer sends the order to you on WhatsApp in one tap.
-- **Admin panel** (`/admin`): full access to orders, enquiries, products (with photo upload), the Stage 1 vehicle database, ECUs, brands, services, site settings and backups.
+- **Admin panel** (`/admin`): full access to orders, enquiries, products (with photo upload), the Stage 1 vehicle database, ECUs, brands, services, gallery photos, site settings and backups.
 - **Telegram bot**: vehicle search, Stage 1, 2 and 3 graphs, location, ECU check and a WhatsApp summary. Every customer who reaches the summary appears under Admin → Enquiries.
 - **Instant alerts**: the bot messages you on Telegram the moment an order or enquiry arrives.
 
@@ -14,11 +14,13 @@ It has no npm dependencies. The Stage 1 graphs are drawn in plain JavaScript, so
 
 **Website.** The hero and the "Read. Calibrate. Verify." story animate as you scroll, with a live power counter and a curve that draws itself. **Find your car** searches the database as you type, or browses by brand. It shows Stage 1 figures and an interactive chart, where you hover or use the arrow keys to read values; power and torque are separate panels on a shared rpm axis, and there's also a table view. A **Stage 1 / 2 / 3** switch shows each stage's figures, chart, the hardware it needs and a downloadable power graph. **Book Stage 1** saves an enquiry and hands it to WhatsApp. If a car isn't listed and AI is on, "Ask AI to identify it" estimates it; the estimate is clearly labelled and kept within your gain limits.
 
+**Our work.** A sideways-scrolling gallery of your builds, newest first. It starts with four pictures from the workshop's Instagram; each opens the post you link it to, or your Instagram page. A **Follow** button and an Instagram icon in the menu bar link to your Instagram on every page.
+
 **Shop.** Customers add items to the bag and choose collection or delivery. They get an order number (UP-1001, UP-1002, …) and a **Send order on WhatsApp** button with the order already written. Prices and stock always come from the server, and stock goes down when an order is placed.
 
 There are no card payments: customers pay on collection or delivery once you confirm on WhatsApp. An online payment gateway (for example Stripe or PayHere) can be added later.
 
-**Telegram bot.** Customers find their vehicle and get the Stage 1 graph, with buttons for the Stage 2 and 3 graphs. Then they add their location and check their ECU. Finally they send the full details to you on WhatsApp. The enquiry is for the last stage they looked at.
+**Telegram bot.** Customers find their vehicle and get the Stage 1 graph, with buttons for the Stage 2 and 3 graphs. Then they add their location and check their ECU. Finally they send the full details to you on WhatsApp. The enquiry is for the last stage they looked at. The main menu also links to WhatsApp and your Instagram.
 
 **Sharing and search.** Links to the site shared on WhatsApp, Instagram or Facebook show a preview with your banner. Pages carry your business details for search engines, along with `robots.txt` and `sitemap.xml`; the admin panel stays out of search results.
 
@@ -60,6 +62,7 @@ Open http://localhost:3000 for the site and http://localhost:3000/admin for the 
 - **Products**: name, category, price, compare-at (offer) price, stock (empty = unlimited), description, features, photo, featured, and shown/hidden.
 - **Vehicles**: the Stage 1, 2 and 3 database used by the website, the bot and the graphs, with a graph preview for each stage. Stage 2 and 3 are optional per vehicle. Validation keeps the figures realistic (Stage 1 at least 3% above stock, each later stage at least 2% above the one before, torque between 0.8× and 3.5× the power), so every graph is exact. Stage 3 graphs build peak torque a little later, like a bigger turbo.
 - **ECUs, Brands, Services**: the ECU support list, brands and search aliases, and the service cards.
+- **Photos**: the Our work gallery. Upload a photo, add a caption and, optionally, the link to its Instagram post. New photos go first; untick **Show on the website** to hide one. The website shows the newest 24.
 - **Settings**: business name, headline, hero photo, announcement bar, contact details, WhatsApp number, map location, opening hours, currency, delivery fee, social links, the Stage 2 and 3 descriptions, and Telegram alerts.
 - **Backup**: download everything as one JSON file, or restore a backup. Uploaded photos are separate files in `DATA_DIR/uploads`.
 

@@ -1,5 +1,5 @@
 // Admin panel: full access to orders, enquiries, products, vehicles, ECUs, brands, services,
-// settings and backups. All text is inserted with textContent (see h()), never as HTML.
+// photos, settings and backups. All text is inserted with textContent (see h()), never as HTML.
 import { h, money } from "/js/common.js";
 import { productArt } from "/js/icons.js";
 
@@ -16,6 +16,7 @@ const SECTIONS = [
   ["ecus", "ECUs"],
   ["brands", "Brands"],
   ["services", "Services"],
+  ["photos", "Photos"],
   ["settings", "Settings"],
   ["backup", "Backup"]
 ];
@@ -579,7 +580,7 @@ async function viewEnquiries(main, id) {
   if (open) detail(open);
 }
 
-// Products, vehicles, ECUs, brands and services share one list-and-form screen.
+// Products, vehicles, ECUs, brands, services and photos share one list-and-form screen.
 async function collectionView(main, id, config) {
   const { items } = await api(`/api/admin/${config.name}`);
   const context = config.load ? await config.load() : {};
@@ -776,6 +777,26 @@ const COLLECTION_VIEWS = {
       { label: "Price", cell: (service) => service.priceLabel || "Quote" },
       { label: "Visibility", cell: (service) => pill(service.active ? "active" : "hidden", service.active ? "Shown" : "Hidden") }
     ]
+  },
+  photos: {
+    name: "photos",
+    title: "Photos",
+    singular: "photo",
+    subtitle: "The Our work gallery on the home page, newest first. Add your best builds, for example the pictures you post on Instagram.",
+    label: (photo) => photo.caption || "photo",
+    defaults: { active: true },
+    search: (photo) => `${photo.caption} ${photo.link}`,
+    fields: () => [
+      { name: "image", label: "Photo", type: "image", full: true, help: "PNG, JPEG or WebP, up to 5 MB. Portrait photos (3:4 or 4:5) fill the card best." },
+      { name: "caption", label: "Caption", full: true, placeholder: "Polo GT TSI · Stage 1" },
+      { name: "link", label: "Link", full: true, placeholder: "https://www.instagram.com/p/…", help: "Optional, e.g. the Instagram post. Without one, the photo opens your Instagram page." },
+      { name: "active", label: "Show on the website", type: "checkbox" }
+    ],
+    columns: () => [
+      { label: "", cell: (photo) => h("img", { class: "thumb", src: photo.image, alt: "" }) },
+      { label: "Photo", cell: (photo) => [photo.caption || "No caption", photo.link ? h("span", { class: "sub", text: photo.link }) : null] },
+      { label: "Visibility", cell: (photo) => pill(photo.active ? "active" : "hidden", photo.active ? "Shown" : "Hidden") }
+    ]
   }
 };
 
@@ -953,7 +974,7 @@ function viewBackup(main) {
   main.replaceChildren(
     pageHead("Backup", "Download everything, or restore a previous download."),
     h("div", { class: "grid grid-2" },
-      h("section", { class: "card" }, h("h2", { text: "Download a backup" }), h("p", { style: { margin: "8px 0 16px", color: "var(--muted)" }, text: "Saves orders, enquiries, products, vehicles, ECUs, brands, services and settings as one JSON file. Uploaded photos are not included." }), h("a", { class: "btn btn-primary", href: "/api/admin/export", download: "", text: "Download backup" })),
+      h("section", { class: "card" }, h("h2", { text: "Download a backup" }), h("p", { style: { margin: "8px 0 16px", color: "var(--muted)" }, text: "Saves orders, enquiries, products, vehicles, ECUs, brands, services, the photo list and settings as one JSON file. The uploaded image files themselves are not included." }), h("a", { class: "btn btn-primary", href: "/api/admin/export", download: "", text: "Download backup" })),
       h("section", { class: "card" }, h("h2", { text: "Restore" }), h("p", { style: { margin: "8px 0 16px", color: "var(--muted)" }, text: "Replaces all current data with a backup file from this panel. Download a fresh backup first." }), restore, file)
     )
   );

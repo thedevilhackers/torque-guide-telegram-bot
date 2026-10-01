@@ -362,6 +362,15 @@ export const DEFAULT_SETTINGS = {
   siteUrl: ""
 };
 
+// The "Our work" gallery's first photos, from the workshop's Instagram (newest first). Each opens the
+// Instagram page, since no post link is set.
+export const SEED_PHOTOS = [
+  { id: "polo-1-0-tsi-ethanol", image: "/gallery/polo-1-0-tsi-ethanol.webp", caption: "Polo 1.0 TSI · Stage 1+ ethanol tune · 140 hp", link: "", active: true },
+  { id: "maruti-e30-tune", image: "/gallery/maruti-e30-tune.webp", caption: "Maruti Suzuki · Stage 1+ E30 ethanol tune", link: "", active: true },
+  { id: "ciaz-e20-tune", image: "/gallery/ciaz-e20-tune.webp", caption: "Ciaz · Stage 1+ on E20 fuel", link: "", active: true },
+  { id: "kodiaq-e27-stage1", image: "/gallery/kodiaq-e27-stage1.webp", caption: "Kodiaq · E27 ethanol tune and Stage 1", link: "", active: true }
+];
+
 // Changes made after launch. db.js applies each one once to an existing database, keeping the owner's
 // own work: new cars are added (with any brand they need) unless already there, and settings or services
 // are only replaced while they still match the old defaults. Add new changes here with the next version.
@@ -393,7 +402,8 @@ export const CATALOG_UPDATES = [
       instagram: ["", DEFAULT_SETTINGS.instagram],
       stage3Note: ["Stage 3 is a bigger build: an upgraded turbocharger with matching fuelling and a clutch or gearbox rated for the extra torque, finished with a custom calibration on our dyno.", DEFAULT_SETTINGS.stage3Note]
     }
-  }
+  },
+  { version: 6, add: { photos: SEED_PHOTOS } }
 ];
 export const CATALOG_VERSION = Math.max(1, ...CATALOG_UPDATES.map((update) => update.version));
 
@@ -409,6 +419,8 @@ export function seedData(envSettings = {}) {
     vehicles: clone(SEED_VEHICLES),
     services: clone(SEED_SERVICES),
     products: clone(SEED_PRODUCTS).map((product) => ({ ...product, createdAt: "2026-01-01T00:00:00.000Z" })),
+    // The home page's "Our work" gallery; the owner adds more photos in the admin panel.
+    photos: clone(SEED_PHOTOS),
     orders: [],
     enquiries: [],
     alertChats: [],

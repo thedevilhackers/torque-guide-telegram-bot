@@ -154,3 +154,24 @@ test("the owner links and unlinks alert chats from Telegram", async () => {
   assert.match(last().text, /Alerts are off/);
   assert.ok(!alertChats().some((chat) => chat.chatId === "owner-chat"));
 });
+
+test("the menu links to the Instagram page when one is set", async () => {
+  const { settings, transact } = await import("../src/db.js");
+  const { handle, last } = fakeBot();
+  const instagramButton = () => last().buttons.flat().find((button) => /Instagram/.test(button.text));
+  await handle("chat-instagram", { text: "/start" });
+  assert.equal(instagramButton()?.url, settings().instagram);
+  assert.match(instagramButton().url, /^https:\/\/www\.instagram\.com\//);
+  const saved = settings().instagram;
+  transact((data) => {
+    data.settings.instagram = "";
+  });
+  try {
+    await handle("chat-instagram", { text: "/start" });
+    assert.equal(instagramButton(), undefined);
+  } finally {
+    transact((data) => {
+      data.settings.instagram = saved;
+    });
+  }
+});

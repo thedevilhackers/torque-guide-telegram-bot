@@ -8,6 +8,8 @@ const ECU_STATUSES = ["supported", "on_request", "not_supported"];
 const FUELS = ["petrol", "diesel"];
 const ASPIRATIONS = ["turbo", "supercharged", "naturally_aspirated"];
 const UPLOAD_PATH = /^\/uploads\/[a-f0-9]{32}\.(png|jpg|webp)$/;
+// Gallery photos that ship with the website (public/gallery).
+const BUNDLED_PHOTO = /^\/gallery\/[a-z0-9-]{1,60}\.(png|jpg|webp)$/;
 
 export function slugify(value, separator = "-") {
   return String(value ?? "")
@@ -163,6 +165,19 @@ export function validateService(input) {
     summary: text(input.summary, "Summary", { required: true, max: 300 }),
     priceLabel: text(input.priceLabel, "Price label", { max: 40 }),
     icon: oneOf(input.icon, "Icon", SERVICE_ICONS),
+    active: bool(input.active)
+  };
+}
+
+// A picture in the home page's "Our work" gallery, optionally linking to its Instagram post.
+export function validatePhoto(input) {
+  const path = String(input.image ?? "").trim();
+  const image = BUNDLED_PHOTO.test(path) ? path : uploadedImage(path, "Photo");
+  if (!image) throw new InputError("Upload a photo.");
+  return {
+    image,
+    caption: text(input.caption, "Caption", { max: 100 }),
+    link: httpsUrl(input.link, "Link"),
     active: bool(input.active)
   };
 }
