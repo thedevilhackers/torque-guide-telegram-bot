@@ -12,8 +12,8 @@ let botUsername = "";
 const sendAlert = config.telegramBotToken ? sendText : null;
 const server = createServer(createApp({ botUsername: () => botUsername, sendAlert }));
 
-server.listen(config.port, () => {
-  console.log(`${settings().businessName} website is running on http://localhost:${config.port} (admin: /admin)`);
+server.listen(config.port, config.host, () => {
+  console.log(`${settings().businessName} website is running on http://${config.host ?? "localhost"}:${config.port} (admin: /admin)`);
   for (const warning of optionalSettingWarnings()) console.warn(`Note: ${warning}`);
 });
 

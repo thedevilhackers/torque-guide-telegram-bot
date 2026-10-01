@@ -22,6 +22,9 @@ export const config = {
   openaiApiKey: process.env.OPENAI_API_KEY ?? "",
   openaiModel: process.env.OPENAI_MODEL || "gpt-5.6-terra",
   port: Number(process.env.PORT) || 3000,
+  // Behind a reverse proxy on the same server (a VPS with Caddy), set HOST=127.0.0.1 so visitors can
+  // only reach the app through the proxy and can't fake the address the rate limits rely on.
+  host: process.env.HOST || undefined,
   adminUsername: process.env.ADMIN_USERNAME || "admin",
   adminPassword: process.env.ADMIN_PASSWORD ?? "",
   // Most AI requests a day across all customers, so a flood of messages can't run up the OpenAI bill.
