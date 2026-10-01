@@ -74,6 +74,57 @@ Open http://localhost:3000 for the site and http://localhost:3000/admin for the 
 - Uploads are checked to be real PNG, JPEG or WebP files, saved under random names, and served with a strict content type.
 - Every page is sent with a strict Content Security Policy, all customer-entered text is inserted as text, never as HTML, and links that would run script are dropped.
 
+## Host it on your own VPS
+
+Any VPS running Ubuntu 22.04 or 24.04, or Debian 12, works; 1 vCPU and 1 GB of memory is plenty. `deploy/vps/install.sh` sets up:
+
+- Node.js 22, with the app as a systemd service that restarts on failure and starts on boot. It listens only on `127.0.0.1`, behind Caddy.
+- [Caddy](https://caddyserver.com/docs/install#debian-ubuntu-raspbian) for HTTPS, with certificates issued and renewed automatically.
+- A firewall that leaves only SSH, HTTP and HTTPS open.
+- A daily backup of all data, keeping the last 14 days.
+
+1. Add a DNS **A** record pointing your domain (e.g. `shop.example.com`) to the VPS's IP address.
+2. Connect with SSH and put the code in `/opt/unity-performance`. For a private repository, give the server a read-only deploy key:
+
+   ```bash
+   sudo apt-get update && sudo apt-get install -y git
+   sudo ssh-keygen -t ed25519 -N "" -C unity-vps -f /root/.ssh/unity_deploy
+   sudo cat /root/.ssh/unity_deploy.pub
+   ```
+
+   In GitHub, open the repository → **Settings → Deploy keys → Add deploy key**, paste the key and leave write access off. Then:
+
+   ```bash
+   sudo git -c core.sshCommand="ssh -i /root/.ssh/unity_deploy" clone -b claude/unity-performance-ai-vehicle-search-fw2o30 git@github.com:thedevilhackers/torque-guide-telegram-bot.git /opt/unity-performance
+   sudo git -C /opt/unity-performance config core.sshCommand "ssh -i /root/.ssh/unity_deploy"
+   ```
+
+   Type `yes` if asked to trust github.com. For a public repository, `sudo git clone -b claude/unity-performance-ai-vehicle-search-fw2o30 https://github.com/thedevilhackers/torque-guide-telegram-bot.git /opt/unity-performance` is enough. Once this branch is merged, use `main` instead.
+3. Run the installer with your domain:
+
+   ```bash
+   sudo bash /opt/unity-performance/deploy/vps/install.sh shop.example.com
+   ```
+
+   It asks for the WhatsApp number, Telegram bot token, OpenAI key and admin password (press Enter to have one created), checks the app on the server, starts it, and prints the addresses. Without a domain it serves plain HTTP on the server's IP, which is fine for a first look but sends the admin password unencrypted.
+4. Stop any other copy that uses the same Telegram token (Render, your computer): only one copy can run the bot.
+
+Day to day:
+
+- **Update**: `sudo bash /opt/unity-performance/deploy/vps/update.sh`. It checks the new version in a separate copy first, switches only if the checks pass, and goes back to the previous version if the new one doesn't start.
+- **Change keys or the admin password**: `sudo nano /etc/unity-performance/env`, then `sudo systemctl restart unity-performance`.
+- **Logs and status**: `sudo journalctl -u unity-performance -f` and `systemctl status unity-performance`.
+- **Backups**: `/var/backups/unity-performance`. Copy them off the server now and then, or turn on your provider's snapshots, because a backup on the same server is lost with it. To restore one:
+
+  ```bash
+  sudo systemctl stop unity-performance
+  sudo tar -xzf /var/backups/unity-performance/unity-performance-YYYY-MM-DD.tar.gz -C /var/lib/unity-performance
+  sudo chown -R unity:unity /var/lib/unity-performance
+  sudo systemctl start unity-performance
+  ```
+
+- **Moving from another copy**: on the old copy, **Admin → Backup → Download backup**; on the new one, **Admin → Backup → Restore** with that file. That moves everything except uploaded photos. To bring the photos too, restore the old copy's whole data folder the same way as a backup.
+
 ## Host it on Render (24/7)
 
 `render.yaml` defines a single **web service** with a 1 GB **persistent disk** mounted at `/var/data` (`DATA_DIR`). The disk lets orders, products, settings and uploads survive redeploys.
@@ -120,6 +171,7 @@ src/conversation.js     Telegram conversation flow
 src/dyno-chart.js       Stage 1 curves + PNG graph
 public/                 website, shop and admin panel (no build step)
 public/brand/           logo and icons used by the site and the dyno sheets
+deploy/vps/             VPS installer and updater (systemd, Caddy, firewall, backups)
 brand/                  brand kit: originals, transparent logo, Telegram pictures
 test/                   node --test suites
 ```

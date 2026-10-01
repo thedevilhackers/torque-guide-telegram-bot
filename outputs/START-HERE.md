@@ -31,7 +31,27 @@ Everything runs from this one project: the website, the shop, the admin panel an
 
 New shop orders and Stage 1, 2 and 3 enquiries, from both the website and the Telegram bot, appear under **Orders** and **Enquiries**.
 
-## Host it 24/7
+## Host it 24/7 on your own VPS
+
+You need a VPS (any provider) with Ubuntu 24.04, and a domain name.
+
+1. At your domain provider, add an **A record** for your domain (for example `shop.example.com`) pointing to the VPS's IP address.
+2. Connect to the VPS with SSH and copy the code to it. The README's **Host it on your own VPS** section has the exact commands, including how to give the server read-only access to a private GitHub repository.
+3. Run:
+
+   ```bash
+   sudo bash /opt/unity-performance/deploy/vps/install.sh shop.example.com
+   ```
+
+   Answer its questions: WhatsApp number, Telegram bot token, OpenAI key and admin password. Press Enter to have a password created, and save the one it prints.
+4. Open `https://shop.example.com/admin` and sign in.
+5. Stop any other copy of the bot, such as the one on your computer. Only one can run at a time.
+
+To update later: `sudo bash /opt/unity-performance/deploy/vps/update.sh`. If anything goes wrong it keeps the current version running.
+
+Your data is backed up every day to `/var/backups/unity-performance`. Download a copy to your computer now and then, or turn on your VPS provider's snapshots.
+
+## Or host it on Render
 
 The project includes `render.yaml` for [Render](https://dashboard.render.com/). It creates one web service with a disk, so your orders and products are kept.
 
