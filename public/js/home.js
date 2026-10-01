@@ -161,6 +161,7 @@ function setupBrandChips() {
       const chip = h("button", { class: "chip", type: "button", "aria-pressed": "false", text: brand.title });
       chip.addEventListener("click", async () => {
         finder.input.value = "";
+        clearTimeout(searchTimer);
         const token = ++searchToken;
         const { vehicles } = await api(`/api/vehicles?brand=${encodeURIComponent(brand.id)}`);
         if (token !== searchToken) return;
