@@ -342,6 +342,7 @@ test("the Tool support page, its data and the admin's Autotuner and KESS3 fields
   const page = await request("/tools");
   assert.equal(page.status, 200);
   assert.match(page.data.toString(), /Can we read<br>your car\?/);
+  assert.match(page.data.toString(), /href="https:\/\/www\.alientech-tools\.com\/en\/vehicles"/);
   assert.match((await request("/sitemap.xml")).data.toString(), /\/tools<\/loc>/);
   for (const path of ["/", "/shop", "/tools"]) assert.match((await request(path)).data.toString(), /href="\/tools"/, `${path} links to Tool support`);
   const { ecus } = (await request("/api/site")).data;

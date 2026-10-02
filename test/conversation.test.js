@@ -188,6 +188,7 @@ test("Can you read my car? shows the usual ECU and how Autotuner and KESS3 read 
   const text = last().text;
   for (const expected of ["Bosch EDC17", "Autotuner: OBD · Bench · Boot", "KESS3: OBD · Bench · Boot", "confirm it with the tool"]) assert.ok(text.includes(expected), `missing "${expected}"`);
   assert.ok(buttonData(last()).includes("veh:hyundai_creta_crdi"));
+  assert.ok(buttonData(last()).includes("https://www.alientech-tools.com/en/vehicles"), "links to Alientech's full KESS3 list");
 
   await handle("chat-read", { data: "read:maruti_swift_k12" });
   assert.match(last().text, /ECU on this model varies/);

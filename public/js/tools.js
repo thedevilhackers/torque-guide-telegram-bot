@@ -7,6 +7,8 @@ const METHODS = { obd: "OBD", bench: "Bench", boot: "Boot" };
 const STATUS = { supported: "We tune it", on_request: "On request", not_supported: "Not supported" };
 const STATUS_ORDER = { supported: 0, on_request: 1, not_supported: 2 };
 const FUELS = { petrol: "Petrol", diesel: "Diesel" };
+// Alientech's own KESS3 vehicle list: complete and always current.
+const KESS3_LIST = "https://www.alientech-tools.com/en/vehicles";
 
 const { site } = await bootPage();
 const { settings } = site;
@@ -35,6 +37,7 @@ function showVehicle(vehicle) {
   const actions = h("div", { class: "vehicle-actions" }, h("a", { class: "btn btn-primary", href: `/#car=${encodeURIComponent(vehicle.id)}`, text: "See the Stage 1 gains" }));
   const question = whatsapp(`Hello ${settings.businessName}, can you read my ${vehicleTitle(vehicle)} (${vehicle.engine})?`);
   if (question) actions.append(h("a", { class: "btn btn-whatsapp", href: question, target: "_blank", rel: "noopener", text: "Ask us on WhatsApp" }));
+  actions.append(h("a", { class: "link-arrow", href: KESS3_LIST, target: "_blank", rel: "noopener", text: "Full KESS3 list" }));
 
   const body = fitted.length
     ? [
@@ -94,6 +97,7 @@ async function search(query) {
   const empty = h("div", { class: "empty-state" }, h("p", { text: `We don't have “${trimmed}” in our list yet. Send us a photo of the ECU label and we'll check it for you.` }));
   const ask = whatsapp(`Hello ${settings.businessName}, can you read my ${trimmed} with Autotuner or KESS3? I'll send a photo of the ECU label.`);
   if (ask) empty.append(h("a", { class: "btn btn-whatsapp", href: ask, target: "_blank", rel: "noopener", text: "Send us the ECU label" }));
+  empty.append(h("p", {}, h("a", { class: "link-arrow", href: KESS3_LIST, target: "_blank", rel: "noopener", text: "Search the full KESS3 list on Alientech's website" })));
   finder.results.replaceChildren(empty);
 }
 

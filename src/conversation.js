@@ -63,6 +63,8 @@ function ecuCheckText(ecu, vehicle) {
   return `${status.icon} <b>${h(ecu.title)}</b>\n${h(status.detail)}${ecu.method ? `\nMethod: ${h(ecu.method)}` : ""}\n${toolSupportLines(ecu).map(h).join("\n")}`;
 }
 
+// Alientech's own KESS3 vehicle list: complete and always current.
+const KESS3_LIST = "https://www.alientech-tools.com/en/vehicles";
 const SUPPORT_NOTE = "<i>Support depends on the exact ECU hardware and software number. We confirm it with the tool before we start, and your original file is always backed up.</i>";
 
 export function createConversation({ telegram = telegramApi, ai = tuningService, renderChart = renderStageChart } = {}) {
@@ -119,7 +121,7 @@ export function createConversation({ telegram = telegramApi, ai = tuningService,
     if (settings().whatsappNumber) {
       rows.push([link("📷 Send us your ECU label on WhatsApp", whatsappLink(`Hello ${businessName()}, can you read my ${text} with Autotuner or KESS3? I'll send a photo of the ECU label.`))]);
     }
-    rows.push([btn("🔎 Try again", "readcheck"), btn("🏠 Menu", "menu")]);
+    rows.push([link("📋 Full KESS3 vehicle list (Alientech)", KESS3_LIST)], [btn("🔎 Try again", "readcheck"), btn("🏠 Menu", "menu")]);
     return telegram.sendText(chatId, `I couldn't find “${h(text)}” in our list. Send us a photo of the ECU label and we'll check it against the Autotuner and KESS3 lists.`, { buttons: rows });
   }
 
@@ -140,7 +142,7 @@ export function createConversation({ telegram = telegramApi, ai = tuningService,
     }
     const rows = [[btn("📈 See the Stage 1 gains", `veh:${vehicle.id}`)]];
     if (settings().whatsappNumber) rows.push([link("💬 Ask us on WhatsApp", whatsappLink(`Hello ${businessName()}, can you read my ${vehicleName(vehicle)} (${vehicle.engine})?`))]);
-    rows.push([btn("🛠 Check another car", "readcheck"), btn("🏠 Menu", "menu")]);
+    rows.push([link("📋 Full KESS3 vehicle list (Alientech)", KESS3_LIST)], [btn("🛠 Check another car", "readcheck"), btn("🏠 Menu", "menu")]);
     return telegram.sendText(chatId, lines.join("\n"), { buttons: rows });
   }
 

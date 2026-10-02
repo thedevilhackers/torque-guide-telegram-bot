@@ -1558,6 +1558,10 @@ a.photo-card:hover .photo-caption {
   margin-top: 36px;
 }
 
+.tools-official {
+  margin-top: 16px;
+}
+
 .method {
   display: inline-flex;
   align-items: center;
