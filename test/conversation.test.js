@@ -194,6 +194,11 @@ test("Can you read my car? shows the usual ECU and how Autotuner and KESS3 read 
   assert.match(last().text, /ECU on this model varies/);
 
   await handle("chat-read", { data: "readcheck" });
+  await handle("chat-read", { text: "EDC17C57" });
+  assert.match(last().text, /Autotuner's list: “EDC17C57”/);
+  assert.match(last().text, /Hyundai · Bosch EDC17C57 \(\w+\): OBD · Bench · Boot/);
+
+  await handle("chat-read", { data: "readcheck" });
   await handle("chat-read", { text: "zzz unknown car" });
   assert.match(last().text, /couldn't find/);
   assert.ok(last().buttons.flat().some((button) => button.url?.startsWith("https://wa.me/")), "offers WhatsApp for the ECU label");

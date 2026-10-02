@@ -17,6 +17,8 @@ It has no npm dependencies. The Stage 1 graphs are drawn in plain JavaScript, so
 
 **Tool support.** A separate page, linked from the menu on every page and from each car in Find your car. Search a car to see its usual ECU, whether you tune it, and how Autotuner and KESS3 read it: OBD (through the diagnostic port), bench or boot. Below it, the whole support list by ECU family, filtered by petrol or diesel. Cars without a known ECU ask for a photo of the ECU label on WhatsApp. The bot has the same check under **Can you read my car?** (or `/read`).
 
+The page also searches **Autotuner's compatibility list** by ECU, car brand or chip (e.g. `EDC17C57`, `MG1`, `Hyundai`), showing how Autotuner reads each ECU: OBD, bench, boot, beta and unlock. Typing an ECU name into the bot's read check searches it too. The list lives in `src/data/autotuner-compatibility.json` (2,254 ECUs, exported 2 October 2026 from autotuner.com). Autotuner updates often, so customers are pointed to autotuner.com to confirm, and to Alientech's own KESS3 vehicle list for KESS3.
+
 **Our work.** A sideways-scrolling gallery of your builds, newest first. It starts with four pictures from the workshop's Instagram; each opens the post you link it to, or your Instagram page. A **Follow** button and an Instagram icon in the menu bar link to your Instagram on every page.
 
 **Shop.** Customers add items to the bag and choose collection or delivery. They get an order number (UP-1001, UP-1002, …) and a **Send order on WhatsApp** button with the order already written. Prices and stock always come from the server, and stock goes down when an order is placed.

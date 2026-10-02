@@ -1588,6 +1588,29 @@ a.photo-card:hover .photo-caption {
   color: var(--link);
 }
 
+.method-unlock {
+  background: rgba(48, 209, 88, 0.1);
+  color: var(--text-2);
+}
+
+.link-button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--link);
+  font: inherit;
+  font-size: 17px;
+  cursor: pointer;
+}
+
+.ecu-source {
+  margin-top: 14px;
+}
+
+.ecu-source a {
+  color: var(--link);
+}
+
 .methods {
   display: inline-flex;
   flex-wrap: wrap;

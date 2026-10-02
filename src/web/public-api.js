@@ -2,6 +2,7 @@ import { ecus } from "../catalog.js";
 import { db, settings } from "../db.js";
 import { buildDynoCurves, renderStageChart } from "../dyno-chart.js";
 import { createEnquiry, createOrder, orderText } from "../records.js";
+import { AUTOTUNER_SOURCE, searchAutotuner } from "../tool-lists.js";
 import { aiEnabled, identifyVehicle } from "../tuning-service.js";
 import { availableStages, brandsWithVehicles, getVehicle, searchVehicles, stageFigures, stageGain, vehicleEntries, vehiclesForBrand } from "../vehicles.js";
 import { enquiryText, whatsappLink } from "../whatsapp.js";
@@ -126,6 +127,9 @@ export function registerPublicRoutes(route, { botUsername }) {
     if (!availableStages(vehicle).includes(stage)) throw new HttpError(404, `No Stage ${stage} figures for this vehicle.`);
     sendBuffer(res, 200, renderStageChart(vehicle, { businessName: settings().businessName, stage }), "image/png", { "Cache-Control": "no-cache" });
   });
+
+  // Autotuner's compatibility list, searched by ECU, brand or chip (Tool support page).
+  route("GET", "/api/tool-list", ({ url }) => ({ source: AUTOTUNER_SOURCE, ...searchAutotuner(url.searchParams.get("q") ?? "", { limit: 60 }) }));
 
   route("GET", "/api/products", () => ({
     products: db()

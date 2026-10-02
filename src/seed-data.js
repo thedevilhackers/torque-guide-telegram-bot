@@ -30,28 +30,29 @@ export const SEED_BRANDS = [
 // ECU support list, used by the "ECU check" step.
 // status: "supported" | "on_request" | "not_supported". Edit this to match your tools and licences.
 // More ECU families, on request until confirmed per vehicle.
-// How Autotuner and KESS3 typically read each ECU family: OBD (through the diagnostic port), bench
-// (ECU removed) or boot (ECU opened). The exact hardware and software number decides, so the workshop
-// confirms each car; the owner can change these in the admin panel.
+// How Autotuner and KESS3 read each ECU family: OBD (through the diagnostic port), bench (ECU removed)
+// or boot (ECU opened). Autotuner's methods are every method its compatibility list (October 2026) gives
+// for at least one ECU of the family; KESS3's are typical. The exact hardware and software number
+// decides, so the workshop confirms each car; the owner can change these in the admin panel.
 const ALL_METHODS = ["obd", "bench", "boot"];
 const ECU_TOOLS = {
   bosch_med17: { autotuner: ALL_METHODS, kess3: ALL_METHODS },
   bosch_mg1: { autotuner: ["obd", "bench"], kess3: ["obd", "bench"] },
-  simos18: { autotuner: ALL_METHODS, kess3: ALL_METHODS },
+  simos18: { autotuner: ["obd", "boot"], kess3: ALL_METHODS },
   bosch_edc17: { autotuner: ALL_METHODS, kess3: ALL_METHODS },
   bosch_md1: { autotuner: ["obd", "bench"], kess3: ["obd", "bench"] },
   continental_sid: { autotuner: ALL_METHODS, kess3: ALL_METHODS },
   denso: { autotuner: ["obd", "bench"], kess3: ALL_METHODS },
-  delphi: { autotuner: ["bench", "boot"], kess3: ["bench", "boot"] },
-  transtron: { autotuner: ["bench"], kess3: ["bench"] },
-  continental_sim2k: { autotuner: ["obd", "bench"], kess3: ["obd", "bench"] },
-  keihin: { autotuner: ["bench"], kess3: ["bench"] },
-  marelli: { autotuner: ["obd", "bench"], kess3: ALL_METHODS },
-  kefico: { autotuner: ["obd", "bench"], kess3: ["bench"] },
-  continental_ems3: { autotuner: ["obd", "bench"], kess3: ["obd", "bench"] },
+  delphi: { autotuner: ["obd", "boot"], kess3: ["bench", "boot"] },
+  transtron: { autotuner: ["obd"], kess3: ["bench"] },
+  continental_sim2k: { autotuner: ALL_METHODS, kess3: ["obd", "bench"] },
+  keihin: { autotuner: ["obd"], kess3: ["bench"] },
+  marelli: { autotuner: ALL_METHODS, kess3: ALL_METHODS },
+  kefico: { autotuner: ALL_METHODS, kess3: ["bench"] },
+  continental_ems3: { autotuner: ALL_METHODS, kess3: ["obd", "bench"] },
   bosch_me7: { autotuner: ALL_METHODS, kess3: ALL_METHODS },
-  bosch_edc16: { autotuner: ALL_METHODS, kess3: ALL_METHODS },
-  hitachi: { autotuner: ["bench"], kess3: ["bench"] }
+  bosch_edc16: { autotuner: ["obd", "bench"], kess3: ALL_METHODS },
+  hitachi: { autotuner: ["obd"], kess3: ["bench"] }
 };
 const withTools = (ecu) => ({ ...ecu, tools: structuredClone(ECU_TOOLS[ecu.id]) });
 

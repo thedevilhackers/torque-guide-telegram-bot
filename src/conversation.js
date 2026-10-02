@@ -1,9 +1,10 @@
 import { linkChat, unlinkChat } from "./alerts.js";
-import { ECU_STATUS, ecuById, ecus, toolSupportLines } from "./catalog.js";
+import { ECU_STATUS, READ_METHODS, ecuById, ecus, toolSupportLines } from "./catalog.js";
 import { settings } from "./db.js";
 import { renderStageChart } from "./dyno-chart.js";
 import { recordTelegramEnquiry } from "./records.js";
 import { getSession, resetSession, setSession } from "./store.js";
+import { AUTOTUNER_SOURCE, searchAutotuner } from "./tool-lists.js";
 import * as telegramApi from "./telegram.js";
 import { escapeHtml as h } from "./telegram.js";
 import * as tuningService from "./tuning-service.js";
@@ -103,7 +104,7 @@ export function createConversation({ telegram = telegramApi, ai = tuningService,
     setSession(chatId, { awaiting: "readcheck" });
     return telegram.sendText(
       chatId,
-      "<b>🛠 Can we read your car?</b>\nType your car and engine, for example <i>Creta diesel</i>, <i>Polo 1.5 TDI</i> or <i>Fortuner 2.8</i>. We'll show its ECU and how Autotuner and KESS3 read it.",
+      "<b>🛠 Can we read your car?</b>\nType your car and engine, for example <i>Creta diesel</i>, <i>Polo 1.5 TDI</i> or <i>Fortuner 2.8</i>. We'll show its ECU and how Autotuner and KESS3 read it.\n\nKnow your ECU? Type it, for example <i>EDC17C57</i>, to check Autotuner's list.",
       { buttons: [menuRow()] }
     );
   }
@@ -120,6 +121,21 @@ export function createConversation({ telegram = telegramApi, ai = tuningService,
     const rows = [];
     if (settings().whatsappNumber) {
       rows.push([link("📷 Send us your ECU label on WhatsApp", whatsappLink(`Hello ${businessName()}, can you read my ${text} with Autotuner or KESS3? I'll send a photo of the ECU label.`))]);
+    }
+    // Not a car we list: it may be an ECU name, so try Autotuner's list.
+    const { total, results: ecus } = searchAutotuner(text, { limit: 8 });
+    if (total) {
+      const lines = [`<b>🔎 Autotuner's list: “${h(text)}”</b>`, ""];
+      for (const entry of ecus) {
+        const named = entry.methods.map((method) => `${READ_METHODS[method]}${entry.beta?.includes(method) ? " (beta)" : ""}`);
+        if (entry.unlock) named.push("unlock");
+        if (entry.other) named.push("other method");
+        lines.push(`• ${h([entry.brand, `${entry.ecuBrand} ${entry.ecu}`].filter(Boolean).join(" · "))}${entry.mcu ? ` (${h(entry.mcu)})` : ""}: ${h(named.join(" · ") || "listed, no method yet")}`);
+      }
+      if (total > ecus.length) lines.push(`…and ${total - ecus.length} more. Type more of the ECU name to narrow it down.`);
+      lines.push("", `<i>From Autotuner's compatibility list (${h(AUTOTUNER_SOURCE.exported)}). We confirm your exact ECU before we start.</i>`);
+      rows.push([btn("🔎 Search again", "readcheck"), btn("🏠 Menu", "menu")]);
+      return telegram.sendText(chatId, lines.join("\n"), { buttons: rows });
     }
     rows.push([link("📋 Full KESS3 vehicle list (Alientech)", KESS3_LIST)], [btn("🔎 Try again", "readcheck"), btn("🏠 Menu", "menu")]);
     return telegram.sendText(chatId, `I couldn't find “${h(text)}” in our list. Send us a photo of the ECU label and we'll check it against the Autotuner and KESS3 lists.`, { buttons: rows });

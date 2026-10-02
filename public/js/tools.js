@@ -16,10 +16,20 @@ const ecuById = new Map(site.ecus.map((ecu) => [ecu.id, ecu]));
 const whatsapp = (text) => (settings.whatsappNumber ? whatsappUrl(settings.whatsappNumber, text) : "");
 
 const finder = { input: $("[data-tool-search]"), results: $("[data-tool-results]"), panel: $("[data-tool-panel]") };
+const ecuFinder = { input: $("[data-ecu-search]"), results: $("[data-ecu-results]"), source: $("[data-ecu-source]") };
+// The name Autotuner's list uses for one of our brands, when it differs.
+const LIST_BRANDS = { maruti: "Suzuki" };
 
-function methodChips(methods = []) {
-  if (!methods.length) return h("span", { class: "methods-none", text: "Not listed" });
-  return h("span", { class: "methods" }, ...methods.map((method) => h("span", { class: `method method-${method}`, text: METHODS[method] ?? method })));
+// other: Autotuner's list shows a method icon this page can't name, so it points to autotuner.com.
+function methodChips(methods = [], { beta = [], unlock = false, other = false, none = "Not listed" } = {}) {
+  if (!methods.length && !other) return h("span", { class: "methods-none", text: none });
+  return h(
+    "span",
+    { class: "methods" },
+    ...methods.map((method) => h("span", { class: `method method-${method}`, text: `${METHODS[method] ?? method}${beta.includes(method) ? " · beta" : ""}` })),
+    unlock ? h("span", { class: "method method-unlock", text: "Unlock" }) : null,
+    other ? h("span", { class: "method method-unlock", title: "Another method; see autotuner.com", text: "Other" }) : null
+  );
 }
 
 function toolRows(ecu) {
@@ -61,6 +71,7 @@ function showVehicle(vehicle) {
 
   finder.panel.replaceChildren(head, ...body, actions);
   finder.panel.hidden = false;
+  listLink(vehicle, actions).catch((error) => console.error(error));
   for (const card of $$(".result-card", finder.results)) card.setAttribute("aria-pressed", String(card.dataset.id === vehicle.id));
   history.replaceState(null, "", `#car=${encodeURIComponent(vehicle.id)}`);
 }
@@ -112,6 +123,79 @@ finder.input.addEventListener("keydown", (event) => {
   }
 });
 
+// ---------- Autotuner ECU list ----------
+
+let ecuToken = 0;
+let ecuTimer;
+
+function showSource(source) {
+  const date = new Date(`${source.exported}T00:00:00`).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" });
+  ecuFinder.source.replaceChildren(
+    `From Autotuner's compatibility list (${source.size.toLocaleString("en-IN")} ECUs, exported ${date}). Autotuner updates often, so always confirm on `,
+    h("a", { href: source.url, target: "_blank", rel: "noopener", text: "autotuner.com" }),
+    "."
+  );
+}
+
+function ecuTable(results) {
+  return h(
+    "table",
+    { class: "support-table" },
+    h("thead", {}, h("tr", {}, ...["ECU", "Brand", "Chip", "Autotuner"].map((label) => h("th", { scope: "col", text: label })))),
+    h(
+      "tbody",
+      {},
+      ...results.map((entry) =>
+        h(
+          "tr",
+          {},
+          h("th", { scope: "row", text: `${entry.ecuBrand} ${entry.ecu}` }),
+          h("td", { dataset: { label: "Brand" }, text: entry.brand || "—" }),
+          h("td", { dataset: { label: "Chip" }, text: entry.mcu || "—" }),
+          h("td", { dataset: { label: "Autotuner" } }, methodChips(entry.methods, { beta: entry.beta, unlock: entry.unlock, other: entry.other, none: "Listed, no method yet" }))
+        )
+      )
+    )
+  );
+}
+
+async function searchEcus(query) {
+  const token = ++ecuToken;
+  const trimmed = query.trim();
+  if (!trimmed) {
+    ecuFinder.results.replaceChildren();
+    return;
+  }
+  const data = await api(`/api/tool-list?q=${encodeURIComponent(trimmed)}`);
+  if (token !== ecuToken) return;
+  showSource(data.source);
+  if (!data.total) {
+    ecuFinder.results.replaceChildren(h("div", { class: "empty-state" }, h("p", { text: `Nothing in Autotuner's list matches “${trimmed}”. Check the spelling, or send us a photo of the ECU label.` })));
+    return;
+  }
+  const more = data.total > data.results.length ? h("p", { class: "fineprint", text: `Showing ${data.results.length} of ${data.total}. Add more of the ECU name to narrow it down.` }) : null;
+  ecuFinder.results.replaceChildren(h("p", { class: "tool-intro", text: `${data.total} ${data.total === 1 ? "match" : "matches"}` }), ecuTable(data.results), more);
+}
+
+function findEcus(query) {
+  ecuFinder.input.value = query;
+  searchEcus(query).catch((error) => console.error(error));
+  $("#ecu-list").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+// "Autotuner lists 47 Hyundai ECUs" under a car, when its brand is in the list.
+async function listLink(vehicle, actions) {
+  const brand = LIST_BRANDS[vehicle.brandId] ?? vehicle.brand;
+  const { total } = await api(`/api/tool-list?q=${encodeURIComponent(brand)}`);
+  if (!total || finder.panel.hidden || !actions.isConnected) return;
+  actions.append(h("button", { class: "link-arrow link-button", type: "button", text: `Autotuner lists ${total} ${brand} ECUs`, onclick: () => findEcus(brand) }));
+}
+
+ecuFinder.input.addEventListener("input", () => {
+  clearTimeout(ecuTimer);
+  ecuTimer = setTimeout(() => searchEcus(ecuFinder.input.value).catch((error) => console.error(error)), 200);
+});
+
 // ---------- Support list ----------
 
 function supportList(fuel) {
@@ -157,6 +241,7 @@ const help = whatsapp(`Hello ${settings.businessName}, can you check my ECU? I'l
 if (help) $("[data-help-actions]").prepend(h("a", { class: "btn btn-whatsapp", href: help, target: "_blank", rel: "noopener", text: "Send us the ECU label" }));
 setupSupportList();
 observeReveals();
+api("/api/tool-list").then((data) => showSource(data.source)).catch(() => {});
 
 // A link such as /tools#car=hyundai_creta_crdi opens that car straight away.
 const linked = new URLSearchParams(location.hash.slice(1)).get("car");

@@ -347,6 +347,11 @@ test("the Tool support page, its data and the admin's Autotuner and KESS3 fields
   for (const path of ["/", "/shop", "/tools"]) assert.match((await request(path)).data.toString(), /href="\/tools"/, `${path} links to Tool support`);
   const { ecus } = (await request("/api/site")).data;
   assert.ok(ecus.every((ecu) => Array.isArray(ecu.tools.autotuner) && Array.isArray(ecu.tools.kess3)));
+  const list = (await request("/api/tool-list?q=EDC17C57")).data;
+  assert.equal(list.source.exported, "2026-10-02");
+  assert.ok(list.total > 0 && list.results.length <= 60);
+  assert.ok(list.results.every((entry) => entry.ecu.startsWith("EDC17C57")));
+  assert.equal((await request("/api/tool-list")).data.total, 0);
 
   await login();
   const keihin = db().ecus.find((ecu) => ecu.id === "keihin");
