@@ -175,3 +175,25 @@ test("the menu links to the Instagram page when one is set", async () => {
     });
   }
 });
+
+test("Can you read my car? shows the usual ECU and how Autotuner and KESS3 read it", async () => {
+  const { handle, last } = fakeBot();
+  await handle("chat-read", { text: "/start" });
+  assert.ok(buttonData(last()).includes("readcheck"));
+  await handle("chat-read", { data: "readcheck" });
+  assert.match(last().text, /Can we read your car/);
+  await handle("chat-read", { text: "creta diesel" });
+  assert.ok(buttonData(last()).includes("read:hyundai_creta_crdi"), "results open the read check, not the Stage 1 flow");
+  await handle("chat-read", { data: "read:hyundai_creta_crdi" });
+  const text = last().text;
+  for (const expected of ["Bosch EDC17", "Autotuner: OBD · Bench · Boot", "KESS3: OBD · Bench · Boot", "confirm it with the tool"]) assert.ok(text.includes(expected), `missing "${expected}"`);
+  assert.ok(buttonData(last()).includes("veh:hyundai_creta_crdi"));
+
+  await handle("chat-read", { data: "read:maruti_swift_k12" });
+  assert.match(last().text, /ECU on this model varies/);
+
+  await handle("chat-read", { data: "readcheck" });
+  await handle("chat-read", { text: "zzz unknown car" });
+  assert.match(last().text, /couldn't find/);
+  assert.ok(last().buttons.flat().some((button) => button.url?.startsWith("https://wa.me/")), "offers WhatsApp for the ECU label");
+});

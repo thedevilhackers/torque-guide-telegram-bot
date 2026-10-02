@@ -82,7 +82,7 @@ export function registerPublicRoutes(route, { botUsername }) {
     return {
       settings: { ...Object.fromEntries(PUBLIC_SETTINGS.map((key) => [key, current[key]])), telegramBot: current.telegramBot || botUsername() },
       brands: brandsWithVehicles().map(({ id, title }) => ({ id, title })),
-      ecus: ecus().map(({ id, title, fuels, status, method }) => ({ id, title, fuels, status, method })),
+      ecus: ecus().map(({ id, title, fuels, status, method, tools }) => ({ id, title, fuels, status, method, tools: tools ?? {} })),
       services: db().services.filter((service) => service.active),
       photos: db().photos.filter((photo) => photo.active).slice(0, MAX_SITE_PHOTOS).map(({ id, image, caption, link }) => ({ id, image, caption, link })),
       vehicleCount: vehicleEntries().length,

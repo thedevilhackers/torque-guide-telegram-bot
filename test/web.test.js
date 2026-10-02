@@ -336,6 +336,35 @@ test("cancelling an order returns stock and reopening takes it again", async (t)
   assert.equal(dashboard.data.daily.length, 14);
 });
 
+test("the Tool support page, its data and the admin's Autotuner and KESS3 fields", async (t) => {
+  const { request, login, close } = await startApp();
+  t.after(close);
+  const page = await request("/tools");
+  assert.equal(page.status, 200);
+  assert.match(page.data.toString(), /Can we read<br>your car\?/);
+  assert.match((await request("/sitemap.xml")).data.toString(), /\/tools<\/loc>/);
+  for (const path of ["/", "/shop", "/tools"]) assert.match((await request(path)).data.toString(), /href="\/tools"/, `${path} links to Tool support`);
+  const { ecus } = (await request("/api/site")).data;
+  assert.ok(ecus.every((ecu) => Array.isArray(ecu.tools.autotuner) && Array.isArray(ecu.tools.kess3)));
+
+  await login();
+  const keihin = db().ecus.find((ecu) => ecu.id === "keihin");
+  const saved = await request("/api/admin/ecus/keihin", { method: "PUT", admin: true, body: { ...keihin, autotuner: ["boot", "obd", "laser"], kess3: [] } });
+  assert.equal(saved.status, 200);
+  assert.deepEqual(saved.data.item.tools, { autotuner: ["obd", "boot"], kess3: [] }, "methods are kept in order and unknown ones dropped");
+  await request("/api/admin/ecus/keihin", { method: "PUT", admin: true, body: { ...keihin, ...keihin.tools } });
+  assert.deepEqual(db().ecus.find((ecu) => ecu.id === "keihin").tools, keihin.tools);
+
+  // A backup made before tool support existed gets it when restored.
+  const exported = (await request("/api/admin/export")).data;
+  const older = structuredClone(exported);
+  older.catalogVersion = 6;
+  for (const ecu of older.ecus) delete ecu.tools;
+  assert.equal((await request("/api/admin/import", { method: "POST", admin: true, body: older })).status, 200);
+  assert.deepEqual(db().ecus.find((ecu) => ecu.id === "bosch_md1").tools, { autotuner: ["obd", "bench"], kess3: ["obd", "bench"] });
+  assert.equal((await request("/api/admin/import", { method: "POST", admin: true, body: exported })).status, 200);
+});
+
 test("admin adds photos to the Our work gallery, newest first", async (t) => {
   const { request, login, close } = await startApp();
   t.after(close);

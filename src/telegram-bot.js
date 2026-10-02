@@ -10,7 +10,8 @@ const COMMANDS = [
   { command: "start", description: "Main menu" },
   { command: "search", description: "Find your vehicle and its Stage 1 graph" },
   { command: "ask", description: "Ask the AI tuning assistant" },
-  { command: "ecus", description: "ECUs we support" }
+  { command: "ecus", description: "ECUs we support" },
+  { command: "read", description: "Can you read my car? Autotuner and KESS3 support" }
 ];
 
 const pause = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));

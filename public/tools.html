@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en" class="no-js">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Tool support · Unity Performance</title>
+  <meta name="description" content="Can we read your car? Search your car to see its ECU and how we read it with Autotuner and KESS3: by OBD, on the bench or in boot mode.">
+  <meta name="theme-color" content="#000000">
+  <link rel="icon" href="/brand/icon-32.png" type="image/png" sizes="32x32">
+  <link rel="apple-touch-icon" href="/brand/apple-touch-icon.png">
+  <link rel="canonical" href="%ORIGIN%/tools">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Unity Performance">
+  <meta property="og:title" content="Tool support · Unity Performance">
+  <meta property="og:description" content="Can we read your car? Search your car to see its ECU and how we read it with Autotuner and KESS3: by OBD, on the bench or in boot mode.">
+  <meta property="og:url" content="%ORIGIN%/tools">
+  <meta property="og:image" content="%ORIGIN%/brand/share.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Unity Motorsports Performance: ECU remapping, ceramic coating and detailing">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="stylesheet" href="/css/site.css">
+  <link rel="modulepreload" href="/js/common.js">
+  <link rel="modulepreload" href="/js/icons.js">
+  <script type="module" src="/js/tools.js"></script>
+</head>
+<body class="page-tools">
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="nav" data-nav>
+    <nav class="nav-inner" aria-label="Main">
+      <a class="nav-logo" href="/"><img class="nav-logo-image" src="/brand/logo-header.webp" width="256" height="76" alt=""><span class="visually-hidden" data-business-name>Unity Performance</span></a>
+      <ul class="nav-links" id="nav-links" data-nav-links>
+        <li><a href="/#stage1">Stage 1</a></li>
+        <li><a href="/#find">Find your car</a></li>
+        <li><a href="/tools" aria-current="page">Tool support</a></li>
+        <li><a href="/#services">Services</a></li>
+        <li><a href="/shop">Shop</a></li>
+        <li><a href="/#visit">Visit</a></li>
+      </ul>
+      <div class="nav-actions">
+        <a class="icon-button" href="https://www.instagram.com/" data-instagram-link target="_blank" rel="noopener" aria-label="Instagram" hidden>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3.5h8A4.5 4.5 0 0 1 20.5 8v8a4.5 4.5 0 0 1-4.5 4.5H8A4.5 4.5 0 0 1 3.5 16V8A4.5 4.5 0 0 1 8 3.5Z"/><path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Z"/><path d="M17.2 6.8h.01"/></svg>
+        </a>
+        <button class="icon-button" type="button" data-bag-open aria-label="Open bag">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 8h12l-1 12H7L6 8Z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg>
+          <span class="bag-count" data-bag-count hidden>0</span>
+        </button>
+        <button class="icon-button menu-button" type="button" data-menu-toggle aria-controls="nav-links" aria-expanded="false" aria-label="Menu">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h16M4 15h16"/></svg>
+        </button>
+      </div>
+    </nav>
+  </header>
+  <div class="ribbon" data-announcement hidden></div>
+
+  <main id="main" class="tools-page">
+    <section class="container tools-hero" aria-labelledby="tools-title">
+      <p class="eyebrow reveal">Tool support</p>
+      <h1 class="headline reveal" id="tools-title">Can we read<br>your car?</h1>
+      <p class="lead reveal">Search your car to see its usual ECU and how we read it with Autotuner and KESS3: through the diagnostic port, on the bench, or in boot mode.</p>
+      <div class="finder-search reveal" role="search">
+        <label class="visually-hidden" for="tool-search">Search your car</label>
+        <div class="search-field">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <input id="tool-search" type="search" placeholder="Try “Creta diesel” or “Polo 1.5 TDI”" autocomplete="off" spellcheck="false" data-tool-search aria-controls="tool-results">
+        </div>
+      </div>
+      <div class="search-results" id="tool-results" data-tool-results aria-live="polite"></div>
+      <article class="vehicle-panel tool-panel" data-tool-panel aria-live="polite" hidden></article>
+    </section>
+
+    <section class="section container" aria-labelledby="methods-title">
+      <header class="section-head reveal">
+        <p class="eyebrow">How we read it</p>
+        <h2 class="headline" id="methods-title">Three ways in.</h2>
+        <p class="lead">Your original software is backed up first, whichever way we connect.</p>
+      </header>
+      <ul class="method-grid">
+        <li class="method-card reveal"><span class="method method-obd">OBD</span><h3>Diagnostic port</h3><p>Read and written through the car's OBD socket. Nothing is removed from the car.</p></li>
+        <li class="method-card reveal"><span class="method method-bench">Bench</span><h3>On the bench</h3><p>The ECU is taken out and connected on the bench. Newer locked ECUs need this, often only once.</p></li>
+        <li class="method-card reveal"><span class="method method-boot">Boot</span><h3>Boot mode</h3><p>The ECU is opened and read through its boot connection, for ECUs that can't be read any other way.</p></li>
+      </ul>
+    </section>
+
+    <section class="section container" aria-labelledby="list-title">
+      <header class="section-head reveal">
+        <p class="eyebrow">Support list</p>
+        <h2 class="headline" id="list-title">The ECUs we read.</h2>
+        <p class="lead">Typical support by ECU family. The exact hardware and software number decides, so we check yours with the tool before we start.</p>
+      </header>
+      <div class="chips" data-fuel-chips aria-label="Filter by fuel"></div>
+      <div class="support-list" data-support-list></div>
+    </section>
+
+    <section class="section container" aria-label="Not sure?">
+      <div class="visit-card tools-help reveal">
+        <h3>Not sure which ECU you have?</h3>
+        <p>Send us a photo of the ECU label, or come in for a quick scan. We'll check it against the Autotuner and KESS3 lists and tell you how we'd read it.</p>
+        <div class="cta-row" data-help-actions><a class="btn btn-primary" href="/#find">See your Stage 1 gains</a></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="container footer-inner">
+      <p><strong data-business-name>Unity Performance</strong> · <span data-setting="tagline">Performance · Protection · Perfection</span></p>
+      <nav class="footer-links" aria-label="Footer"><a href="/#find">Find your car</a><a href="/tools">Tool support</a><a href="/shop">Shop</a><a href="/#visit">Visit</a><span data-socials></span></nav>
+      <p class="fineprint">Tool support depends on each ECU's hardware and software version and is confirmed before any work. Autotuner and KESS3 are trademarks of their makers. © <span data-year></span> <span data-business-name>Unity Performance</span>.</p>
+    </div>
+  </footer>
+</body>
+</html>

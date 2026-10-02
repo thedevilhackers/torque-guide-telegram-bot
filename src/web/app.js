@@ -6,7 +6,7 @@ import { renderPage, robotsTxt, sitemapXml } from "./pages.js";
 import { registerPublicRoutes } from "./public-api.js";
 
 const PUBLIC_DIR = fileURLToPath(new URL("../../public/", import.meta.url));
-const PAGES = { "/": "index.html", "/shop": "shop.html", "/admin": "admin/index.html" };
+const PAGES = { "/": "index.html", "/shop": "shop.html", "/tools": "tools.html", "/admin": "admin/index.html" };
 const UPLOAD_FILE = /^\/uploads\/([a-f0-9]{32}\.(png|jpg|webp))$/;
 
 function compile(path) {

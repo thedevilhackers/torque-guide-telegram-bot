@@ -28,13 +28,24 @@ function applyCatalogUpdate(data, update) {
   for (const [name, items] of Object.entries(update.add ?? {})) {
     for (const item of items) if (!data[name].some((entry) => entry.id === item.id)) data[name].push(structuredClone(item));
   }
+  // New fields for existing records (e.g. an ECU's tool support) are set only where a record has none.
+  for (const [name, items] of Object.entries(update.fill ?? {})) {
+    for (const item of items) {
+      const entry = data[name].find((candidate) => candidate.id === item.id);
+      if (!entry) continue;
+      for (const [key, value] of Object.entries(item)) if (key !== "id" && entry[key] === undefined) entry[key] = structuredClone(value);
+    }
+  }
   // A record is replaced only while it still matches the old default exactly (dates aside).
   for (const [name, pairs] of Object.entries(update.replace ?? {})) {
     for (const { from, to } of pairs) {
       const index = data[name].findIndex((entry) => entry.id === from.id && sameRecords([withoutDates(entry)], [from]));
       if (index < 0 || data[name].some((entry, i) => i !== index && entry.id === to.id)) continue;
       const { createdAt } = data[name][index];
-      data[name][index] = { ...structuredClone(to), ...(createdAt && { createdAt }) };
+      const record = { ...structuredClone(to), ...(createdAt && { createdAt }) };
+      // A car only refers to ECU families this database still has.
+      if (name === "vehicles") record.ecus = record.ecus.filter((id) => data.ecus.some((ecu) => ecu.id === id));
+      data[name][index] = record;
     }
   }
   const ecuIds = new Set(data.ecus.map((ecu) => ecu.id));

@@ -24,6 +24,8 @@ const ORDER_LABELS = { new: "New", confirmed: "Confirmed", ready: "Ready", compl
 const ENQUIRY_LABELS = { new: "New", contacted: "Contacted", booked: "Booked", closed: "Closed" };
 const ECU_LABELS = { supported: "Supported", on_request: "On request", not_supported: "Not supported" };
 const FUEL_LABELS = { petrol: "Petrol", diesel: "Diesel" };
+const READ_LABELS = { obd: "OBD (diagnostic port)", bench: "Bench", boot: "Boot mode" };
+const readMethods = (methods = []) => methods.map((method) => READ_LABELS[method].split(" ")[0]).join(", ") || "—";
 const ASPIRATION_LABELS = { turbo: "Turbo", supercharged: "Supercharged", naturally_aspirated: "Naturally aspirated" };
 const ICONS = { bolt: "Lightning", gauge: "Gauge", wave: "Power curve", scan: "Diagnostics", chip: "Chip", wrench: "Wrench", shield: "Shield", sparkle: "Sparkle" };
 
@@ -723,21 +725,25 @@ const COLLECTION_VIEWS = {
     name: "ecus",
     title: "ECUs",
     singular: "ECU",
-    subtitle: "The ECU check in the bot and on the website uses this list.",
+    subtitle: "The ECU check in the bot, the website's ECU list and the Tool support page use this list.",
     label: (ecu) => ecu.title,
-    defaults: { fuels: ["petrol"], status: "supported" },
+    defaults: { fuels: ["petrol"], status: "supported", autotuner: [], kess3: [] },
+    toForm: (ecu) => ({ ...ecu, autotuner: ecu.tools?.autotuner ?? [], kess3: ecu.tools?.kess3 ?? [] }),
     search: (ecu) => `${ecu.title} ${ecu.method}`,
     fields: () => [
       { name: "title", label: "Name", full: true, placeholder: "Bosch MG1" },
       { name: "fuels", label: "Fuels", type: "checkboxes", full: true, options: Object.entries(FUEL_LABELS) },
       { name: "status", label: "Support", type: "select", options: Object.entries(ECU_LABELS) },
-      { name: "method", label: "Method", placeholder: "OBD flash, no ECU removal" }
+      { name: "method", label: "Method", placeholder: "OBD flash, no ECU removal" },
+      { name: "autotuner", label: "Autotuner reads it by", type: "checkboxes", full: true, options: Object.entries(READ_LABELS), help: "Shown on the Tool support page and in the bot. Leave all unticked if Autotuner doesn't read it." },
+      { name: "kess3", label: "KESS3 reads it by", type: "checkboxes", full: true, options: Object.entries(READ_LABELS) }
     ],
     columns: () => [
       { label: "ECU", cell: (ecu) => ecu.title },
       { label: "Fuels", cell: (ecu) => ecu.fuels.map((fuel) => FUEL_LABELS[fuel]).join(", ") },
       { label: "Support", cell: (ecu) => pill(ecu.status, ECU_LABELS[ecu.status]) },
-      { label: "Method", cell: (ecu) => ecu.method || "—" }
+      { label: "Autotuner", cell: (ecu) => readMethods(ecu.tools?.autotuner) },
+      { label: "KESS3", cell: (ecu) => readMethods(ecu.tools?.kess3) }
     ]
   },
   brands: {

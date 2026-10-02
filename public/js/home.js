@@ -217,6 +217,7 @@ function renderPanel({ vehicle, curves }, { scroll = true, query } = {}) {
       if (vehicle.source === "catalog") {
         actions.append(h("a", { class: "link-arrow", href: `/api/vehicles/${encodeURIComponent(vehicle.id)}/graph.png?stage=${stage}`, download: `${vehicle.id}-stage${stage}.png`, text: "Download power graph" }));
       }
+      if (vehicle.source === "catalog") actions.append(h("a", { class: "link-arrow", href: `/tools#car=${encodeURIComponent(vehicle.id)}`, text: "Can we read it? Tool support" }));
       body.replaceChildren(
         h("div", { class: "stat-tiles" }, statTile("Power", vehicle.stock.hp, current.hp, "hp", current.gain.hpPercent, stage), statTile("Torque", vehicle.stock.nm, current.nm, "Nm", current.gain.nmPercent, stage)),
         h("p", { class: "stage-note", text: stageNote(stage) }),

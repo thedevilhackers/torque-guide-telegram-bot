@@ -5,6 +5,9 @@ import { InputError } from "./records.js";
 
 const SERVICE_ICONS = ["bolt", "gauge", "wave", "scan", "chip", "wrench", "shield", "sparkle"];
 const ECU_STATUSES = ["supported", "on_request", "not_supported"];
+// The tools the workshop reads ECUs with, and the ways each can read one.
+const TOOL_IDS = ["autotuner", "kess3"];
+const READ_METHODS = ["obd", "bench", "boot"];
 const FUELS = ["petrol", "diesel"];
 const ASPIRATIONS = ["turbo", "supercharged", "naturally_aspirated"];
 const UPLOAD_PATH = /^\/uploads\/[a-f0-9]{32}\.(png|jpg|webp)$/;
@@ -144,11 +147,19 @@ export function validateVehicle(input, { brandIds, ecuIds }) {
 export function validateEcu(input) {
   const fuels = list(input.fuels, "Fuels", { split: /[\n,]/ }).filter((fuel) => FUELS.includes(fuel));
   if (!fuels.length) throw new InputError("Choose at least one fuel.");
+  // Tool support comes from the admin form (autotuner, kess3) or a stored record (tools). Records from
+  // before it existed have none, so the catalogue update can add it.
+  const given = TOOL_IDS.some((tool) => input[tool] !== undefined) || (input.tools && typeof input.tools === "object");
+  const methods = (value) => {
+    const chosen = list(value, "Read methods", { split: /[\n,]/ });
+    return READ_METHODS.filter((method) => chosen.includes(method));
+  };
   return {
     title: text(input.title, "Name", { required: true, max: 60 }),
     fuels,
     status: oneOf(input.status, "Status", ECU_STATUSES),
-    method: text(input.method, "Method", { max: 120 })
+    method: text(input.method, "Method", { max: 120 }),
+    ...(given && { tools: Object.fromEntries(TOOL_IDS.map((tool) => [tool, methods(input[tool] ?? input.tools?.[tool])])) })
   };
 }
 

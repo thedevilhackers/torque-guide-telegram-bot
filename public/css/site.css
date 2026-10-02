@@ -1548,6 +1548,230 @@ a.photo-card:hover .photo-caption {
   display: none;
 }
 
+/* ---------- Tool support page ---------- */
+
+.tools-hero {
+  padding: clamp(56px, 8vw, 104px) 0 0;
+}
+
+.tools-hero .finder-search {
+  margin-top: 36px;
+}
+
+.method {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.method-obd {
+  background: rgba(48, 209, 88, 0.16);
+  color: var(--good);
+}
+
+.method-bench {
+  background: rgba(255, 176, 32, 0.16);
+  color: var(--warn);
+}
+
+.method-boot {
+  background: rgba(41, 151, 255, 0.16);
+  color: var(--link);
+}
+
+.methods {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.methods-none {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.tool-intro {
+  margin-top: 20px;
+  color: var(--text-2);
+  font-size: 17px;
+}
+
+.ecu-support-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 12px;
+  margin: 16px 0 20px;
+}
+
+.ecu-support {
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg-raised);
+}
+
+.ecu-support-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 12px;
+}
+
+.ecu-support-head strong {
+  font-size: 19px;
+}
+
+.ecu-support-head .status {
+  margin-top: 0;
+}
+
+.tool-rows {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 10px 16px;
+  align-items: center;
+  margin: 16px 0 0;
+}
+
+.tool-rows dt {
+  color: var(--text-2);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.tool-rows dd {
+  margin: 0;
+}
+
+.ecu-support-method {
+  margin-top: 14px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.method-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.method-card {
+  padding: 28px 24px;
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.method-card h3 {
+  margin: 16px 0 8px;
+  font-size: 22px;
+  letter-spacing: -0.02em;
+}
+
+.method-card p {
+  margin: 0;
+  color: var(--text-2);
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.method-card:nth-child(2) {
+  --delay: 0.08s;
+}
+
+.method-card:nth-child(3) {
+  --delay: 0.16s;
+}
+
+.support-list {
+  margin-top: 20px;
+  overflow-x: auto;
+}
+
+.support-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 15px;
+}
+
+.support-table th,
+.support-table td {
+  padding: 14px 12px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.support-table thead th {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.support-table tbody th {
+  font-weight: 600;
+}
+
+.support-table td:first-of-type {
+  color: var(--text-2);
+}
+
+.support-table .status {
+  margin-top: 0;
+}
+
+.tools-help .cta-row {
+  margin-top: 0;
+}
+
+/* On phones each ECU becomes a small card, with labels in front of the values. */
+@media (max-width: 720px) {
+  .method-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .support-table thead {
+    display: none;
+  }
+
+  .support-table tr {
+    display: grid;
+    gap: 8px;
+    padding: 16px 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .support-table th,
+  .support-table td {
+    display: grid;
+    grid-template-columns: 92px 1fr;
+    align-items: center;
+    padding: 0;
+    border: 0;
+  }
+
+  .support-table tbody th {
+    display: block;
+    font-size: 17px;
+  }
+
+  .support-table td::before {
+    content: attr(data-label);
+    color: var(--muted);
+    font-size: 13px;
+  }
+}
+
 /* ---------- ECUs ---------- */
 
 .ecu-grid {

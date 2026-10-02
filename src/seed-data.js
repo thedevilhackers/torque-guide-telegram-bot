@@ -30,13 +30,38 @@ export const SEED_BRANDS = [
 // ECU support list, used by the "ECU check" step.
 // status: "supported" | "on_request" | "not_supported". Edit this to match your tools and licences.
 // More ECU families, on request until confirmed per vehicle.
+// How Autotuner and KESS3 typically read each ECU family: OBD (through the diagnostic port), bench
+// (ECU removed) or boot (ECU opened). The exact hardware and software number decides, so the workshop
+// confirms each car; the owner can change these in the admin panel.
+const ALL_METHODS = ["obd", "bench", "boot"];
+const ECU_TOOLS = {
+  bosch_med17: { autotuner: ALL_METHODS, kess3: ALL_METHODS },
+  bosch_mg1: { autotuner: ["obd", "bench"], kess3: ["obd", "bench"] },
+  simos18: { autotuner: ALL_METHODS, kess3: ALL_METHODS },
+  bosch_edc17: { autotuner: ALL_METHODS, kess3: ALL_METHODS },
+  bosch_md1: { autotuner: ["obd", "bench"], kess3: ["obd", "bench"] },
+  continental_sid: { autotuner: ALL_METHODS, kess3: ALL_METHODS },
+  denso: { autotuner: ["obd", "bench"], kess3: ALL_METHODS },
+  delphi: { autotuner: ["bench", "boot"], kess3: ["bench", "boot"] },
+  transtron: { autotuner: ["bench"], kess3: ["bench"] },
+  continental_sim2k: { autotuner: ["obd", "bench"], kess3: ["obd", "bench"] },
+  keihin: { autotuner: ["bench"], kess3: ["bench"] },
+  marelli: { autotuner: ["obd", "bench"], kess3: ALL_METHODS },
+  kefico: { autotuner: ["obd", "bench"], kess3: ["bench"] },
+  continental_ems3: { autotuner: ["obd", "bench"], kess3: ["obd", "bench"] },
+  bosch_me7: { autotuner: ALL_METHODS, kess3: ALL_METHODS },
+  bosch_edc16: { autotuner: ALL_METHODS, kess3: ALL_METHODS },
+  hitachi: { autotuner: ["bench"], kess3: ["bench"] }
+};
+const withTools = (ecu) => ({ ...ecu, tools: structuredClone(ECU_TOOLS[ecu.id]) });
+
 const NEW_ECUS = [
   { id: "kefico", title: "Kefico (Hyundai / Kia)", fuels: ["petrol"], status: "on_request", method: "Confirmed per vehicle" },
   { id: "continental_ems3", title: "Continental EMS3 (Renault / Nissan)", fuels: ["petrol"], status: "on_request", method: "Confirmed per vehicle" },
   { id: "bosch_me7", title: "Bosch ME7 / ME9", fuels: ["petrol"], status: "on_request", method: "OBD or bench, depending on version" },
   { id: "bosch_edc16", title: "Bosch EDC15 / EDC16", fuels: ["diesel"], status: "on_request", method: "OBD or bench, depending on version" },
   { id: "hitachi", title: "Hitachi (Nissan / Suzuki)", fuels: ["petrol"], status: "on_request", method: "Confirmed per vehicle" }
-];
+].map(withTools);
 
 export const SEED_ECUS = [
   { id: "bosch_med17", title: "Bosch MED17 / ME17 / MEVD17", fuels: ["petrol"], status: "supported", method: "OBD flash with Autotuner or KESS3, no ECU removal" },
@@ -50,9 +75,8 @@ export const SEED_ECUS = [
   { id: "transtron", title: "Transtron (Isuzu)", fuels: ["diesel"], status: "on_request", method: "Bench read, confirmed per vehicle" },
   { id: "continental_sim2k", title: "Continental SIM2K", fuels: ["petrol"], status: "on_request", method: "Bench read, confirmed per vehicle" },
   { id: "keihin", title: "Keihin (Honda)", fuels: ["petrol"], status: "on_request", method: "Confirmed per vehicle" },
-  { id: "marelli", title: "Magneti Marelli", fuels: ["petrol", "diesel"], status: "on_request", method: "Confirmed per vehicle" },
-  ...NEW_ECUS
-];
+  { id: "marelli", title: "Magneti Marelli", fuels: ["petrol", "diesel"], status: "on_request", method: "Confirmed per vehicle" }
+].map(withTools).concat(NEW_ECUS);
 
 // The ECU list a database was first created with, updated while still unedited.
 const LAUNCH_ECUS = [
@@ -280,7 +304,62 @@ const MORE_VEHICLES = [
   { id: "audi_q7_45tdi", brand: "audi", model: "Q7 45 TDI", generation: "4M", years: [2015, 2019], engine: "3.0 V6 TDI", fuel: "diesel", aspiration: "turbo", stock: [249, 600], stage1: [305, 730], stage2: [325, 780], stage3: [360, 840], ecus: ["bosch_edc17"], keywords: "q7 tdi v6" }
 ];
 
-export const SEED_VEHICLES = [...LAUNCH_VEHICLES, ...INDIA_VEHICLES, ...VAG_DIESELS, ...MORE_VEHICLES];
+// The ECU families commonly fitted to cars that were added without one, where the engine makes it
+// clear (most share an engine with a car above). Listed cars get them in update 7 unless edited.
+const VAG_TDI = ["bosch_edc17", "continental_sid"];
+const HYUNDAI_TGDI = ["kefico", "bosch_med17"];
+const ECU_ASSIGNMENTS = {
+  vw_jetta_14: ["bosch_med17"],
+  audi_a3_8v_14: ["bosch_med17"],
+  audi_a4_b9_20t: ["simos18"],
+  audi_q5_fy_20t: ["simos18"],
+  skoda_octavia_rs: ["simos18"],
+  skoda_octavia_20: ["simos18", "bosch_mg1"],
+  mb_c300_w205: ["bosch_mg1"],
+  mb_glc300_x253: ["bosch_mg1"],
+  nissan_navara_d23: ["bosch_edc17"],
+  mitsu_triton_24: ["denso"],
+  honda_city_15: ["keihin"],
+  honda_elevate_15: ["keihin"],
+  honda_city_15d: ["bosch_edc17"],
+  honda_amaze_15d: ["bosch_edc17"],
+  hyundai_creta_crdi: ["bosch_edc17"],
+  hyundai_verna_crdi: ["bosch_edc17"],
+  hyundai_venue_crdi: ["bosch_edc17"],
+  hyundai_alcazar_crdi: ["bosch_edc17"],
+  hyundai_tucson_20d: ["bosch_edc17"],
+  kia_seltos_crdi: ["bosch_edc17"],
+  kia_sonet_crdi: ["bosch_edc17"],
+  kia_carens_crdi: ["bosch_edc17"],
+  kia_carnival_22: ["bosch_edc17"],
+  hyundai_creta_14t: HYUNDAI_TGDI,
+  hyundai_creta_15t: HYUNDAI_TGDI,
+  hyundai_verna_15t: HYUNDAI_TGDI,
+  hyundai_venue_10t: HYUNDAI_TGDI,
+  hyundai_i20_10t: HYUNDAI_TGDI,
+  hyundai_nios_10t: HYUNDAI_TGDI,
+  kia_seltos_14t: HYUNDAI_TGDI,
+  kia_seltos_15t: HYUNDAI_TGDI,
+  kia_sonet_10t: HYUNDAI_TGDI,
+  kia_carens_15t: HYUNDAI_TGDI,
+  renault_duster_15d: ["continental_sid"],
+  jeep_meridian_20d: ["bosch_edc17"],
+  jeep_compass_14t: ["marelli"],
+  fiat_abarth_punto: ["marelli", "bosch_me7"],
+  fiat_linea_tjet: ["marelli", "bosch_me7"],
+  mahindra_bolero_15d: ["bosch_edc17"],
+  vw_jetta_20tdi: ["bosch_edc17"],
+  vw_polo_12tdi: VAG_TDI,
+  vw_polo_15tdi: VAG_TDI,
+  vw_vento_16tdi: VAG_TDI,
+  vw_vento_15tdi: VAG_TDI,
+  skoda_fabia_12tdi: VAG_TDI,
+  skoda_rapid_16tdi: VAG_TDI,
+  skoda_rapid_15tdi: VAG_TDI
+};
+const withEcus = (vehicle) => (ECU_ASSIGNMENTS[vehicle.id] && !vehicle.ecus.length ? { ...vehicle, ecus: [...ECU_ASSIGNMENTS[vehicle.id]] } : vehicle);
+
+export const SEED_VEHICLES = [...LAUNCH_VEHICLES, ...INDIA_VEHICLES, ...VAG_DIESELS, ...MORE_VEHICLES].map(withEcus);
 
 // Services shown on the website. icon: bolt | gauge | wave | scan | chip | wrench | shield | sparkle
 export const SEED_SERVICES = [
@@ -403,7 +482,18 @@ export const CATALOG_UPDATES = [
       stage3Note: ["Stage 3 is a bigger build: an upgraded turbocharger with matching fuelling and a clutch or gearbox rated for the extra torque, finished with a custom calibration on our dyno.", DEFAULT_SETTINGS.stage3Note]
     }
   },
-  { version: 6, add: { photos: SEED_PHOTOS } }
+  { version: 6, add: { photos: SEED_PHOTOS } },
+  {
+    version: 7,
+    // Autotuner and KESS3 support for ECUs that don't have it yet, and the usual ECU for cars added without one.
+    fill: { ecus: SEED_ECUS.map(({ id, tools }) => ({ id, tools })) },
+    replace: {
+      vehicles: Object.keys(ECU_ASSIGNMENTS).map((id) => {
+        const to = SEED_VEHICLES.find((vehicle) => vehicle.id === id);
+        return { from: { ...to, ecus: [] }, to };
+      })
+    }
+  }
 ];
 export const CATALOG_VERSION = Math.max(1, ...CATALOG_UPDATES.map((update) => update.version));
 

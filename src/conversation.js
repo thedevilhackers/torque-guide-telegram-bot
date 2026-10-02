@@ -1,5 +1,5 @@
 import { linkChat, unlinkChat } from "./alerts.js";
-import { ECU_STATUS, ecuById, ecus } from "./catalog.js";
+import { ECU_STATUS, ecuById, ecus, toolSupportLines } from "./catalog.js";
 import { settings } from "./db.js";
 import { renderStageChart } from "./dyno-chart.js";
 import { recordTelegramEnquiry } from "./records.js";
@@ -60,14 +60,17 @@ function ecuCheckText(ecu, vehicle) {
     const hint = common.length ? `\nCommonly fitted to this vehicle: ${h(common.join(", "))}.` : "";
     return `${status.icon} <b>ECU to be identified</b>\nNo problem. We'll confirm it from your vehicle with a photo of the ECU label or a quick diagnostic scan.${hint}`;
   }
-  return `${status.icon} <b>${h(ecu.title)}</b>\n${h(status.detail)}${ecu.method ? `\nMethod: ${h(ecu.method)}` : ""}`;
+  return `${status.icon} <b>${h(ecu.title)}</b>\n${h(status.detail)}${ecu.method ? `\nMethod: ${h(ecu.method)}` : ""}\n${toolSupportLines(ecu).map(h).join("\n")}`;
 }
+
+const SUPPORT_NOTE = "<i>Support depends on the exact ECU hardware and software number. We confirm it with the tool before we start, and your original file is always backed up.</i>";
 
 export function createConversation({ telegram = telegramApi, ai = tuningService, renderChart = renderStageChart } = {}) {
   async function showMenu(chatId) {
     setSession(chatId, { awaiting: undefined });
     const rows = [
       [btn("🔎 Search my vehicle", "search")],
+      [btn("🛠 Can you read my car?", "readcheck")],
       [btn("🚗 Browse by brand", "browse"), ...(ai.aiEnabled() ? [btn("🤖 Ask AI", "ask")] : [])],
       [btn("🧾 ECUs we support", "ecus"), ...(hasWorkshop() ? [btn("📍 Our workshop", "workshop")] : [])]
     ];
@@ -91,6 +94,54 @@ export function createConversation({ telegram = telegramApi, ai = tuningService,
     return telegram.sendText(chatId, "<b>🔎 Search your vehicle</b>\nType the make, model and engine, for example <i>BMW 330i</i>, <i>Ranger 3.2</i> or <i>Civic Type R</i>.", {
       buttons: [[btn("🚗 Browse by brand", "browse")], menuRow()]
     });
+  }
+
+  // "Can you read my car?": the car's usual ECU and how Autotuner and KESS3 read it.
+  async function promptReadCheck(chatId) {
+    setSession(chatId, { awaiting: "readcheck" });
+    return telegram.sendText(
+      chatId,
+      "<b>🛠 Can we read your car?</b>\nType your car and engine, for example <i>Creta diesel</i>, <i>Polo 1.5 TDI</i> or <i>Fortuner 2.8</i>. We'll show its ECU and how Autotuner and KESS3 read it.",
+      { buttons: [menuRow()] }
+    );
+  }
+
+  async function readSearch(chatId, query) {
+    const text = query.slice(0, MAX_QUERY_LENGTH);
+    setSession(chatId, { awaiting: "readcheck" });
+    const results = searchVehicles(text);
+    if (results.length) {
+      return telegram.sendText(chatId, `<b>Results for “${h(text)}”</b>\nChoose your car:`, {
+        buttons: [...results.map((vehicle) => [btn(`${vehicle.brand} ${vehicleButtonLabel(vehicle)}`, `read:${vehicle.id}`)]), [btn("🏠 Menu", "menu")]]
+      });
+    }
+    const rows = [];
+    if (settings().whatsappNumber) {
+      rows.push([link("📷 Send us your ECU label on WhatsApp", whatsappLink(`Hello ${businessName()}, can you read my ${text} with Autotuner or KESS3? I'll send a photo of the ECU label.`))]);
+    }
+    rows.push([btn("🔎 Try again", "readcheck"), btn("🏠 Menu", "menu")]);
+    return telegram.sendText(chatId, `I couldn't find “${h(text)}” in our list. Send us a photo of the ECU label and we'll check it against the Autotuner and KESS3 lists.`, { buttons: rows });
+  }
+
+  async function showReadSupport(chatId, vehicle) {
+    setSession(chatId, { awaiting: undefined });
+    const fitted = (vehicle.ecus ?? []).map(ecuById).filter(Boolean);
+    const lines = [`<b>🛠 ${h(vehicleName(vehicle))}</b>`, h([vehicle.engine, vehicle.years].filter(Boolean).join(" · "))];
+    if (fitted.length) {
+      lines.push("", fitted.length > 1 ? "One of these ECUs is usually fitted:" : "Usually fitted ECU:");
+      for (const ecu of fitted) {
+        const status = ECU_STATUS[ecu.status];
+        lines.push("", `${status.icon} <b>${h(ecu.title)}</b> (${h(status.label)})`, ...toolSupportLines(ecu).map((line) => `• ${h(line)}`));
+        if (ecu.method) lines.push(`• How we do it: ${h(ecu.method)}`);
+      }
+      lines.push("", SUPPORT_NOTE);
+    } else {
+      lines.push("", "The ECU on this model varies. Send us a photo of the ECU label, or come in for a quick scan, and we'll check it against the Autotuner and KESS3 lists.");
+    }
+    const rows = [[btn("📈 See the Stage 1 gains", `veh:${vehicle.id}`)]];
+    if (settings().whatsappNumber) rows.push([link("💬 Ask us on WhatsApp", whatsappLink(`Hello ${businessName()}, can you read my ${vehicleName(vehicle)} (${vehicle.engine})?`))]);
+    rows.push([btn("🛠 Check another car", "readcheck"), btn("🏠 Menu", "menu")]);
+    return telegram.sendText(chatId, lines.join("\n"), { buttons: rows });
   }
 
   async function showBrands(chatId) {
@@ -262,9 +313,9 @@ export function createConversation({ telegram = telegramApi, ai = tuningService,
     const groups = Object.entries(ECU_STATUS)
       .map(([status, info]) => [info, ecus().filter((ecu) => ecu.status === status)])
       .filter(([, ecus]) => ecus.length)
-      .map(([info, ecus]) => `<b>${info.icon} ${h(info.label)}</b>\n${ecus.map((ecu) => `• ${h(ecu.title)}: ${h(ecu.method)}`).join("\n")}`);
-    const text = [`<b>🧾 ECUs ${h(businessName())} tunes</b>`, ...groups, "Not sure which ECU you have? Search your vehicle and we'll help you check."].join("\n\n");
-    return telegram.sendText(chatId, text, { buttons: [[btn("🔎 Search my vehicle", "search")], menuRow()] });
+      .map(([info, ecus]) => `<b>${info.icon} ${h(info.label)}</b>\n${ecus.map((ecu) => `• <b>${h(ecu.title)}</b>: ${h(ecu.method)}\n   ${h(toolSupportLines(ecu).join(" | "))}`).join("\n")}`);
+    const text = [`<b>🧾 ECUs ${h(businessName())} tunes</b>`, ...groups, "Not sure which ECU you have? Check your car and we'll show its usual ECU."].join("\n\n");
+    return telegram.sendText(chatId, text, { buttons: [[btn("🛠 Can you read my car?", "readcheck")], menuRow()] });
   }
 
   async function showWorkshop(chatId) {
@@ -328,6 +379,12 @@ export function createConversation({ telegram = telegramApi, ai = tuningService,
         return checkEcu(chatId, value);
       case "ecus":
         return showEcuList(chatId);
+      case "readcheck":
+        return promptReadCheck(chatId);
+      case "read": {
+        const vehicle = getVehicle(value);
+        return vehicle ? showReadSupport(chatId, vehicle) : promptReadCheck(chatId);
+      }
       case "ask":
         return startAsk(chatId);
       case "workshop":
@@ -368,8 +425,10 @@ export function createConversation({ telegram = telegramApi, ai = tuningService,
     if (/^\/search\b/i.test(text)) return promptSearch(chatId);
     if (/^\/ask\b/i.test(text)) return startAsk(chatId);
     if (/^\/ecus?\b/i.test(text)) return showEcuList(chatId);
+    if (/^\/(read|tools?)\b/i.test(text)) return promptReadCheck(chatId);
     if (previous.awaiting === "location") return saveLocation(chatId, /^skip$/i.test(text) ? { skipped: true } : { text: text.slice(0, 120) });
     if (previous.awaiting === "question") return answerQuestion(chatId, text);
+    if (previous.awaiting === "readcheck") return readSearch(chatId, text);
     return search(chatId, text.replace(/^\/\w+\s*/, ""));
   };
 }

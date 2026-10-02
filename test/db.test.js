@@ -128,3 +128,25 @@ test("update 6 adds the gallery's first photos once, after the owner's own, and 
   replaceData(current);
   assert.ok(!db().photos.some((photo) => photo.id === SEED_PHOTOS[0].id), "a deleted photo isn't added again");
 });
+
+test("update 7 adds Autotuner and KESS3 support and the usual ECUs, keeping the owner's edits", () => {
+  const before = seedData();
+  before.catalogVersion = 6;
+  for (const ecu of before.ecus) delete ecu.tools;
+  before.ecus = before.ecus.filter((ecu) => ecu.id !== "bosch_me7");
+  for (const vehicle of before.vehicles) {
+    if (["hyundai_creta_crdi", "fiat_linea_tjet", "kia_seltos_crdi", "vw_polo_15tdi"].includes(vehicle.id)) vehicle.ecus = [];
+  }
+  before.vehicles.find((vehicle) => vehicle.id === "kia_seltos_crdi").stage1 = [140, 300];
+  before.ecus.find((ecu) => ecu.id === "denso").tools = { autotuner: ["bench"], kess3: [] };
+  replaceData(before);
+
+  const ecu = (id) => db().ecus.find((item) => item.id === id);
+  const vehicle = (id) => db().vehicles.find((item) => item.id === id);
+  assert.deepEqual(ecu("bosch_edc17").tools, { autotuner: ["obd", "bench", "boot"], kess3: ["obd", "bench", "boot"] });
+  assert.deepEqual(ecu("denso").tools, { autotuner: ["bench"], kess3: [] }, "tool support the owner set is kept");
+  assert.deepEqual(vehicle("hyundai_creta_crdi").ecus, ["bosch_edc17"]);
+  assert.deepEqual(vehicle("vw_polo_15tdi").ecus, ["bosch_edc17", "continental_sid"]);
+  assert.deepEqual(vehicle("fiat_linea_tjet").ecus, ["marelli"], "an ECU family the owner deleted isn't added back to a car");
+  assert.deepEqual(vehicle("kia_seltos_crdi").ecus, [], "a car the owner edited is left alone");
+});
