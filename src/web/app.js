@@ -37,10 +37,11 @@ function sendPage(req, res, page) {
 }
 
 // Handlers return a value to send it as JSON, or write to res themselves.
-export function createApp({ botUsername = () => "", sendAlert = null } = {}) {
+// ai replaces the AI service in tests.
+export function createApp({ botUsername = () => "", sendAlert = null, ai } = {}) {
   const routes = [];
   const route = (method, path, handler) => routes.push({ method, handler, ...compile(path) });
-  registerPublicRoutes(route, { botUsername });
+  registerPublicRoutes(route, { botUsername, ...(ai && { ai }) });
   registerAdminRoutes(route, { botUsername, sendAlert });
   route("GET", "/robots.txt", ({ req, res }) => sendBuffer(res, 200, Buffer.from(robotsTxt(req)), "text/plain; charset=utf-8", { "Cache-Control": "public, max-age=3600" }));
   route("GET", "/sitemap.xml", ({ req, res }) => sendBuffer(res, 200, Buffer.from(sitemapXml(req)), "application/xml; charset=utf-8", { "Cache-Control": "public, max-age=3600" }));

@@ -3,6 +3,8 @@ import { db, settings } from "../db.js";
 import { buildDynoCurves, renderStageChart } from "../dyno-chart.js";
 import { createEnquiry, createOrder, orderText } from "../records.js";
 import { AUTOTUNER_SOURCE, searchAutotuner } from "../tool-lists.js";
+import { imageDataUrl, labelMatches } from "../ecu-label.js";
+import * as tuningService from "../tuning-service.js";
 import { aiEnabled, identifyVehicle } from "../tuning-service.js";
 import { availableStages, brandsWithVehicles, getVehicle, searchVehicles, stageFigures, stageGain, vehicleEntries, vehiclesForBrand } from "../vehicles.js";
 import { enquiryText, whatsappLink } from "../whatsapp.js";
@@ -70,7 +72,8 @@ function accept(limiter, ip, create) {
   return result;
 }
 
-export function registerPublicRoutes(route, { botUsername }) {
+// ai: the ECU label reader (replaceable in tests).
+export function registerPublicRoutes(route, { botUsername, ai = tuningService }) {
   const orderLimiter = rateLimiter({ windowMs: 60 * 60_000, max: 5 });
   const enquiryLimiter = rateLimiter({ windowMs: 60 * 60_000, max: 10 });
   const aiLimiter = rateLimiter({ windowMs: 60 * 60_000, max: 8 });
@@ -130,6 +133,35 @@ export function registerPublicRoutes(route, { botUsername }) {
 
   // Autotuner's compatibility list, searched by ECU, brand or chip (Tool support page).
   route("GET", "/api/tool-list", ({ url }) => ({ source: AUTOTUNER_SOURCE, ...searchAutotuner(url.searchParams.get("q") ?? "", { limit: 60 }) }));
+
+  // A photo of an ECU label, read by the AI and matched to the ECU lists and the car database.
+  // Photos are resized in the browser, so a few megabytes is plenty.
+  route("POST", "/api/ecu-label", async ({ req, ip }) => {
+    if (!ai.aiEnabled()) throw new HttpError(404, "Photo checks aren't available. Send the photo to us on WhatsApp.");
+    if (!sameOrigin(req)) throw new HttpError(403, "Requests must come from this website.");
+    if (aiLimiter.blocked(ip)) throw new HttpError(429, "You've reached the photo check limit. Please try again later or send the photo on WhatsApp.");
+    const body = await readJson(req, 4_000_000);
+    const match = /^data:image\/[a-z]+;base64,([A-Za-z0-9+/=]+)$/.exec(String(body.image ?? ""));
+    const image = match && imageDataUrl(Buffer.from(match[1], "base64"));
+    if (!image) throw new HttpError(400, "Choose a JPEG, PNG or WebP photo.");
+    aiLimiter.hit(ip);
+    let label;
+    try {
+      label = await ai.readEcuLabel(`web:${ip}`, image, String(body.car ?? "").slice(0, 120));
+    } catch (error) {
+      if (error.status) throw error;
+      console.error("ECU label read failed:", error.message);
+      throw new HttpError(502, "We couldn't read that photo right now. Please try again, or send it to us on WhatsApp.");
+    }
+    if (!label.readable) return { label };
+    const { family, autotuner, vehicles } = labelMatches(label);
+    return {
+      label,
+      family: family && { id: family.id, title: family.title, status: family.status, method: family.method, tools: family.tools ?? {} },
+      autotuner,
+      vehicles: vehicles.map(vehicleSummary)
+    };
+  });
 
   route("GET", "/api/products", () => ({
     products: db()

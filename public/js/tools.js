@@ -196,6 +196,113 @@ ecuFinder.input.addEventListener("input", () => {
   ecuTimer = setTimeout(() => searchEcus(ecuFinder.input.value).catch((error) => console.error(error)), 200);
 });
 
+// ---------- AI label check ----------
+
+const MAX_PHOTO_SIDE = 1600;
+
+// Phone photos are large; a 1600 px JPEG keeps every printed number readable and uploads quickly.
+async function shrinkPhoto(file) {
+  const url = URL.createObjectURL(file);
+  try {
+    const image = await new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error("That file isn't a photo we can read. Try a JPEG or PNG."));
+      img.src = url;
+    });
+    const scale = Math.min(1, MAX_PHOTO_SIDE / Math.max(image.naturalWidth, image.naturalHeight));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(image.naturalWidth * scale);
+    canvas.height = Math.round(image.naturalHeight * scale);
+    canvas.getContext("2d").drawImage(image, 0, 0, canvas.width, canvas.height);
+    return canvas.toDataURL("image/jpeg", 0.88);
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+function labelRows(label) {
+  const rows = [["ECU", [label.maker, label.type].filter(Boolean).join(" ")], ["Hardware no.", label.hardware], ["Software no.", label.software], ["Part no.", label.partNumber]].filter(([, value]) => value);
+  return h("dl", { class: "tool-rows" }, ...rows.flatMap(([name, value]) => [h("dt", { text: name }), h("dd", { text: value })]));
+}
+
+function showLabelResult(container, data) {
+  const { label } = data;
+  if (!label.readable) {
+    container.replaceChildren(h("p", { class: "form-error", role: "alert", text: `We couldn't read an ECU label in that photo. ${label.question || "Please try a sharper, closer photo in good light."}` }));
+    return;
+  }
+  const atMethods = [...new Set((data.autotuner?.results ?? []).flatMap((entry) => entry.methods))];
+  const support = h(
+    "dl",
+    { class: "tool-rows" },
+    h("dt", { text: "Autotuner" }),
+    h("dd", {}, data.autotuner?.total ? methodChips(atMethods, { none: "Listed, to be confirmed" }) : h("span", { class: "methods-none", text: "Not in its list under this name" })),
+    ...(data.family ? [h("dt", { text: "KESS3" }), h("dd", {}, methodChips(data.family.tools?.kess3)), h("dt", { text: "Tuning" }), h("dd", {}, h("span", { class: `status status-${data.family.status}`, text: STATUS[data.family.status] }))] : [])
+  );
+  const car = [label.vehicle.brand, label.vehicle.model, label.vehicle.engine, label.vehicle.years].filter(Boolean).join(" ");
+  const parts = [h("h3", { text: "Your ECU label" }), labelRows(label), support];
+  const actions = h("div", { class: "vehicle-actions" });
+  if (car) parts.push(h("p", { class: "tool-intro" }, "Usually fitted to: ", h("strong", { text: car })));
+  for (const vehicle of data.vehicles ?? []) {
+    actions.append(h("a", { class: "btn btn-primary", href: `/#car=${encodeURIComponent(vehicle.id)}`, text: `Stage 1 gains: ${vehicle.brand} ${vehicle.model}` }));
+  }
+  // The label didn't say which car (or no listed car matched): ask, and search for the answer.
+  if (!data.vehicles?.length) {
+    const input = h("input", { class: "label-car", type: "text", maxlength: "120", placeholder: "Make, model, engine and year", value: car, "aria-label": "Your car" });
+    const ask = h(
+      "form",
+      { class: "label-form", onsubmit: (event) => (event.preventDefault(), findCar(input.value)) },
+      input,
+      h("button", { class: "btn", type: "submit", text: "Find my car" })
+    );
+    parts.push(h("p", { class: "tool-intro", text: label.question || "Which car is this ECU from?" }), ask);
+  }
+  const details = [[label.maker, label.type].filter(Boolean).join(" "), label.hardware && `HW ${label.hardware}`, label.software && `SW ${label.software}`, label.partNumber && `Part ${label.partNumber}`].filter(Boolean).join(", ");
+  const send = whatsapp(`Hello ${settings.businessName}, here is my ECU label: ${details}${car ? `. Car: ${car}` : ""}.`);
+  if (send) actions.append(h("a", { class: "btn btn-whatsapp", href: send, target: "_blank", rel: "noopener", text: "Send it to us on WhatsApp" }));
+  parts.push(actions, h("p", { class: "fineprint", text: "We confirm the exact ECU with the tool before we start." }));
+  container.replaceChildren(h("div", { class: "label-result" }, ...parts));
+}
+
+function findCar(query) {
+  finder.input.value = query;
+  search(query).catch((error) => console.error(error));
+  finder.input.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+function setupLabelCheck() {
+  if (!site.aiEnabled) return;
+  const section = $("[data-label-section]");
+  const form = $("[data-label-form]", section);
+  const file = $("[data-label-file]", section);
+  const fileText = $("[data-label-file-text]", section);
+  const submit = $("[data-label-submit]", section);
+  const result = $("[data-label-result]", section);
+  file.addEventListener("change", () => {
+    fileText.textContent = file.files[0] ? `Photo: ${file.files[0].name.slice(0, 30)}` : "Choose or take a photo";
+    submit.disabled = !file.files[0];
+  });
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (!file.files[0]) return;
+    submit.disabled = true;
+    submit.textContent = "Reading the label…";
+    result.replaceChildren();
+    try {
+      const image = await shrinkPhoto(file.files[0]);
+      const data = await api("/api/ecu-label", { method: "POST", body: { image, car: $("[data-label-car]", section).value } });
+      showLabelResult(result, data);
+    } catch (error) {
+      result.replaceChildren(h("p", { class: "form-error", role: "alert", text: error.message }));
+    } finally {
+      submit.disabled = false;
+      submit.textContent = "Check my label";
+    }
+  });
+  section.hidden = false;
+}
+
 // ---------- Support list ----------
 
 function supportList(fuel) {
@@ -240,6 +347,7 @@ function setupSupportList() {
 const help = whatsapp(`Hello ${settings.businessName}, can you check my ECU? I'll send a photo of the label.`);
 if (help) $("[data-help-actions]").prepend(h("a", { class: "btn btn-whatsapp", href: help, target: "_blank", rel: "noopener", text: "Send us the ECU label" }));
 setupSupportList();
+setupLabelCheck();
 observeReveals();
 api("/api/tool-list").then((data) => showSource(data.source)).catch(() => {});
 

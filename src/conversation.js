@@ -2,6 +2,7 @@ import { linkChat, unlinkChat } from "./alerts.js";
 import { ECU_STATUS, READ_METHODS, ecuById, ecus, toolSupportLines } from "./catalog.js";
 import { settings } from "./db.js";
 import { renderStageChart } from "./dyno-chart.js";
+import { autotunerLine, familyLines, imageDataUrl, labelLines, labelMatches, vehicleQuery } from "./ecu-label.js";
 import { recordTelegramEnquiry } from "./records.js";
 import { getSession, resetSession, setSession } from "./store.js";
 import { AUTOTUNER_SOURCE, searchAutotuner } from "./tool-lists.js";
@@ -73,7 +74,7 @@ export function createConversation({ telegram = telegramApi, ai = tuningService,
     setSession(chatId, { awaiting: undefined });
     const rows = [
       [btn("🔎 Search my vehicle", "search")],
-      [btn("🛠 Can you read my car?", "readcheck")],
+      [btn("🛠 Can you read my car?", "readcheck"), ...(ai.aiEnabled() ? [btn("📷 ECU label photo", "ecuphoto")] : [])],
       [btn("🚗 Browse by brand", "browse"), ...(ai.aiEnabled() ? [btn("🤖 Ask AI", "ask")] : [])],
       [btn("🧾 ECUs we support", "ecus"), ...(hasWorkshop() ? [btn("📍 Our workshop", "workshop")] : [])]
     ];
@@ -162,6 +163,81 @@ export function createConversation({ telegram = telegramApi, ai = tuningService,
     return telegram.sendText(chatId, lines.join("\n"), { buttons: rows });
   }
 
+  // ---------- ECU label photo ----------
+
+  async function promptEcuPhoto(chatId) {
+    setSession(chatId, { awaiting: "ecuphoto" });
+    return telegram.sendText(
+      chatId,
+      "<b>📷 Check my ECU label</b>\nSend a clear photo of the sticker on your ECU (the engine computer). Get close, in good light, so the numbers are sharp. If you know the car, write it in the caption.\n\nWe'll tell you which ECU and car it is, how we read it, and your Stage 1 gains.",
+      { buttons: [menuRow()] }
+    );
+  }
+
+  const labelWhatsapp = (label) => (settings().whatsappNumber ? [[link("💬 Send it to us on WhatsApp", whatsappLink(`Hello ${businessName()}, can you check my ECU label?${label?.readable ? `\n${labelLines(label).join("\n")}` : " I'll send the photo."}`))]] : []);
+
+  async function readLabelPhoto(chatId, photo, caption) {
+    if (!ai.aiEnabled()) {
+      return telegram.sendText(chatId, "Thanks for the photo. Please send it to our team on WhatsApp and we'll check the ECU for you.", { buttons: [...labelWhatsapp(), menuRow()] });
+    }
+    await telegram.sendText(chatId, "📷 Got it. Reading your ECU label…");
+    await telegram.sendChatAction(chatId, "typing");
+    let label;
+    try {
+      const image = imageDataUrl(await telegram.downloadFile(photo.fileId));
+      if (!image) return telegram.sendText(chatId, "Please send the label as a photo (JPEG or PNG).", { buttons: [[btn("📷 Try again", "ecuphoto")], menuRow()] });
+      const { vehicle } = getSession(chatId);
+      const note = [caption, vehicle && `Looking at: ${vehicleName(vehicle)}, ${vehicle.engine}`].filter(Boolean).join(". ");
+      label = await ai.readEcuLabel(chatId, image, note);
+    } catch (error) {
+      if (error.status === 429) return telegram.sendText(chatId, h(error.message), { buttons: [...labelWhatsapp(), menuRow()] });
+      console.error("ECU label read failed:", error.message);
+      return telegram.sendText(chatId, "Sorry, I couldn't read that photo. Try a sharper, closer photo, or send it to us on WhatsApp.", {
+        buttons: [[btn("📷 Try again", "ecuphoto")], ...labelWhatsapp(), menuRow()]
+      });
+    }
+    return showLabel(chatId, label);
+  }
+
+  async function showLabel(chatId, label) {
+    if (!label.readable) {
+      setSession(chatId, { awaiting: "ecuphoto" });
+      return telegram.sendText(chatId, `I couldn't read an ECU label in that photo. ${h(label.question || "Please send a sharper, closer photo of the sticker in good light.")}`, {
+        buttons: [...labelWhatsapp(), menuRow()]
+      });
+    }
+    const { family, autotuner, vehicles } = labelMatches(label);
+    setSession(chatId, { ecuLabel: label, ecu: family?.id, awaiting: undefined });
+    const lines = ["<b>📷 Your ECU label</b>", ...labelLines(label).map(h), ""];
+    const reads = autotunerLine(autotuner);
+    lines.push(reads ? h(reads) : "Autotuner: not in its list under this name; we'll check the exact version.", ...familyLines(family).map(h));
+    const car = [label.vehicle.brand, label.vehicle.model, label.vehicle.engine, label.vehicle.years].filter(Boolean).join(" ");
+    const rows = [];
+    if (car) lines.push("", `🚗 Usually fitted to: <b>${h(car)}</b>`);
+    if (vehicles.length) {
+      lines.push("", "Tap your car to see the Stage 1 gains:");
+      rows.push(...vehicles.map((vehicle) => [btn(`📈 ${vehicle.brand} ${vehicleButtonLabel(vehicle)}`, `veh:${vehicle.id}`)]));
+    } else if (car && ai.aiEnabled()) {
+      setSession(chatId, { lastQuery: vehicleQuery(label) });
+      rows.push([btn("📈 Stage 1 gains for this car", "aisearch")]);
+    }
+    if (car) {
+      rows.push([btn("✍️ It's a different car", "ecucar")]);
+    } else {
+      // The label didn't say which car: ask, and the answer goes to the vehicle search.
+      setSession(chatId, { awaiting: "ecucar" });
+      lines.push("", `❓ ${h(label.question || "Which car is this ECU from? Type the make, model, engine and year.")}`);
+    }
+    lines.push("", "<i>We confirm the exact ECU with the tool before we start.</i>");
+    rows.push(...labelWhatsapp(label), [btn("📷 Another photo", "ecuphoto"), btn("🏠 Menu", "menu")]);
+    return telegram.sendText(chatId, lines.join("\n"), { buttons: rows });
+  }
+
+  async function askLabelCar(chatId) {
+    setSession(chatId, { awaiting: "ecucar" });
+    return telegram.sendText(chatId, "🚗 Which car is this ECU from? Type the make, model, engine and year, for example <i>Creta 1.5 diesel 2021</i>.", { buttons: [menuRow()] });
+  }
+
   async function showBrands(chatId) {
     const brands = brandsWithVehicles().map((brand) => btn(brand.title, `brand:${brand.id}`));
     return telegram.sendText(chatId, "<b>🚗 Choose a brand</b>", { buttons: [...chunk(brands, 2), [btn("✍️ Not listed? Type it", "search")], menuRow()] });
@@ -208,7 +284,8 @@ export function createConversation({ telegram = telegramApi, ai = tuningService,
   }
 
   async function showPerformance(chatId, vehicle) {
-    const session = setSession(chatId, { vehicle, stage: 1, awaiting: undefined, ecu: undefined });
+    // An ECU read from the customer's label photo stays chosen; otherwise the ECU step asks again.
+    const session = setSession(chatId, { vehicle, stage: 1, awaiting: undefined, ecu: getSession(chatId).ecuLabel?.family || undefined });
     if (!vehicle.tunable) {
       return telegram.sendText(
         chatId,
@@ -399,6 +476,10 @@ export function createConversation({ telegram = telegramApi, ai = tuningService,
         return showEcuList(chatId);
       case "readcheck":
         return promptReadCheck(chatId);
+      case "ecuphoto":
+        return promptEcuPhoto(chatId);
+      case "ecucar":
+        return askLabelCar(chatId);
       case "read": {
         const vehicle = getVehicle(value);
         return vehicle ? showReadSupport(chatId, vehicle) : promptReadCheck(chatId);
@@ -438,15 +519,18 @@ export function createConversation({ telegram = telegramApi, ai = tuningService,
     }
 
     if (input.location) return saveLocation(chatId, { latitude: input.location.latitude, longitude: input.location.longitude });
+    if (input.photo) return readLabelPhoto(chatId, input.photo, String(input.caption ?? "").slice(0, 200));
     if (input.data) return handleButton(chatId, input.data);
     if (resetting) return showMenu(chatId);
     if (/^\/search\b/i.test(text)) return promptSearch(chatId);
     if (/^\/ask\b/i.test(text)) return startAsk(chatId);
     if (/^\/ecus?\b/i.test(text)) return showEcuList(chatId);
     if (/^\/(read|tools?)\b/i.test(text)) return promptReadCheck(chatId);
+    if (/^\/(label|photo)\b/i.test(text)) return promptEcuPhoto(chatId);
     if (previous.awaiting === "location") return saveLocation(chatId, /^skip$/i.test(text) ? { skipped: true } : { text: text.slice(0, 120) });
     if (previous.awaiting === "question") return answerQuestion(chatId, text);
     if (previous.awaiting === "readcheck") return readSearch(chatId, text);
+    if (previous.awaiting === "ecuphoto") return telegram.sendText(chatId, "Please send a <b>photo</b> of the ECU label (tap the 📎 paperclip, then Camera or Gallery).", { buttons: [menuRow()] });
     return search(chatId, text.replace(/^\/\w+\s*/, ""));
   };
 }

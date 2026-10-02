@@ -11,7 +11,8 @@ const COMMANDS = [
   { command: "search", description: "Find your vehicle and its Stage 1 graph" },
   { command: "ask", description: "Ask the AI tuning assistant" },
   { command: "ecus", description: "ECUs we support" },
-  { command: "read", description: "Can you read my car? Autotuner and KESS3 support" }
+  { command: "read", description: "Can you read my car? Autotuner and KESS3 support" },
+  { command: "label", description: "Send a photo of your ECU label to identify it" }
 ];
 
 const pause = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
@@ -42,7 +43,10 @@ function processUpdate(update) {
   const message = update.message;
   const chatId = message?.chat?.id;
   if (!chatId) return;
+  // A photo, or a picture sent as a file, is read as an ECU label; its caption can name the car.
+  const image = message.photo?.length ? message.photo.at(-1) : /^image\/(jpeg|png|webp)$/.test(message.document?.mime_type ?? "") ? message.document : null;
   if (message.location) enqueue(String(chatId), () => handleConversation(String(chatId), { location: message.location, from: message.from }));
+  else if (image) enqueue(String(chatId), () => handleConversation(String(chatId), { photo: { fileId: image.file_id }, caption: message.caption ?? "", from: message.from }));
   else if (message.text) enqueue(String(chatId), () => handleConversation(String(chatId), { text: message.text, from: message.from }));
 }
 

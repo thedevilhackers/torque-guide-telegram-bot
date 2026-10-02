@@ -1,6 +1,7 @@
 import { ecus } from "./catalog.js";
 import { settings } from "./db.js";
 import { aiEnabled, requestJson, requestText } from "./openai.js";
+import { labelFromAi } from "./ecu-label.js";
 import { escapeHtml } from "./telegram.js";
 import { gainPolicy, stage1Gain, vehicleName } from "./vehicles.js";
 
@@ -190,4 +191,42 @@ export async function askAssistant(userId, question, vehicle) {
     user: clip(question, 800)
   });
   return clip(answer, 3000);
+}
+
+// Built per request because the ECU list can change in the admin panel.
+const ecuLabelSchema = () => ({
+  type: "object",
+  additionalProperties: false,
+  required: ["readable", "ecu_maker", "ecu_type", "hardware_number", "software_number", "oem_part_number", "family", "vehicle_brand", "vehicle_model", "engine", "years", "fuel", "confidence", "question", "notes"],
+  properties: {
+    readable: { type: "boolean" },
+    ecu_maker: { type: "string" },
+    ecu_type: { type: "string" },
+    hardware_number: { type: "string" },
+    software_number: { type: "string" },
+    oem_part_number: { type: "string" },
+    family: { type: "string", enum: [...ecuIds(), "unknown"] },
+    vehicle_brand: { type: "string" },
+    vehicle_model: { type: "string" },
+    engine: { type: "string" },
+    years: { type: "string" },
+    fuel: { type: "string", enum: ["petrol", "diesel", "unknown"] },
+    confidence: { type: "string", enum: ["low", "medium", "high"] },
+    question: { type: "string" },
+    notes: { type: "string" }
+  }
+});
+
+// Reads a photo of an ECU label: the ECU and its numbers, and the car it most likely comes from.
+// note is anything the customer has said about the car.
+export async function readEcuLabel(userId, imageDataUrl, note = "") {
+  const families = ecus().map((ecu) => `${ecu.id} = ${ecu.title}`).join("; ");
+  const result = await requestJson(userId, {
+    name: "ecu_label",
+    schema: ecuLabelSchema(),
+    images: [imageDataUrl],
+    system: `You read photos of engine control unit (ECU) labels for ${settings().businessName}, a vehicle tuning workshop. Copy numbers exactly as printed and never invent or complete a number you can't read; leave a field empty instead. ecu_maker: the ECU manufacturer (e.g. Bosch, Continental, Siemens, Delphi, Denso, Marelli, Kefico, Transtron). ecu_type: the ECU model if printed or clear from the numbers, e.g. EDC17C57, MD1CS004, MED17.9.7, SIMOS18.1. hardware_number: the ECU maker's number (Bosch: 0 281 ... or 0 261 ...). software_number: e.g. Bosch 1037... . oem_part_number: the car maker's part number (e.g. 39101-2A930, 03L 906 018). family: the workshop's ECU family that matches, from this list, or "unknown": ${families}. vehicle_brand, vehicle_model, engine, years, fuel: the car this ECU most likely comes from, using the part numbers and anything the customer said; leave them empty unless you are reasonably sure. confidence: how sure you are of the car. question: if the car isn't clear, one short question asking the customer for the car's make, model, engine and year; if the label is unreadable, ask for a sharper, closer photo in good light; otherwise empty. readable: false if this isn't an ECU label or nothing useful can be read. notes: one short sentence for the workshop. ${SAFETY_RULES}`,
+    user: note ? `The customer says: ${clip(note, 200)}` : "No other details from the customer."
+  });
+  return labelFromAi(result, ecuIds());
 }

@@ -1,5 +1,6 @@
 import { ECU_STATUS, ecuById } from "./catalog.js";
 import { settings } from "./db.js";
+import { labelLines } from "./ecu-label.js";
 import { stageFigures, stageGain, vehicleName } from "./vehicles.js";
 
 // Customers send enquiries themselves: a wa.me link opens WhatsApp with the message already
@@ -17,7 +18,7 @@ export function locationText(location) {
   return String(location.text ?? "").slice(0, 120);
 }
 
-export function enquiryText({ vehicle, stage = 1, location, ecu, customer, message } = {}, businessName = settings().businessName) {
+export function enquiryText({ vehicle, stage = 1, location, ecu, ecuLabel, customer, message } = {}, businessName = settings().businessName) {
   const chosen = vehicle?.tunable && vehicle[`stage${stage}`] ? stage : 1;
   const lines = [`Hello ${businessName}, I'd like a Stage ${chosen} tune. My details:`, ""];
   if (customer?.name) lines.push(`Name: ${customer.name.slice(0, 60)}`);
@@ -35,6 +36,7 @@ export function enquiryText({ vehicle, stage = 1, location, ecu, customer, messa
   }
   const ecuInfo = ecuById(ecu);
   if (ecuInfo) lines.push(`ECU: ${ecuInfo.id === "unknown" ? "Not sure, please help identify" : `${ecuInfo.title} (${ECU_STATUS[ecuInfo.status].label})`}`);
+  if (ecuLabel?.readable) lines.push(`ECU label (from my photo): ${labelLines(ecuLabel).map((line) => line.replace(/^ECU: /, "")).join(", ")}`);
   if (location) lines.push(`Location: ${locationText(location)}`);
   if (message) lines.push(`Message: ${message}`);
   return lines.join("\n");

@@ -1562,6 +1562,58 @@ a.photo-card:hover .photo-caption {
   margin-top: 16px;
 }
 
+.label-card .eyebrow {
+  margin: 0 0 10px;
+  color: var(--accent);
+}
+
+.label-card h2 {
+  font-size: clamp(28px, 3.5vw, 40px);
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+}
+
+.label-card > p {
+  margin: 14px 0 0;
+  color: var(--text-2);
+}
+
+.label-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.label-file {
+  cursor: pointer;
+}
+
+.label-car {
+  flex: 1 1 240px;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 16px;
+}
+
+.label-card .fineprint {
+  margin-top: 14px;
+}
+
+.label-result {
+  margin-top: 28px;
+  padding-top: 24px;
+  border-top: 1px solid var(--line);
+}
+
+.label-result h3 {
+  font-size: 22px;
+}
+
 .method {
   display: inline-flex;
   align-items: center;

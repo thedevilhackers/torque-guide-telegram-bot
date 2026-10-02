@@ -71,6 +71,25 @@
       <article class="vehicle-panel tool-panel" data-tool-panel aria-live="polite" hidden></article>
     </section>
 
+    <section class="section container label-check" id="label-check" aria-labelledby="label-title" data-label-section hidden>
+      <div class="visit-card label-card reveal">
+        <p class="eyebrow">AI label check</p>
+        <h2 id="label-title">Have a photo of your ECU label?</h2>
+        <p>Our AI reads the sticker on your ECU, tells you which ECU and car it is, how Autotuner and KESS3 read it, and your Stage 1 gains.</p>
+        <form class="label-form" data-label-form>
+          <label class="btn btn-primary label-file">
+            <input type="file" accept="image/*" class="visually-hidden" data-label-file>
+            <span data-label-file-text>Choose or take a photo</span>
+          </label>
+          <label class="visually-hidden" for="label-car">Your car, if you know it</label>
+          <input class="label-car" id="label-car" type="text" maxlength="120" placeholder="Your car, if you know it (optional)" data-label-car>
+          <button class="btn" type="submit" data-label-submit disabled>Check my label</button>
+        </form>
+        <p class="fineprint">Get close, in good light, so the numbers are sharp. The photo is only used to read the label.</p>
+        <div data-label-result aria-live="polite"></div>
+      </div>
+    </section>
+
     <section class="section container" id="ecu-list" aria-labelledby="ecu-list-title">
       <header class="section-head reveal">
         <p class="eyebrow">Autotuner ECU list</p>

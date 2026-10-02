@@ -39,7 +39,8 @@ export function outputText(data) {
     .join("");
 }
 
-async function createResponse(userId, { system, user, format }) {
+// images: data URLs (e.g. a customer's photo of an ECU label) sent with the user's text.
+async function createResponse(userId, { system, user, format, images = [] }) {
   if (!aiEnabled()) throw new Error("OPENAI_API_KEY is not set.");
   spendAiCall(userId);
   const response = await fetch(RESPONSES_URL, {
@@ -53,7 +54,7 @@ async function createResponse(userId, { system, user, format }) {
       safety_identifier: createHash("sha256").update(String(userId)).digest("hex").slice(0, 32),
       input: [
         { role: "system", content: [{ type: "input_text", text: system }] },
-        { role: "user", content: [{ type: "input_text", text: user }] }
+        { role: "user", content: [{ type: "input_text", text: user }, ...images.map((url) => ({ type: "input_image", image_url: url, detail: "high" }))] }
       ]
     })
   });
@@ -64,8 +65,8 @@ async function createResponse(userId, { system, user, format }) {
   return text;
 }
 
-export async function requestJson(userId, { system, user, name, schema }) {
-  return JSON.parse(await createResponse(userId, { system, user, format: { type: "json_schema", name, strict: true, schema } }));
+export async function requestJson(userId, { system, user, name, schema, images }) {
+  return JSON.parse(await createResponse(userId, { system, user, images, format: { type: "json_schema", name, strict: true, schema } }));
 }
 
 export function requestText(userId, { system, user }) {

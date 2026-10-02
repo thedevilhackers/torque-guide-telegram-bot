@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { ecuById } from "./catalog.js";
 import { transact } from "./db.js";
+import { labelLines } from "./ecu-label.js";
 import { events } from "./events.js";
 import { availableStages, getVehicle, stageFigures, vehicleName } from "./vehicles.js";
 import { locationText } from "./whatsapp.js";
@@ -164,16 +165,17 @@ export function recordTelegramEnquiry(chatId, session) {
   const customer = { name: session.customer?.name ?? "", username: session.customer?.username ?? "", chatId: String(chatId) };
   const vehicle = vehicleSnapshot(session.vehicle, session.stage);
   const location = session.location ? locationText(session.location) : "";
+  const message = session.ecuLabel?.readable ? `ECU label photo: ${labelLines(session.ecuLabel).join(", ")}`.slice(0, 1000) : "";
   const now = new Date().toISOString();
   const { enquiry, created } = transact((data) => {
     const dayAgo = Date.now() - 86_400_000;
     const recent = data.enquiries.filter((enquiry) => enquiry.source === "telegram" && enquiry.customer?.chatId === customer.chatId && Date.parse(enquiry.createdAt) > dayAgo);
     const existing = recent.find((enquiry) => enquiry.vehicle?.name === vehicle?.name) ?? (recent.length >= TELEGRAM_ENQUIRIES_PER_DAY ? recent[0] : undefined);
     if (existing) {
-      Object.assign(existing, { customer, vehicle, ecu: session.ecu ?? "", location, updatedAt: now });
+      Object.assign(existing, { customer, vehicle, ecu: session.ecu ?? "", location, ...(message && { message }), updatedAt: now });
       return { enquiry: existing, created: false };
     }
-    const fresh = { id: randomUUID(), createdAt: now, updatedAt: now, status: "new", source: "telegram", customer, vehicle, ecu: session.ecu ?? "", location, message: "", notes: "" };
+    const fresh = { id: randomUUID(), createdAt: now, updatedAt: now, status: "new", source: "telegram", customer, vehicle, ecu: session.ecu ?? "", location, message, notes: "" };
     data.enquiries.unshift(fresh);
     return { enquiry: fresh, created: true };
   });

@@ -16,6 +16,18 @@ export async function callTelegram(method, payload = {}) {
   return data.result;
 }
 
+// Downloads a file a customer sent, such as a photo, refusing anything over maxBytes.
+export async function downloadFile(fileId, maxBytes = 8_000_000) {
+  const file = await callTelegram("getFile", { file_id: fileId });
+  if (!file.file_path) throw new Error("Telegram didn't return the file.");
+  if (file.file_size > maxBytes) throw new Error("The file is too large.");
+  const response = await fetch(`https://api.telegram.org/file/bot${config.telegramBotToken}/${file.file_path}`, { signal: AbortSignal.timeout(30_000) });
+  if (!response.ok) throw new Error(`Telegram file download failed: ${response.status}`);
+  const bytes = Buffer.from(await response.arrayBuffer());
+  if (bytes.length > maxBytes) throw new Error("The file is too large.");
+  return bytes;
+}
+
 export function escapeHtml(value) {
   return String(value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }

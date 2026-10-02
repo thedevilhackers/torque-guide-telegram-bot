@@ -371,6 +371,39 @@ test("the Tool support page, its data and the admin's Autotuner and KESS3 fields
   assert.equal((await request("/api/admin/import", { method: "POST", admin: true, body: exported })).status, 200);
 });
 
+test("an ECU label photo sent from the website is read and matched to the lists and cars", async (t) => {
+  const { labelFromAi } = await import("../src/ecu-label.js");
+  const off = await startApp();
+  t.after(off.close);
+  assert.equal((await off.request("/api/ecu-label", { method: "POST", body: { image: "" } })).status, 404, "off without an OpenAI key");
+
+  const seen = [];
+  const ai = {
+    aiEnabled: () => true,
+    readEcuLabel: async (user, image, car) => {
+      seen.push({ user, image, car });
+      return labelFromAi({ readable: true, ecu_maker: "Bosch", ecu_type: "EDC17C57", hardware_number: "0 281 031 234", software_number: "", oem_part_number: "", family: "bosch_edc17", vehicle_brand: "Hyundai", vehicle_model: "Creta", engine: "1.5 CRDi", years: "", fuel: "diesel", confidence: "high", question: "", notes: "" }, db().ecus.map((ecu) => ecu.id));
+    }
+  };
+  const { request, close } = await startApp({ ai });
+  t.after(close);
+  const jpeg = `data:image/jpeg;base64,${Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 16]).toString("base64")}`;
+  const read = await request("/api/ecu-label", { method: "POST", body: { image: jpeg, car: "my Creta" } });
+  assert.equal(read.status, 200);
+  assert.equal(read.data.label.type, "EDC17C57");
+  assert.equal(read.data.family.id, "bosch_edc17");
+  assert.ok(read.data.autotuner.total > 0);
+  assert.ok(read.data.vehicles.some((vehicle) => vehicle.id === "hyundai_creta_crdi"));
+  assert.equal(seen[0].car, "my Creta");
+  assert.match(seen[0].user, /^web:/);
+
+  const fake = await request("/api/ecu-label", { method: "POST", body: { image: `data:image/png;base64,${Buffer.from("<svg onload=alert(1)>").toString("base64")}` } });
+  assert.equal(fake.status, 400, "only real photos reach the AI");
+  for (let i = 0; i < 7; i++) await request("/api/ecu-label", { method: "POST", body: { image: jpeg } });
+  assert.equal((await request("/api/ecu-label", { method: "POST", body: { image: jpeg } })).status, 429, "each address gets a few photo checks an hour");
+  assert.equal(seen.length, 8);
+});
+
 test("admin adds photos to the Our work gallery, newest first", async (t) => {
   const { request, login, close } = await startApp();
   t.after(close);

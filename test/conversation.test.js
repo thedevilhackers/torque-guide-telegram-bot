@@ -7,23 +7,30 @@ process.env.BUSINESS_NAME = "Unity Performance";
 const { createConversation } = await import("../src/conversation.js");
 const tuning = await import("../src/tuning-service.js");
 
-function fakeBot({ aiEnabled = true, identified = null } = {}) {
+function fakeBot({ aiEnabled = true, identified = null, label = null } = {}) {
   const sent = [];
+  const labelCalls = [];
   const telegram = {
     sendText: async (chatId, text, options = {}) => sent.push({ kind: "text", chatId, text, ...options }),
     sendPhoto: async (chatId, png, options = {}) => sent.push({ kind: "photo", chatId, png, ...options }),
     sendVenue: async (chatId, venue) => sent.push({ kind: "venue", chatId, ...venue }),
-    sendChatAction: async () => {}
+    sendChatAction: async () => {},
+    // A tiny JPEG: only its first bytes matter.
+    downloadFile: async () => Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 16])
   };
   const ai = {
     aiEnabled: () => aiEnabled,
     makeStage1Report: async (_, vehicle) => tuning.fallbackStage1Report(vehicle),
     formatStage1Report: tuning.formatStage1Report,
     identifyVehicle: async () => identified,
-    askAssistant: async (_, question) => `Answer to: ${question}`
+    askAssistant: async (_, question) => `Answer to: ${question}`,
+    readEcuLabel: async (_, image, note) => {
+      labelCalls.push({ image, note });
+      return label;
+    }
   };
   const handle = createConversation({ telegram, ai, renderChart: () => Buffer.from("png") });
-  return { handle, sent, last: () => sent.at(-1) };
+  return { handle, sent, labelCalls, last: () => sent.at(-1) };
 }
 
 const buttonData = (message) => message.buttons.flat().map((button) => button.data ?? button.url);
@@ -202,4 +209,50 @@ test("Can you read my car? shows the usual ECU and how Autotuner and KESS3 read 
   await handle("chat-read", { text: "zzz unknown car" });
   assert.match(last().text, /couldn't find/);
   assert.ok(last().buttons.flat().some((button) => button.url?.startsWith("https://wa.me/")), "offers WhatsApp for the ECU label");
+});
+
+test("an ECU label photo is read, matched to the lists, and leads to the car's gains", async () => {
+  const { labelFromAi } = await import("../src/ecu-label.js");
+  const { db } = await import("../src/db.js");
+  const ecuIds = db().ecus.map((ecu) => ecu.id);
+  const read = (fields) =>
+    labelFromAi({ readable: true, ecu_maker: "Bosch", ecu_type: "EDC17C57", hardware_number: "0 281 031 234", software_number: "1037541234", oem_part_number: "39101-2A930", family: "bosch_edc17", vehicle_brand: "Hyundai", vehicle_model: "Creta", engine: "1.5 CRDi", years: "2021", fuel: "diesel", confidence: "high", question: "", notes: "", ...fields }, ecuIds);
+
+  const { handle, last, labelCalls } = fakeBot({ label: read({}) });
+  await handle("chat-label", { text: "/start" });
+  assert.ok(buttonData(last()).includes("ecuphoto"));
+  await handle("chat-label", { photo: { fileId: "f1" }, caption: "my creta" });
+  assert.match(labelCalls[0].image, /^data:image\/jpeg;base64,/);
+  assert.equal(labelCalls[0].note, "my creta");
+  const text = last().text;
+  for (const expected of ["ECU: Bosch EDC17C57", "Hardware no.: 0 281 031 234", "Autotuner: OBD · Bench · Boot", "Bosch EDC17: Supported", "KESS3:", "Usually fitted to: <b>Hyundai Creta 1.5 CRDi 2021</b>"]) {
+    assert.ok(text.includes(expected), `missing "${expected}"`);
+  }
+  assert.ok(buttonData(last()).includes("veh:hyundai_creta_crdi"), "offers the matching car's gains");
+
+  // Choosing the car shows its gains; the ECU from the label is kept, so the ECU step is skipped.
+  await handle("chat-label", { data: "veh:hyundai_creta_crdi" });
+  await handle("chat-label", { data: "next" });
+  await handle("chat-label", { text: "Ranchi" });
+  const summary = last();
+  assert.match(summary.text, /Your Stage 1 enquiry/);
+  assert.match(summary.text, /ECU:<\/b> Bosch EDC17/);
+  const message = decodeURIComponent(summary.buttons[0][0].url.split("?text=")[1]);
+  assert.ok(message.includes("ECU label (from my photo): Bosch EDC17C57, Hardware no.: 0 281 031 234"), message);
+
+  // No car on the label: the bot asks, and the answer goes to the vehicle search.
+  const unsure = fakeBot({ label: read({ vehicle_brand: "", vehicle_model: "", engine: "", confidence: "low", question: "Which car is it from?" }) });
+  await unsure.handle("chat-label-2", { photo: { fileId: "f2" } });
+  assert.match(unsure.last().text, /Which car is it from\?/);
+  await unsure.handle("chat-label-2", { text: "creta diesel" });
+  assert.ok(buttonData(unsure.last()).includes("veh:hyundai_creta_crdi"));
+
+  // An unreadable photo asks for a better one; without AI the photo goes to WhatsApp.
+  const blurry = fakeBot({ label: labelFromAi({ readable: false, question: "Please send a closer photo." }, ecuIds) });
+  await blurry.handle("chat-label-3", { photo: { fileId: "f3" } });
+  assert.match(blurry.last().text, /couldn't read an ECU label.*closer photo/);
+  const offline = fakeBot({ aiEnabled: false });
+  await offline.handle("chat-label-4", { photo: { fileId: "f4" } });
+  assert.match(offline.last().text, /send it to our team on WhatsApp/);
+  assert.equal(offline.labelCalls.length, 0);
 });
