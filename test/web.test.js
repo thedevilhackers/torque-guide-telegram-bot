@@ -397,6 +397,13 @@ test("an ECU label photo sent from the website is read and matched to the lists 
   assert.equal(seen[0].car, "my Creta");
   assert.match(seen[0].user, /^web:/);
 
+  // When the AI fails, the customer sees what to do instead of a generic error.
+  const { request: failing, close: closeFailing } = await startApp({ ai: { aiEnabled: () => true, readEcuLabel: async () => { throw new Error("OpenAI API 400: model can't read images"); } } });
+  t.after(closeFailing);
+  const failed = await failing("/api/ecu-label", { method: "POST", body: { image: jpeg } });
+  assert.equal(failed.status, 502);
+  assert.match(failed.data.error, /couldn't read that photo right now.*WhatsApp/);
+
   const fake = await request("/api/ecu-label", { method: "POST", body: { image: `data:image/png;base64,${Buffer.from("<svg onload=alert(1)>").toString("base64")}` } });
   assert.equal(fake.status, 400, "only real photos reach the AI");
   for (let i = 0; i < 7; i++) await request("/api/ecu-label", { method: "POST", body: { image: jpeg } });

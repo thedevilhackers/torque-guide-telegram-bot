@@ -87,7 +87,8 @@ export function createApp({ botUsername = () => "", sendAlert = null, ai } = {})
         res.destroy();
         return;
       }
-      const message = status >= 500 ? "Something went wrong. Please try again." : error.message;
+      // Messages written for customers (HttpError) are shown as they are; unexpected errors stay generic.
+      const message = status >= 500 && !(error instanceof HttpError) ? "Something went wrong. Please try again." : error.message;
       if (pathname?.startsWith("/api/") || String(req.headers.accept).includes("application/json")) sendJson(res, status, { error: message });
       else sendBuffer(res, status, status === 404 ? notFoundPage : Buffer.from(message), status === 404 ? "text/html; charset=utf-8" : "text/plain; charset=utf-8");
     }

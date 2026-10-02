@@ -4,6 +4,8 @@ import { rateLimiter } from "./web/http.js";
 
 const RESPONSES_URL = "https://api.openai.com/v1/responses";
 const TIMEOUT_MS = 60_000;
+// Reading a photo takes the model longer than text.
+const IMAGE_TIMEOUT_MS = 90_000;
 
 export const aiEnabled = () => Boolean(config.openaiApiKey);
 
@@ -46,7 +48,7 @@ async function createResponse(userId, { system, user, format, images = [] }) {
   const response = await fetch(RESPONSES_URL, {
     method: "POST",
     headers: { Authorization: `Bearer ${config.openaiApiKey}`, "Content-Type": "application/json" },
-    signal: AbortSignal.timeout(TIMEOUT_MS),
+    signal: AbortSignal.timeout(images.length ? IMAGE_TIMEOUT_MS : TIMEOUT_MS),
     body: JSON.stringify({
       model: config.openaiModel,
       reasoning: { effort: "low" },
