@@ -35,7 +35,7 @@ New shop orders and Stage 1, 2 and 3 enquiries, from both the website and the Te
 
 You need a VPS (any provider) with Ubuntu 24.04, and a domain name.
 
-1. At your domain provider, add an **A record** for your domain (for example `shop.example.com`) pointing to the VPS's IP address.
+1. At your domain provider, add an **A record** for your domain (for example `shop.example.com`) pointing to the VPS's IP address. For a main domain, add a second A record for `www` pointing to the same address, so `www.` works too.
 2. Upload `unity-performance-vps.zip` to the server. On Mac, or in Windows PowerShell, run this on your computer, using the username your VPS provider gave you (often `root` or `ubuntu`):
 
    ```bash

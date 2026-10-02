@@ -88,7 +88,7 @@ Any VPS running Ubuntu 22.04 or 24.04, or Debian 12, works; 1 vCPU and 1 GB of m
 - A firewall that leaves only SSH, HTTP and HTTPS open.
 - A daily backup of all data, keeping the last 14 days.
 
-1. Add a DNS **A** record pointing your domain (e.g. `shop.example.com`) to the VPS's IP address.
+1. Add a DNS **A** record pointing your domain (e.g. `shop.example.com`) to the VPS's IP address. For a main domain, add one for `www` too: once both point at the server, the installer sets up `www.` as well and sends it to the main address.
 2. Put the code in `/opt/unity-performance`, either from a zip or with git.
 
    **From a zip (simplest).** Upload `unity-performance-vps.zip` to the server. From a Mac or Linux terminal, or Windows PowerShell, use the command below; WinSCP or FileZilla over SFTP also work. Use the username your provider gave you, e.g. `root` or `ubuntu`.

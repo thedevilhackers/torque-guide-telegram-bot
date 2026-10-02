@@ -65,7 +65,7 @@ previous_domain() {
     return 0
   fi
   here=$(public_ip)
-  there=$(getent ahostsv4 "$domain" 2>/dev/null | awk 'NR == 1 { print $1 }')
+  there=$(resolve "$domain")
   if [ -n "$here" ] && [ "$there" != "$here" ]; then
     warn "$domain doesn't point at this server${there:+ (it points to $there)}, so the site uses the IP address for now. Once the domain's DNS \"A\" record points to $here, run this installer again with the domain at the end." >&2
     return 0
@@ -142,13 +142,21 @@ WantedBy=multi-user.target
 EOF
 }
 
-# $1 the site address (a domain, or :80 for plain HTTP), $2 the app port.
+# $1 the site address (a domain, or :80 for plain HTTP), $2 the app port, $3 optionally the domain's
+# other name (www. or not), which is sent on to $1.
 caddy_site() {
   cat <<EOF
 # Unity Performance. With a domain, Caddy gets and renews the HTTPS certificate automatically.
 $1 {
 	encode zstd gzip
 	reverse_proxy 127.0.0.1:$2
+}
+EOF
+  [ -z "${3:-}" ] || cat <<EOF
+
+# Visitors who type the other name are sent to the main one.
+$3 {
+	redir https://$1{uri} permanent
 }
 EOF
 }
@@ -302,24 +310,48 @@ start_app() {
   fi
 }
 
+# The address a name points to (first IPv4 address), or nothing.
+resolve() {
+  getent ahostsv4 "$1" 2>/dev/null | awk 'NR == 1 { print $1 }'
+}
+
+# The name visitors may type instead: www.<domain> for a main domain, or the domain for www.<domain>.
+# Empty for subdomains such as shop.example.in, where www. isn't used.
+other_name() {
+  case "$1" in
+    www.*) echo "${1#www.}" ;;
+    *) if [[ "$1" =~ ^[^.]+\.[^.]+$ || "$1" =~ ^[^.]+\.(co|com|net|org|gov|ac|edu)\.[a-z]{2}$ ]]; then echo "www.$1"; fi ;;
+  esac
+}
+
 # Checks the domain points at this server; Caddy can only get a certificate once it does.
 check_dns() {
-  local domain=$1 here there
-  here=$(curl -4 -fsS --max-time 5 https://api.ipify.org 2>/dev/null || true)
-  there=$(getent ahostsv4 "$domain" 2>/dev/null | awk 'NR == 1 { print $1 }')
+  local domain=$1 alias=$2 here there other
+  here=$(public_ip)
+  there=$(resolve "$domain")
   local target=${here:-"your server"}
   if [ -z "$there" ]; then
     warn "$domain doesn't resolve yet. Add a DNS \"A\" record for it pointing to $target. HTTPS starts working a few minutes after it does."
   elif [ -n "$here" ] && [ "$here" != "$there" ]; then
     warn "$domain points to $there, but this server is $here. Update the DNS \"A\" record; HTTPS starts working once it matches."
   fi
+  other=$(other_name "$domain")
+  if [ -n "$other" ] && [ -z "$alias" ]; then
+    warn "$other doesn't point at this server, so only $domain works. To make $other work too, add a DNS \"A\" record for it pointing to $target, then run this installer again with $domain at the end."
+  fi
 }
 
 configure_caddy() {
-  local domain=$1
+  local domain=$1 alias="" here
   say "Setting up Caddy…"
   install -d -m 755 "$(dirname "$CADDY_SITE")"
-  caddy_site "${domain:-:80}" "$(app_port)" >"$CADDY_SITE"
+  # The other name (www. or not) is set up only once it points here, or its certificate would fail.
+  if [ -n "$domain" ]; then
+    alias=$(other_name "$domain")
+    here=$(public_ip)
+    if [ -z "$here" ] || [ "$(resolve "$alias")" != "$here" ]; then alias=""; fi
+  fi
+  caddy_site "${domain:-:80}" "$(app_port)" "$alias" >"$CADDY_SITE"
   # Point Caddy's main config at the sites folder: replace the stock welcome page, or add the
   # import to a config that already serves other sites.
   if [ ! -f /etc/caddy/Caddyfile ] || grep -q '/usr/share/caddy' /etc/caddy/Caddyfile; then
@@ -336,7 +368,7 @@ configure_caddy() {
   [ -z "$busy" ] || fail "Another program is using port 80 or 443 (often Apache or Nginx). Stop it first, e.g. sudo systemctl disable --now apache2 nginx. Details: $busy"
   systemctl enable caddy >/dev/null 2>&1
   systemctl reload-or-restart caddy
-  [ -z "$domain" ] || check_dns "$domain"
+  [ -z "$domain" ] || check_dns "$domain" "$alias"
 }
 
 configure_firewall() {
