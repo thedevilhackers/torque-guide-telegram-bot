@@ -44,7 +44,7 @@ function showVehicle(vehicle) {
   const fitted = (vehicle.ecus ?? []).map((id) => ecuById.get(id)).filter(Boolean);
   const meta = [vehicle.engine, FUELS[vehicle.fuel], vehicle.years].filter(Boolean).join(" · ");
   const head = h("header", { class: "vehicle-head" }, h("p", { class: "eyebrow", text: "Tool support" }), h("h3", { text: vehicleTitle(vehicle) }), h("p", { class: "meta", text: meta }));
-  const actions = h("div", { class: "vehicle-actions" }, h("a", { class: "btn btn-primary", href: `/#car=${encodeURIComponent(vehicle.id)}`, text: "See the Stage 1 gains" }));
+  const actions = h("div", { class: "vehicle-actions" }, h("a", { class: "btn btn-primary", href: `/finder#car=${encodeURIComponent(vehicle.id)}`, text: "See the Stage 1 gains" }));
   const question = whatsapp(`Hello ${settings.businessName}, can you read my ${vehicleTitle(vehicle)} (${vehicle.engine})?`);
   if (question) actions.append(h("a", { class: "btn btn-whatsapp", href: question, target: "_blank", rel: "noopener", text: "Ask us on WhatsApp" }));
   actions.append(h("a", { class: "link-arrow", href: KESS3_LIST, target: "_blank", rel: "noopener", text: "Full KESS3 list" }));
@@ -245,7 +245,7 @@ function showLabelResult(container, data) {
   const actions = h("div", { class: "vehicle-actions" });
   if (car) parts.push(h("p", { class: "tool-intro" }, "Usually fitted to: ", h("strong", { text: car })));
   for (const vehicle of data.vehicles ?? []) {
-    actions.append(h("a", { class: "btn btn-primary", href: `/#car=${encodeURIComponent(vehicle.id)}`, text: `Stage 1 gains: ${vehicle.brand} ${vehicle.model}` }));
+    actions.append(h("a", { class: "btn btn-primary", href: `/finder#car=${encodeURIComponent(vehicle.id)}`, text: `Stage 1 gains: ${vehicle.brand} ${vehicle.model}` }));
   }
   // The label didn't say which car (or no listed car matched): ask, and search for the answer.
   if (!data.vehicles?.length) {

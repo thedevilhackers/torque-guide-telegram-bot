@@ -6,7 +6,7 @@ import { renderPage, robotsTxt, sitemapXml } from "./pages.js";
 import { registerPublicRoutes } from "./public-api.js";
 
 const PUBLIC_DIR = fileURLToPath(new URL("../../public/", import.meta.url));
-const PAGES = { "/": "index.html", "/shop": "shop.html", "/tools": "tools.html", "/admin": "admin/index.html" };
+const PAGES = { "/": "index.html", "/finder": "finder.html", "/shop": "shop.html", "/tools": "tools.html", "/admin": "admin/index.html" };
 const UPLOAD_FILE = /^\/uploads\/([a-f0-9]{32}\.(png|jpg|webp))$/;
 
 function compile(path) {
@@ -75,8 +75,8 @@ export function createApp({ botUsername = () => "", sendAlert = null, ai } = {})
         if (page) return sendPage(req, res, page);
         const upload = UPLOAD_FILE.exec(pathname);
         if (upload && serveFile(req, res, UPLOAD_DIR, upload[1], { cacheControl: "public, max-age=31536000, immutable" })) return;
-        // Images rarely change, so browsers may keep them for a day; CSS and JS are checked each visit.
-        const cacheControl = /\.(png|jpe?g|webp|svg|ico)$/i.test(pathname) ? "public, max-age=86400" : "no-cache";
+        // Images and fonts rarely change, so browsers may keep them for a day; CSS and JS are checked each visit.
+        const cacheControl = /\.(png|jpe?g|webp|svg|ico|woff2)$/i.test(pathname) ? "public, max-age=86400" : "no-cache";
         if (!pathname.startsWith("/api/") && serveFile(req, res, PUBLIC_DIR, pathname.slice(1), { cacheControl })) return;
       }
       throw new HttpError(404, "Not found.");

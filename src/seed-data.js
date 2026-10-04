@@ -413,6 +413,8 @@ export const SEED_PRODUCTS = [
   { id: "cap", name: "Unity Performance Cap", category: "Merch", price: 25, compareAtPrice: null, stock: 40, featured: false, active: true, image: "", description: "Six-panel cap with an embroidered Unity Performance logo.", features: ["Adjustable strap", "Embroidered logo"] }
 ];
 
+export const WORKSHOP_ADDRESS = "L-12, Argora Housing Colony, Ranchi, Jharkhand 834002";
+
 export const DEFAULT_SETTINGS = {
   businessName: "Unity Performance",
   tagline: "Performance · Protection · Perfection",
@@ -427,7 +429,7 @@ export const DEFAULT_SETTINGS = {
   telegramBot: "",
   phone: "+91 87096 47229",
   email: "",
-  address: "",
+  address: WORKSHOP_ADDRESS,
   latitude: null,
   longitude: null,
   hours: "Mon–Sat 9:00–18:00",
@@ -494,7 +496,9 @@ export const CATALOG_UPDATES = [
         return { from: { ...to, ecus: [] }, to };
       })
     }
-  }
+  },
+  // The workshop's address, for sites that still have none set.
+  { version: 8, settings: { address: ["", WORKSHOP_ADDRESS] } }
 ];
 export const CATALOG_VERSION = Math.max(1, ...CATALOG_UPDATES.map((update) => update.version));
 

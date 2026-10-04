@@ -2,7 +2,8 @@
 
 One Node.js app runs four things that share one database:
 
-- **Website** (`/`): an Apple-style, scroll-animated site. It has a live "Find your car" search with interactive Stage 1 power and torque charts, Stage 1 booking, services, an "Our work" photo gallery, supported ECUs and a visit section.
+- **Home page** (`/`): a dark, fiery, scroll-animated landing page: a 3D car drifting in front of a wall of flames, a rev counter, services, a before/after power curve, customer builds, testimonials and a booking form.
+- **Car finder** (`/finder`): a live "Find your car" search with interactive Stage 1 power and torque charts, Stage 1 booking, services, an "Our work" photo gallery, supported ECUs and a visit section.
 - **Tool support** (`/tools`): customers search their car to see its usual ECU and how Autotuner and KESS3 read it (OBD, bench or boot), with the full support list by ECU family.
 - **Shop** (`/shop`): products with categories, search and sorting, a bag and checkout. Orders are saved, and the customer sends the order to you on WhatsApp in one tap.
 - **Admin panel** (`/admin`): full access to orders, enquiries, products (with photo upload), the Stage 1 vehicle database, ECUs, brands, services, gallery photos, site settings and backups.
@@ -13,7 +14,9 @@ It has no npm dependencies. The Stage 1 graphs are drawn in plain JavaScript, so
 
 ## What customers see
 
-**Website.** The hero and the "Read. Calibrate. Verify." story animate as you scroll, with a live power counter and a curve that draws itself. **Find your car** searches the database as you type, or browses by brand. It shows Stage 1 figures and an interactive chart, where you hover or use the arrow keys to read values; power and torque are separate panels on a shared rpm axis, and there's also a table view. A **Stage 1 / 2 / 3** switch shows each stage's figures, chart, the hardware it needs and a downloadable power graph. **Book Stage 1** saves an enquiry and hands it to WhatsApp. If a car isn't listed and AI is on, "Ask AI to identify it" estimates it; the estimate is clearly labelled and kept within your gain limits.
+**Home page.** A red placeholder car drifts in circles in front of a wall of fire, with tyre smoke, rubber marks on the floor, exhaust flames and backfires, while a "Live power" readout climbs from 115 to 140 hp. Embers and smoke drift behind the whole page, which scrolls smoothly; headings lean as you scroll, and fast scrolling adds speed streaks. Below it: count-up numbers, a rev counter that sweeps to the redline (with a power meter, shift lights and sparks at the limiter), six services, the Polo 1.0 TSI before/after power curve, your builds (photos from Admin → Photos), testimonials, the booking form, and a footer standing in flames. The booking form saves an enquiry (it appears in Admin → Enquiries and alerts you on Telegram), then opens WhatsApp with the customer's name, phone, car and the service they chose. The address, phone, hours and Instagram come from the admin settings. Old links to sections of the previous home page (such as `/#car=…`) forward to `/finder`.
+
+**Car finder.** The hero and the "Read. Calibrate. Verify." story animate as you scroll, with a live power counter and a curve that draws itself. **Find your car** searches the database as you type, or browses by brand. It shows Stage 1 figures and an interactive chart, where you hover or use the arrow keys to read values; power and torque are separate panels on a shared rpm axis, and there's also a table view. A **Stage 1 / 2 / 3** switch shows each stage's figures, chart, the hardware it needs and a downloadable power graph. **Book Stage 1** saves an enquiry and hands it to WhatsApp. If a car isn't listed and AI is on, "Ask AI to identify it" estimates it; the estimate is clearly labelled and kept within your gain limits.
 
 **Tool support.** A separate page, linked from the menu on every page and from each car in Find your car. Search a car to see its usual ECU, whether you tune it, and how Autotuner and KESS3 read it: OBD (through the diagnostic port), bench or boot. Below it, the whole support list by ECU family, filtered by petrol or diesel. Cars without a known ECU ask for a photo of the ECU label on WhatsApp. The bot has the same check under **Can you read my car?** (or `/read`).
 
@@ -172,13 +175,13 @@ Web services with disks need a paid instance type (the blueprint uses Starter). 
 - **Telegram PNG graph**: `THEME` in `src/dyno-chart.js`.
 - **AI gain limits**: `STAGE1_GAINS` in `src/vehicles.js`.
 
-## Landing page
+## Home page
 
-`landing/dist/unity-performance.html` is a separate one-page, scroll-animated landing page: a 3D car on a turntable, count-up numbers, a rev counter that sweeps to the redline, the services, the Polo 1.0 TSI before/after power curve, the Instagram builds, testimonials and a booking form that opens WhatsApp. It is one self-contained file: open it in a browser or upload it to any web host. It loads Three.js, GSAP, Lenis and the fonts from public CDNs, so it needs an internet connection.
+The home page is `public/index.html`, with its styles in `public/css/landing.css` and its script in `public/js/landing.js`. Three.js, GSAP and Lenis are in `public/vendor/` and the fonts (Anton and Barlow, under the SIL Open Font License) in `public/fonts/`, so everything comes from your own server, as the site's security settings require.
 
-- Edit `landing/landing.html`, then run `node landing/build.mjs` to rebuild the file. The build inlines the photos and logo from `public/`.
-- Before it goes live, set the first three numbers in the stats section to your real figures and replace the three sample testimonials with real customers.
-- The car is a placeholder made from simple shapes in `buildCar()`. It can be swapped for a real 3D model later.
+- Before it goes live, set the first three numbers in the stats section (500+, +30%, 10+ years) to your real figures, and replace the three sample testimonials with real customers.
+- The car is a placeholder made from simple shapes in `buildCar()` in `public/js/landing.js`; it can be swapped for a real 3D model later.
+- `node landing/build.mjs` makes `landing/dist/unity-performance.html`: the same page as one self-contained file to open anywhere or host elsewhere. That copy loads the libraries from public CDNs and links to unityperformance.co for the other pages. Run it again after changing the home page.
 
 ## Brand
 
@@ -207,7 +210,8 @@ src/conversation.js     Telegram conversation flow
 src/dyno-chart.js       Stage 1 curves + PNG graph
 public/                 website, shop and admin panel (no build step)
 public/brand/           logo, icons and link-preview picture used by the site and the power graphs
-landing/                one-page scroll-animated landing page (source, build script, built file)
+public/vendor/          Three.js, GSAP and Lenis for the home page
+landing/                builds the home page as one self-contained file (landing/dist/)
 deploy/vps/             VPS installer and updater (systemd, Caddy, firewall, backups)
 brand/                  brand kit: originals, transparent logo, Telegram pictures
 test/                   node --test suites

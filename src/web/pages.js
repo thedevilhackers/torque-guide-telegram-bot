@@ -55,6 +55,6 @@ export function robotsTxt(req) {
 
 export function sitemapXml(req) {
   const origin = siteOrigin(req).replace(/&/g, "&amp;");
-  const urls = ["/", "/tools", "/shop"].map((path) => `  <url><loc>${origin}${path}</loc></url>`).join("\n");
+  const urls = ["/", "/finder", "/tools", "/shop"].map((path) => `  <url><loc>${origin}${path}</loc></url>`).join("\n");
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>\n`;
 }

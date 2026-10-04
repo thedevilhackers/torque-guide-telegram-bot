@@ -3,7 +3,7 @@ import test from "node:test";
 import { mkdirSync, rmdirSync } from "node:fs";
 import { join } from "node:path";
 import { DATA_DIR, db, replaceData, transact } from "../src/db.js";
-import { CATALOG_UPDATES, CATALOG_VERSION, DEFAULT_SETTINGS, SEED_ECUS, SEED_SERVICES, SEED_VEHICLES, seedData } from "../src/seed-data.js";
+import { CATALOG_UPDATES, CATALOG_VERSION, DEFAULT_SETTINGS, SEED_ECUS, SEED_SERVICES, SEED_VEHICLES, WORKSHOP_ADDRESS, seedData } from "../src/seed-data.js";
 
 const brandRefresh = CATALOG_UPDATES.find((update) => update.version === 3);
 
@@ -149,4 +149,18 @@ test("update 7 adds Autotuner and KESS3 support and the usual ECUs, keeping the 
   assert.deepEqual(vehicle("vw_polo_15tdi").ecus, ["bosch_edc17", "continental_sid"]);
   assert.deepEqual(vehicle("fiat_linea_tjet").ecus, ["marelli"], "an ECU family the owner deleted isn't added back to a car");
   assert.deepEqual(vehicle("kia_seltos_crdi").ecus, [], "a car the owner edited is left alone");
+});
+
+test("update 8 fills in the workshop address, keeping one the owner set", () => {
+  const before = seedData();
+  before.catalogVersion = 7;
+  before.settings.address = "";
+  replaceData(before);
+  assert.equal(db().settings.address, WORKSHOP_ADDRESS);
+
+  const own = seedData();
+  own.catalogVersion = 7;
+  own.settings.address = "Shop 4, Main Road, Ranchi";
+  replaceData(own);
+  assert.equal(db().settings.address, "Shop 4, Main Road, Ranchi");
 });
