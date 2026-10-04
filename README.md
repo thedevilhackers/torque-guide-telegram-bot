@@ -172,6 +172,14 @@ Web services with disks need a paid instance type (the blueprint uses Starter). 
 - **Telegram PNG graph**: `THEME` in `src/dyno-chart.js`.
 - **AI gain limits**: `STAGE1_GAINS` in `src/vehicles.js`.
 
+## Landing page
+
+`landing/dist/unity-performance.html` is a separate one-page, scroll-animated landing page: a 3D car on a turntable, count-up numbers, a rev counter that sweeps to the redline, the services, the Polo 1.0 TSI before/after power curve, the Instagram builds, testimonials and a booking form that opens WhatsApp. It is one self-contained file: open it in a browser or upload it to any web host. It loads Three.js, GSAP, Lenis and the fonts from public CDNs, so it needs an internet connection.
+
+- Edit `landing/landing.html`, then run `node landing/build.mjs` to rebuild the file. The build inlines the photos and logo from `public/`.
+- Before it goes live, set the first three numbers in the stats section to your real figures and replace the three sample testimonials with real customers.
+- The car is a placeholder made from simple shapes in `buildCar()`. It can be swapped for a real 3D model later.
+
 ## Brand
 
 The logo and icons were cut from the Unity Motorsports Performance banner; the original banner and poster are in `brand/source/`. The logo is chrome and red artwork with a transparent background, made for dark backgrounds, which is why the header stays dark on every page.
@@ -199,6 +207,7 @@ src/conversation.js     Telegram conversation flow
 src/dyno-chart.js       Stage 1 curves + PNG graph
 public/                 website, shop and admin panel (no build step)
 public/brand/           logo, icons and link-preview picture used by the site and the power graphs
+landing/                one-page scroll-animated landing page (source, build script, built file)
 deploy/vps/             VPS installer and updater (systemd, Caddy, firewall, backups)
 brand/                  brand kit: originals, transparent logo, Telegram pictures
 test/                   node --test suites
