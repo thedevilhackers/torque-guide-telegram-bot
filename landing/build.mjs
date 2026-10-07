@@ -1,5 +1,5 @@
 // Builds landing/dist/unity-performance.html: the site's home page (public/index.html with its CSS,
-// script, fonts and pictures) as one self-contained file that opens anywhere. The libraries load from
+// script, fonts, pictures and 3D car) as one self-contained file that opens anywhere. The libraries load from
 // public CDNs at the same versions as public/vendor, and links to other pages point at the live site.
 //
 //   node landing/build.mjs                    writes landing/dist/unity-performance.html
@@ -11,13 +11,16 @@ import { fileURLToPath } from "node:url";
 const here = dirname(fileURLToPath(import.meta.url));
 const pub = resolve(here, "..", "public");
 const SITE = "https://unityperformance.co";
-const TYPES = { ".webp": "image/webp", ".png": "image/png", ".jpg": "image/jpeg", ".svg": "image/svg+xml", ".woff2": "font/woff2" };
+const TYPES = { ".webp": "image/webp", ".png": "image/png", ".jpg": "image/jpeg", ".svg": "image/svg+xml", ".woff2": "font/woff2", ".glb": "model/gltf-binary" };
+const THREE_CDN = "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.min.js";
 // Each library, the text that proves public/vendor holds that version, and where the same version lives on a CDN.
 const LIBRARIES = {
   "/vendor/gsap.min.js": ["GSAP 3.12.5", "https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"],
   "/vendor/ScrollTrigger.min.js": ["ScrollTrigger 3.12.5", "https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"],
   "/vendor/lenis.min.js": ["1.1.13", "https://cdn.jsdelivr.net/npm/lenis@1.1.13/dist/lenis.min.js"],
-  "/vendor/three.module.min.js": ['const t="169"', "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.min.js"]
+  "/vendor/three.module.min.js": ['const t="169"', THREE_CDN],
+  // The CDN's loader imports "three" by name, so the page gets an import map pointing it at the same copy.
+  "/vendor/three-gltf-loader.module.js": ["GLTFLoader 0.169.0", "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/loaders/GLTFLoader.js"]
 };
 
 const read = (path) => readFile(resolve(pub, `.${path}`));
@@ -52,7 +55,8 @@ html = swap(html, ' data-site="live"', "");
 html = html.split("\n").filter((line) => !/%ORIGIN%|<!--structured-data-->|property="og:|name="twitter:|rel="icon"|rel="apple-touch-icon"|rel="preload"/.test(line)).join("\n");
 html = swap(html, '<link rel="stylesheet" href="/css/landing.css">', `<style>\n${css}</style>`);
 for (const [path, [, cdn]] of Object.entries(LIBRARIES)) html = html.replaceAll(`"${path}"`, `"${cdn}"`);
-html = swap(html, '<script type="module" src="/js/landing.js"></script>', `<script type="module">\n${js}</script>`);
+html = swap(html, '<script type="module" src="/js/landing.js"></script>', `<script type="importmap">${JSON.stringify({ imports: { three: THREE_CDN } })}</script>\n  <script type="module">\n${js}</script>`);
+html = swap(html, '<meta name="car-model" content="/models/unity-car.glb">', `<meta name="car-model" content="${await dataUri("/models/unity-car.glb")}">`);
 html = await replaceEach(html, /src="(\/(?:gallery|brand)\/[^"]+)"/g, async ([, path]) => `src="${await dataUri(path)}"`);
 html = html.replace(/href="\/(?!\/)/g, `href="${SITE}/`);
 

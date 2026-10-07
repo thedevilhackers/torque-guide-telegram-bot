@@ -940,7 +940,143 @@ function buildCar(THREE) {
     }
   });
   const rearContacts = [new THREE.Vector3(-1.4, 0.05, 0.95), new THREE.Vector3(-1.4, 0.05, -0.95)];
-  return { car, front, frontSpin, rearSpin, exhausts, rearContacts };
+  return { car, front, frontSpin, rearSpin, exhausts, rearContacts, frontAxleX: 1.4, rearAxleX: -1.4, track: 0.82 };
+}
+
+// A "UNITY" number plate for the real car, drawn in the page's own type.
+function plateTexture(THREE) {
+  const canvas = document.createElement("canvas");
+  canvas.width = 512;
+  canvas.height = 128;
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "#f2efe6";
+  ctx.fillRect(0, 0, 512, 128);
+  ctx.strokeStyle = "#111";
+  ctx.lineWidth = 8;
+  ctx.strokeRect(6, 6, 500, 116);
+  ctx.fillStyle = "#111";
+  ctx.font = '400 86px Anton, "Arial Narrow", sans-serif';
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("UNITY", 256, 68);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.flipY = false;
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
+}
+
+// The real car: public/models/unity-car.glb, a cleaned-up copy of the Khronos "Car Concept" model
+// (CC BY 4.0, credited in the footer). Returns the same parts as buildCar, or null if it can't load.
+async function loadRealCar(THREE) {
+  const modelUrl = $('meta[name="car-model"]')?.content;
+  const loaderUrl = $('meta[name="three-gltf"]')?.content;
+  if (!modelUrl || !loaderUrl) return null;
+  try {
+    const { GLTFLoader } = await import(loaderUrl);
+    const loader = new GLTFLoader();
+    // Textures inside the model load as <img> elements: the site's security policy allows blob:
+    // images but not blob: fetches, which the loader would otherwise use.
+    loader.register((parser) => {
+      parser.textureLoader = new THREE.TextureLoader(parser.options.manager);
+      return { name: "unity_image_textures" };
+    });
+    const gltf = modelUrl.startsWith("data:")
+      ? await loader.parseAsync(Uint8Array.from(atob(modelUrl.slice(modelUrl.indexOf(",") + 1)), (c) => c.charCodeAt(0)).buffer, "")
+      : await loader.loadAsync(modelUrl);
+    await document.fonts?.load('86px Anton').catch(() => {});
+    return fitRealCar(THREE, gltf.scene);
+  } catch {
+    return null;
+  }
+}
+
+function fitRealCar(THREE, model) {
+  // The model's nose points along +Z; turn it into this scene's car frame (nose +X, roof +Y),
+  // 4.5 m long, wheels on the floor, centred.
+  const turn = new THREE.Group();
+  turn.rotation.y = Math.PI / 2;
+  turn.add(model);
+  const car = new THREE.Group();
+  car.add(turn);
+  car.updateMatrixWorld(true);
+  const raw = new THREE.Box3().setFromObject(car);
+  const size = raw.getSize(new THREE.Vector3());
+  const scale = 4.5 / size.x;
+  turn.scale.setScalar(scale);
+  turn.position.set(-(raw.min.x + size.x / 2) * scale, -raw.min.y * scale, -(raw.min.z + size.z / 2) * scale);
+  car.updateMatrixWorld(true);
+  const box = new THREE.Box3().setFromObject(car);
+
+  // Tinted glass without the costly see-through pass, and our own number plate.
+  const glass = new THREE.MeshPhysicalMaterial({ color: 0x07090c, roughness: 0.03, transparent: true, opacity: 0.6, clearcoat: 1, clearcoatRoughness: 0.02, envMapIntensity: 1.4, depthWrite: false });
+  const plate = plateTexture(THREE);
+  car.traverse((child) => {
+    if (!child.isMesh) return;
+    const swap = (material) => {
+      if (material.name === "Glass") return glass;
+      // The paint's metal-flake texture reads as grain at this size: a clean candy finish looks better.
+      if (material.name.startsWith("Paint")) {
+        material.normalMap = null;
+        material.clearcoat = 1;
+        material.clearcoatRoughness = 0.04;
+        material.needsUpdate = true;
+      }
+      if (material.name === "License") {
+        material.map = plate;
+        material.color.set(0xffffff);
+        material.needsUpdate = true;
+      }
+      return material;
+    };
+    child.material = Array.isArray(child.material) ? child.material.map(swap) : swap(child.material);
+    const isGlass = child.material === glass;
+    child.castShadow = !isGlass;
+    child.receiveShadow = !isGlass;
+  });
+
+  // Each wheel turns about its own centre; the front ones also steer. Brake calipers steer but don't spin.
+  const front = [];
+  const frontSpin = [];
+  const rearSpin = [];
+  const wheels = [];
+  for (const name of ["WheelFrontL", "WheelFrontR", "WheelRearL", "WheelRearR"]) {
+    const wheel = model.getObjectByName(name);
+    if (!wheel) throw new Error(`The model has no ${name}`);
+    const bounds = new THREE.Box3().setFromObject(wheel);
+    const centre = bounds.getCenter(new THREE.Vector3());
+    const steer = new THREE.Group();
+    steer.position.copy(centre);
+    const spin = new THREE.Group();
+    steer.add(spin);
+    car.add(steer);
+    car.updateMatrixWorld(true);
+    for (const part of [...wheel.children]) (/BrakePad/.test(part.name) ? steer : spin).attach(part);
+    const isFront = name.includes("Front");
+    (isFront ? frontSpin : rearSpin).push(spin);
+    if (isFront) front.push(steer);
+    wheels.push({ isFront, centre, halfWidth: (bounds.max.z - bounds.min.z) / 2 });
+  }
+  const average = (list, pick) => list.reduce((sum, item) => sum + pick(item), 0) / list.length;
+  const frontAxleX = average(wheels.filter((w) => w.isFront), (w) => w.centre.x);
+  const rearAxleX = average(wheels.filter((w) => !w.isFront), (w) => w.centre.x);
+  const track = average(wheels, (w) => Math.abs(w.centre.z));
+  const rearContacts = wheels.filter((w) => !w.isFront).map((w) => new THREE.Vector3(w.centre.x, 0.05, w.centre.z + Math.sign(w.centre.z) * w.halfWidth));
+
+  // Twin exhaust tips under the rear bumper, where the flames come out.
+  const chrome = new THREE.MeshStandardMaterial({ color: 0xd4d6da, metalness: 1, roughness: 0.16, side: THREE.DoubleSide });
+  const soot = new THREE.MeshBasicMaterial({ color: 0x050505 });
+  const exhausts = [];
+  for (const z of [0.42, -0.42]) {
+    const tip = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.24, 24, 1, true), chrome);
+    tip.rotation.z = Math.PI / 2;
+    tip.position.set(box.min.x + 0.2, 0.3, z);
+    const inside = new THREE.Mesh(new THREE.CircleGeometry(0.055, 20), soot);
+    inside.rotation.y = -Math.PI / 2;
+    inside.position.set(box.min.x + 0.14, 0.3, z);
+    car.add(tip, inside);
+    exhausts.push(new THREE.Vector3(box.min.x + 0.02, 0.3, z));
+  }
+  return { car, front, frontSpin, rearSpin, exhausts, rearContacts, frontAxleX, rearAxleX, track };
 }
 
 function canvasTexture(THREE, size, draw) {
@@ -1130,6 +1266,7 @@ async function initHero() {
   } catch {
     return; // the drawn silhouette stays in place
   }
+  const realCar = loadRealCar(THREE);
   let renderer;
   try {
     renderer = new THREE.WebGLRenderer({ canvas, antialias: !phone, alpha: true, powerPreference: "high-performance" });
@@ -1148,12 +1285,13 @@ async function initHero() {
   scene.environmentIntensity = 0.6;
   pmrem.dispose();
 
-  // The car spins around a point between its front wheels and the driver: a donut.
+  // The car spins around a point half a metre behind its front axle: a donut.
   const rig = new THREE.Group();
   rig.rotation.y = 2.2;
   scene.add(rig);
-  const model = buildCar(THREE);
-  model.car.position.x = -0.9;
+  const model = (await realCar) ?? buildCar(THREE);
+  const pivot = model.frontAxleX - 0.5;
+  model.car.position.x = -pivot;
   rig.add(model.car);
   model.front.forEach((steer) => { steer.rotation.y = 0.55; });
 
@@ -1201,8 +1339,8 @@ async function initHero() {
             ctx.stroke();
           }
         };
-        ring(Math.hypot(2.3, 0.82), 0.34, 90, 0.75);
-        ring(Math.hypot(0.5, 0.82), 0.22, 30, 0.45);
+        ring(Math.hypot(pivot - model.rearAxleX, model.track), 0.34, 90, 0.75);
+        ring(Math.hypot(model.frontAxleX - pivot, model.track), 0.22, 30, 0.45);
       })
     })
   );
@@ -1278,7 +1416,7 @@ async function initHero() {
     camera.aspect = width / height;
     const side = width >= 900 && camera.aspect > 1.15;
     const halfFov = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
-    distance = Math.max(side ? 17 : 11, 3.5 / (halfFov * camera.aspect));
+    distance = Math.max(side ? 15 : 10, 3.3 / (halfFov * camera.aspect));
     if (side) camera.setViewOffset(width, height, -width * 0.16, height * 0.12, width, height);
     else camera.setViewOffset(width, height, 0, height * 0.22, width, height);
     camera.updateProjectionMatrix();

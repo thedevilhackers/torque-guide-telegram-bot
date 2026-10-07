@@ -1,0 +1,13 @@
+unity-car.glb
+
+Based on "Car Concept" from the Khronos glTF Sample Assets:
+https://github.com/KhronosGroup/glTF-Sample-Assets/tree/main/Models/CarConcept
+That asset was made from a public-domain (CC0) model by Unity Fan on Sketchfab.
+
+Licence: Creative Commons Attribution 4.0 International (CC BY 4.0)
+https://creativecommons.org/licenses/by/4.0/
+
+Changes: the Khronos and 3D Commerce logos (which the licence excludes), the windscreen wipers
+and the alternative paint colours were removed, the meshes were simplified and the textures
+compressed (see landing/prepare-car.mjs). On the home page the glass, paint and number plate
+are restyled.

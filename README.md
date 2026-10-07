@@ -180,7 +180,7 @@ Web services with disks need a paid instance type (the blueprint uses Starter). 
 The home page is `public/index.html`, with its styles in `public/css/landing.css` and its script in `public/js/landing.js`. Three.js, GSAP and Lenis are in `public/vendor/` and the fonts (Anton and Barlow, under the SIL Open Font License) in `public/fonts/`, so everything comes from your own server, as the site's security settings require.
 
 - Before it goes live, set the first three numbers in the stats section (500+, +30%, 10+ years) to your real figures, and replace the three sample testimonials with real customers.
-- The car is a placeholder made from simple shapes in `buildCar()` in `public/js/landing.js`; it can be swapped for a real 3D model later.
+- The car is a real 3D model, `public/models/unity-car.glb` (1.8 MB, about 53,000 triangles). It's based on the Khronos "Car Concept" sample model, which is CC BY 4.0, so the footer credits it; keep that credit while the model is used. `landing/prepare-car.mjs` made it from the original: it takes out the Khronos and 3D Commerce logos the licence excludes, simplifies the shapes and shrinks the textures. If the model can't load, the page falls back to the simple car drawn by `buildCar()`. To use a different car, replace the file (glTF binary, built without Draco or Meshopt compression, which the site's security settings would block) and check the wheel names `fitRealCar()` looks for.
 - `node landing/build.mjs` makes `landing/dist/unity-performance.html`: the same page as one self-contained file to open anywhere or host elsewhere. That copy loads the libraries from public CDNs and links to unityperformance.co for the other pages. Run it again after changing the home page.
 
 ## Brand
@@ -210,7 +210,8 @@ src/conversation.js     Telegram conversation flow
 src/dyno-chart.js       Stage 1 curves + PNG graph
 public/                 website, shop and admin panel (no build step)
 public/brand/           logo, icons and link-preview picture used by the site and the power graphs
-public/vendor/          Three.js, GSAP and Lenis for the home page
+public/vendor/          Three.js (with its model loader), GSAP and Lenis for the home page
+public/models/          the home page's 3D car and its licence
 landing/                builds the home page as one self-contained file (landing/dist/)
 deploy/vps/             VPS installer and updater (systemd, Caddy, firewall, backups)
 brand/                  brand kit: originals, transparent logo, Telegram pictures

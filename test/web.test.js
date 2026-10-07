@@ -526,7 +526,13 @@ test("the home page is the landing page, served within the site's security polic
   const scripts = [...home.matchAll(/<script([^>]*)>/g)].map((match) => match[1]);
   assert.ok(scripts.every((attrs) => /src="\/[^/]/.test(attrs) || /application\/ld\+json/.test(attrs)), scripts.join(" | "));
   assert.doesNotMatch(home, /https:\/\/(cdn|fonts)\./, "no outside scripts or fonts");
-  for (const [path, type] of [["/js/landing.js", "javascript"], ["/css/landing.css", "css"], ["/vendor/three.module.min.js", "javascript"], ["/vendor/gsap.min.js", "javascript"], ["/fonts/anton-400.woff2", "font/woff2"]]) {
+  // The 3D car is CC BY 4.0, so the page credits it.
+  assert.match(home, /<meta name="car-model" content="\/models\/unity-car\.glb">/);
+  assert.match(home, /Car Concept[\s\S]*creativecommons\.org\/licenses\/by\/4\.0/);
+  // The loader shares the page's copy of three.js instead of fetching its own.
+  const loader = (await request("/vendor/three-gltf-loader.module.js")).data.toString();
+  assert.deepEqual([...new Set([...loader.matchAll(/\bimport\s*\{[^}]*\}\s*from\s*"([^"]+)"/g)].map((match) => match[1]))], ["./three.module.min.js"]);
+  for (const [path, type] of [["/js/landing.js", "javascript"], ["/css/landing.css", "css"], ["/vendor/three.module.min.js", "javascript"], ["/vendor/three-gltf-loader.module.js", "javascript"], ["/vendor/gsap.min.js", "javascript"], ["/fonts/anton-400.woff2", "font/woff2"], ["/models/unity-car.glb", "model/gltf-binary"]]) {
     const response = await request(path);
     assert.equal(response.status, 200, path);
     assert.match(response.headers.get("content-type"), new RegExp(type), path);
