@@ -11,26 +11,33 @@
     @font-face { font-family: "Barlow"; font-weight: 600; src: url("../../../public/fonts/barlow-600.woff2") format("woff2"); }
     @font-face { font-family: "Barlow Condensed"; font-weight: 600; src: url("../../../public/fonts/barlow-condensed-600.woff2") format("woff2"); }
     @font-face { font-family: "Barlow Condensed"; font-weight: 700; src: url("../../../public/fonts/barlow-condensed-700.woff2") format("woff2"); }
+    @font-face { font-family: "Orbitron"; font-weight: 400 900; src: url("fonts/orbitron.woff2") format("woff2"); }
 
-    /* The card is a standard ID card (CR80) standing upright: 54 × 85.6 mm. Every card measurement
-       uses --u, which is one millimetre when printed and larger on screen. A dark header carries the
-       logo; the name and code sit on white so they can also be written by hand. */
+    /* The card is a standard ID card (CR80) standing upright: 54 × 85.6 mm, in a futuristic
+       heads-up-display style: black with a fine hex grid, glowing corner brackets, a cut-corner
+       photo frame inside scan brackets, and light data chips for the name, designation and code
+       (light so they can also be written on by hand). Every card measurement uses --u, which is one
+       millimetre when printed and larger on screen. */
     :root {
       color-scheme: dark;
-      --card-ink: #0d0b0b;
-      --card-paper: #ffffff;
-      --card-text: #171312;
-      --card-muted: #6d6660;
-      --card-line: #b3aca5;
-      --card-label: #c43d0a;
-      --fire: linear-gradient(90deg, #c4100a, #ff4a14 45%, #ff8a1a 75%, #ffb22e);
-      --bg: #110f0f;
-      --panel: #1b1817;
-      --field: #0c0a0a;
+      --card-ink: #08080a;
+      --card-strip: #0d0d10;
+      --card-text: #f4f2ef;
+      --card-soft: #d3cfca;
+      --card-muted: #a39e98;
+      --card-label: #ff9a3c;
+      --chip-ink: #111114;
+      --chip-fill: linear-gradient(180deg, #fbfbfc, #e2e4e8);
+      --fire: linear-gradient(90deg, #e3170c, #ff5a14 50%, #ffb22e);
+      --fire-v: linear-gradient(180deg, #ffb22e, #ff5a14 50%, #e3170c);
+      --bg: #0e0e10;
+      --panel: #19191c;
+      --field: #0a0a0c;
       --text: #f4f2ef;
-      --muted: #aaa39d;
+      --muted: #a8a49f;
       --edge: rgba(255, 255, 255, 0.13);
       --display: "Anton", Impact, "Arial Narrow", sans-serif;
+      --tech: "Orbitron", "Barlow Condensed", "Arial Narrow", sans-serif;
       --body: "Barlow", system-ui, -apple-system, "Segoe UI", sans-serif;
       --cond: "Barlow Condensed", "Arial Narrow", sans-serif;
     }
@@ -50,7 +57,7 @@
       padding-right: max(16px, env(safe-area-inset-right, 0px));
     }
     .intro { grid-area: intro; }
-    .intro h1 { margin: 0 0 10px; font: 400 clamp(34px, 5vw, 54px)/1 var(--display); letter-spacing: 0.01em; text-transform: uppercase; }
+    .intro h1 { margin: 0 0 10px; font: 700 clamp(28px, 4.2vw, 44px)/1.05 var(--tech); letter-spacing: 0.04em; text-transform: uppercase; }
     .intro h1 span { background: var(--fire); -webkit-background-clip: text; background-clip: text; color: transparent; }
     .intro p { max-width: 62ch; margin: 0; color: var(--muted); }
     .controls { grid-area: controls; display: grid; gap: 18px; align-content: start; padding: 22px; background: var(--panel); border: 1px solid var(--edge); border-radius: 10px; }
@@ -119,116 +126,129 @@
       height: calc(85.6 * var(--u));
       overflow: hidden;
       border-radius: calc(3.2 * var(--u));
-      background: var(--card-paper);
+      background: var(--card-ink);
       color: var(--card-text);
       font-family: var(--body);
-      box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55);
+      box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 120, 40, 0.18);
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
     }
     .card > * { position: absolute; margin: 0; }
-    .card__head {
-      inset: 0 0 auto;
-      height: calc(33 * var(--u));
-      background: radial-gradient(90% 75% at 50% 0%, #2b2322 0%, var(--card-ink) 72%);
-      clip-path: polygon(0 0, 100% 0, 100% calc(26 * var(--u)), 0 calc(33 * var(--u)));
-    }
-    .card__flame {
-      inset: 0;
-      background: var(--fire);
-      clip-path: polygon(0 calc(33 * var(--u)), 100% calc(26 * var(--u)), 100% calc(27.6 * var(--u)), 0 calc(34.6 * var(--u)));
-    }
-    .card__logo { top: calc(7 * var(--u)); left: 50%; width: calc(40 * var(--u)); height: auto; transform: translateX(-50%); }
-    .card__title {
-      top: calc(19.8 * var(--u));
-      left: 0;
-      right: 0;
-      padding-left: 0.34em;
-      color: #f4f2ef;
-      font: 700 calc(2.2 * var(--u))/1 var(--cond);
-      letter-spacing: 0.34em;
-      text-align: center;
-      text-transform: uppercase;
-    }
+    /* Grid, glow, corner brackets and frame lines are one drawing in card millimetres. */
+    .card__decor { inset: 0; width: 100%; height: 100%; }
+    .card__decor .micro { fill: rgba(255, 255, 255, 0.34); font: 500 1.05px var(--tech); letter-spacing: 0.32px; }
+    .card__decor .tag { fill: var(--card-text); font: 700 1.75px var(--tech); letter-spacing: 0.42px; }
+    .card__logo { top: calc(6.4 * var(--u)); left: 50%; width: calc(34 * var(--u)); height: auto; transform: translateX(-50%); }
+    .card__logo--back { top: calc(6.4 * var(--u)); width: calc(27 * var(--u)); }
+
     .card__photo {
       top: calc(24 * var(--u));
-      left: calc(14.5 * var(--u));
-      width: calc(25 * var(--u));
-      height: calc(30 * var(--u));
+      left: calc(15.5 * var(--u));
+      width: calc(23 * var(--u));
+      height: calc(28 * var(--u));
       overflow: hidden;
-      background: #eeebe6;
-      border: calc(0.7 * var(--u)) solid #fff;
-      box-shadow: 0 0 0 calc(0.35 * var(--u)) #ff6a14;
+      background: linear-gradient(180deg, #1b1c21, #111216);
+      clip-path: polygon(calc(3 * var(--u)) 0, 100% 0, 100% calc(100% - 3 * var(--u)), calc(100% - 3 * var(--u)) 100%, 0 100%, 0 calc(3 * var(--u)));
     }
-    .card__silhouette { position: absolute; left: 14%; right: 14%; bottom: 0; width: 72%; fill: #d9d3cc; }
+    .card__silhouette { position: absolute; left: 14%; bottom: 0; width: 72%; fill: #2a2b32; }
     .card__photo-label {
       position: absolute;
-      top: 38%;
+      top: 36%;
       left: 0;
       right: 0;
       padding-left: 0.3em;
-      color: #9b938b;
-      font: 700 calc(1.9 * var(--u))/1 var(--cond);
+      color: #74767e;
+      font: 600 calc(1.6 * var(--u))/1 var(--tech);
       letter-spacing: 0.3em;
       text-align: center;
-      text-transform: uppercase;
     }
     .card__photo-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 28%; }
     .card__photo.has-photo .card__silhouette, .card__photo.has-photo .card__photo-label { display: none; }
-    .card__label, .back__label {
-      left: 0;
-      right: 0;
-      padding-left: 0.26em;
+
+    .card__label {
+      left: calc(5 * var(--u));
+      display: flex;
+      align-items: center;
+      gap: calc(1 * var(--u));
       color: var(--card-label);
-      font: 700 calc(1.9 * var(--u))/1 var(--cond);
-      letter-spacing: 0.26em;
-      text-align: center;
+      font: 600 calc(1.5 * var(--u))/1 var(--tech);
+      letter-spacing: 0.2em;
       text-transform: uppercase;
     }
-    .card__label--name { top: calc(57.2 * var(--u)); }
-    .card__label--code { top: calc(67.8 * var(--u)); }
-    /* Blank fields show a writing line; a typed value replaces it. */
-    .card__field {
+    .card__label::before { content: ""; width: calc(0.9 * var(--u)); height: calc(0.9 * var(--u)); background: var(--fire); transform: rotate(45deg); }
+    .card__label--name { top: calc(54.6 * var(--u)); }
+    .card__label--role { top: calc(63.2 * var(--u)); }
+    .card__label--code { top: calc(70.8 * var(--u)); }
+    /* Data chips: light, cut-corner boxes. Blank ones are left empty to write in. */
+    .card__chip {
+      left: calc(5 * var(--u));
+      right: calc(5 * var(--u));
       display: flex;
-      align-items: flex-end;
-      justify-content: center;
+      align-items: center;
       overflow: hidden;
-      border-bottom: calc(0.25 * var(--u)) solid var(--card-line);
-      color: var(--card-text);
+      padding: 0 calc(2 * var(--u)) 0 calc(2.6 * var(--u));
+      background: var(--chip-fill);
+      color: var(--chip-ink);
       white-space: nowrap;
+      clip-path: polygon(0 0, calc(100% - 1.6 * var(--u)) 0, 100% calc(1.6 * var(--u)), 100% 100%, calc(1.6 * var(--u)) 100%, 0 calc(100% - 1.6 * var(--u)));
     }
-    .card__field.is-filled { border-bottom-color: transparent; }
-    .card__field--name { top: calc(59.8 * var(--u)); left: calc(5 * var(--u)); right: calc(5 * var(--u)); height: calc(6 * var(--u)); font: 400 calc(4.2 * var(--u))/1.1 var(--display); letter-spacing: 0.02em; text-transform: uppercase; }
-    .card__field--code { top: calc(70.3 * var(--u)); left: calc(11 * var(--u)); right: calc(11 * var(--u)); height: calc(5.5 * var(--u)); font: 700 calc(3.6 * var(--u))/1.1 var(--cond); letter-spacing: 0.14em; text-transform: uppercase; }
+    .card__chip::before { content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: calc(0.9 * var(--u)); background: var(--fire-v); }
+    .card__chip--name { top: calc(56.4 * var(--u)); height: calc(5.4 * var(--u)); font: 400 calc(3.7 * var(--u))/1.1 var(--display); letter-spacing: 0.03em; text-transform: uppercase; }
+    .card__chip--role { top: calc(65 * var(--u)); height: calc(4.4 * var(--u)); font: 700 calc(2.8 * var(--u))/1.1 var(--cond); letter-spacing: 0.08em; text-transform: uppercase; }
+    .card__chip--code { top: calc(72.6 * var(--u)); height: calc(4.4 * var(--u)); font: 700 calc(2.4 * var(--u))/1.1 var(--tech); letter-spacing: 0.14em; text-transform: uppercase; }
+
     .card__strip {
       inset: auto 0 0;
       display: flex;
       align-items: center;
       justify-content: center;
-      height: calc(6 * var(--u));
-      padding-left: 0.24em;
-      background: var(--card-ink);
-      color: #f4f2ef;
-      font: 600 calc(1.9 * var(--u))/1 var(--cond);
-      letter-spacing: 0.24em;
+      height: calc(5.6 * var(--u));
+      padding-left: 0.22em;
+      background: var(--card-strip);
+      color: var(--card-text);
+      font: 600 calc(1.55 * var(--u))/1 var(--tech);
+      letter-spacing: 0.22em;
       text-transform: uppercase;
     }
-    .card__strip::before { content: ""; position: absolute; inset: 0 0 auto; height: calc(0.8 * var(--u)); background: var(--fire); }
+    .card__strip::before { content: ""; position: absolute; inset: 0 0 auto; height: calc(0.6 * var(--u)); background: var(--fire); }
+    .card__strip--back { font-size: calc(1.3 * var(--u)); letter-spacing: 0.16em; padding-left: 0.16em; }
 
     /* Back of the card */
-    .card__head--back { height: calc(20 * var(--u)); clip-path: polygon(0 0, 100% 0, 100% calc(16 * var(--u)), 0 calc(20 * var(--u))); }
-    .card__flame--back { clip-path: polygon(0 calc(20 * var(--u)), 100% calc(16 * var(--u)), 100% calc(17.4 * var(--u)), 0 calc(21.4 * var(--u))); }
-    .card__logo--back { top: calc(6.2 * var(--u)); width: calc(28 * var(--u)); }
-    .back__label { top: calc(24 * var(--u)); }
-    .back__name { top: calc(27 * var(--u)); left: 0; right: 0; font: 400 calc(3.4 * var(--u))/1 var(--display); letter-spacing: 0.03em; text-align: center; text-transform: uppercase; }
-    .back__address { top: calc(31.4 * var(--u)); left: 0; right: 0; font: 400 calc(2.3 * var(--u))/1.38 var(--body); text-align: center; }
-    .back__address b { font-weight: 600; }
-    .back__qr { top: calc(42.6 * var(--u)); left: calc(19.5 * var(--u)); width: calc(15 * var(--u)); height: calc(15 * var(--u)); }
-    .back__qr-caption { top: calc(58.7 * var(--u)); left: 0; right: 0; color: var(--card-muted); font: 600 calc(1.9 * var(--u))/1 var(--cond); letter-spacing: 0.1em; text-align: center; }
-    .back__note { top: calc(62.6 * var(--u)); left: calc(5 * var(--u)); right: calc(5 * var(--u)); color: var(--card-muted); font: 400 calc(1.75 * var(--u))/1.42 var(--body); text-align: center; }
-    .back__sign { top: calc(70.6 * var(--u)); left: calc(12 * var(--u)); right: calc(12 * var(--u)); }
-    .back__sign span { display: block; height: calc(3.2 * var(--u)); border-bottom: calc(0.25 * var(--u)) solid var(--card-line); }
-    .back__sign p { margin: calc(0.9 * var(--u)) 0 0; padding-left: 0.2em; color: var(--card-muted); font: 600 calc(1.6 * var(--u))/1 var(--cond); letter-spacing: 0.2em; text-align: center; text-transform: uppercase; }
+    .back__label, .back__qr-caption, .back__sign-label {
+      left: 0;
+      right: 0;
+      color: var(--card-label);
+      font: 600 calc(1.5 * var(--u))/1 var(--tech);
+      letter-spacing: 0.2em;
+      text-align: center;
+      text-transform: uppercase;
+      padding-left: 0.2em;
+    }
+    .back__label { top: calc(19 * var(--u)); }
+    .back__name { top: calc(21.9 * var(--u)); left: 0; right: 0; font: 400 calc(3.3 * var(--u))/1 var(--display); letter-spacing: 0.04em; text-align: center; text-transform: uppercase; }
+    .back__address { top: calc(26.2 * var(--u)); left: 0; right: 0; color: var(--card-soft); font: 400 calc(2.15 * var(--u))/1.4 var(--body); text-align: center; }
+    .back__address b { color: var(--card-text); font-weight: 600; }
+    .back__qr {
+      top: calc(36.4 * var(--u));
+      left: calc(18 * var(--u));
+      width: calc(18 * var(--u));
+      height: calc(18 * var(--u));
+      padding: calc(1.8 * var(--u));
+      background: #fff;
+      clip-path: polygon(calc(2 * var(--u)) 0, 100% 0, 100% calc(100% - 2 * var(--u)), calc(100% - 2 * var(--u)) 100%, 0 100%, 0 calc(2 * var(--u)));
+    }
+    .back__qr img { display: block; width: 100%; height: 100%; }
+    .back__qr-caption { top: calc(56.2 * var(--u)); color: var(--card-soft); font-size: calc(1.35 * var(--u)); letter-spacing: 0.14em; text-transform: none; }
+    .back__note { top: calc(59.4 * var(--u)); left: calc(6 * var(--u)); right: calc(6 * var(--u)); color: var(--card-muted); font: 400 calc(1.65 * var(--u))/1.45 var(--body); text-align: center; }
+    .back__sign {
+      top: calc(66.4 * var(--u));
+      left: calc(12 * var(--u));
+      right: calc(12 * var(--u));
+      height: calc(7 * var(--u));
+      background: var(--chip-fill);
+      clip-path: polygon(0 0, calc(100% - 1.6 * var(--u)) 0, 100% calc(1.6 * var(--u)), 100% 100%, calc(1.6 * var(--u)) 100%, 0 calc(100% - 1.6 * var(--u)));
+    }
+    .back__sign-label { top: calc(74.6 * var(--u)); font-size: calc(1.35 * var(--u)); }
 
     @media (max-width: 860px) {
       .app { grid-template-columns: minmax(0, 1fr); grid-template-areas: "intro" "controls" "sheet"; }
@@ -267,13 +287,27 @@
   <main class="app">
     <header class="intro ui">
       <h1>Employee <span>ID card</span></h1>
-      <p>Type a name and employee code and add a photo, then print. Leave them empty to print a blank card and fill it in by hand.</p>
+      <p>Type a name, designation and employee code and add a photo, then print. Leave them empty to print a blank card and fill it in by hand.</p>
     </header>
 
     <form class="controls ui" id="controls" autocomplete="off">
       <div class="field">
         <label for="name">Name</label>
         <input id="name" name="name" maxlength="40" spellcheck="false">
+      </div>
+      <div class="field">
+        <label for="role">Designation</label>
+        <input id="role" name="role" maxlength="40" list="roles" placeholder="e.g. ECU Tuning Specialist" spellcheck="false">
+        <datalist id="roles">
+          <option value="Founder &amp; Owner"></option>
+          <option value="Workshop Manager"></option>
+          <option value="ECU Tuning Specialist"></option>
+          <option value="Senior Technician"></option>
+          <option value="Technician"></option>
+          <option value="Detailing Specialist"></option>
+          <option value="Service Advisor"></option>
+          <option value="Trainee"></option>
+        </datalist>
       </div>
       <div class="field">
         <label for="code">Employee code</label>
@@ -302,19 +336,39 @@
       <div class="cut cut--front">
         <svg class="marks" viewBox="0 0 70 101.6" aria-hidden="true"><path d="M8 0v6M62 0v6M8 95.6v6M62 95.6v6M0 8h6M64 8h6M0 93.6h6M64 93.6h6" stroke="#000" stroke-width="0.2" fill="none"/></svg>
         <article class="card card--front" aria-label="Front of the card">
-          <div class="card__head"></div>
-          <div class="card__flame"></div>
+          <svg class="card__decor" viewBox="0 0 54 85.6" aria-hidden="true">
+            <defs>
+              <linearGradient id="f-fire" gradientUnits="userSpaceOnUse" x1="0" x2="54" y1="0" y2="0"><stop offset="0" stop-color="#e3170c"/><stop offset="0.5" stop-color="#ff5a14"/><stop offset="1" stop-color="#ffb22e"/></linearGradient>
+              <pattern id="f-hex" width="3" height="1.732" patternUnits="userSpaceOnUse"><path d="M0 .866L.5 0h1l.5.866-.5.866h-1zM2 .866h1" fill="none" stroke="#ff8a3c" stroke-opacity=".14" stroke-width=".07"/></pattern>
+              <radialGradient id="f-glow" gradientUnits="userSpaceOnUse" cx="27" cy="37" r="27"><stop offset="0" stop-color="#ff5a14" stop-opacity=".34"/><stop offset="1" stop-color="#ff5a14" stop-opacity="0"/></radialGradient>
+              <radialGradient id="f-shade" gradientUnits="userSpaceOnUse" cx="27" cy="40" r="52"><stop offset=".42" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".8"/></radialGradient>
+            </defs>
+            <rect width="54" height="85.6" fill="#08080a"/>
+            <rect width="54" height="85.6" fill="url(#f-hex)"/>
+            <rect width="54" height="85.6" fill="url(#f-glow)"/>
+            <rect width="54" height="85.6" fill="url(#f-shade)"/>
+            <path d="M-4 30L58 12M-4 31.4L58 13.4" stroke="url(#f-fire)" stroke-width=".12" stroke-opacity=".45"/>
+            <path d="M2.4 7V2.4h4.6M47 2.4h4.6V7M2.4 73V77.6M51.6 73v4.6" fill="none" stroke="url(#f-fire)" stroke-width=".35"/>
+            <text class="micro" transform="translate(3.6 52) rotate(-90)">UNITY MOTORSPORTS PERFORMANCE // STAFF IDENTITY</text>
+            <path d="M50.4 26h1.8M50.4 28.4h1.1M50.4 30.8h1.1M50.4 33.2h1.1M50.4 35.6h1.1M50.4 38h1.8M50.4 40.4h1.1M50.4 42.8h1.1M50.4 45.2h1.1M50.4 47.6h1.1M50.4 50h1.8" stroke="#ff9a3c" stroke-opacity=".7" stroke-width=".18"/>
+            <path d="M7 20.3h5.6M41.4 20.3H47" stroke="url(#f-fire)" stroke-width=".3"/>
+            <path d="M6.2 20.3l.8-.8.8.8-.8.8zM46.2 20.3l.8-.8.8.8-.8.8z" fill="#ff9a3c"/>
+            <text class="tag" x="27.2" y="20.95" text-anchor="middle">EMPLOYEE ID CARD</text>
+            <path d="M18.5 24h20v25l-3 3h-20V27z" fill="none" stroke="url(#f-fire)" stroke-width=".45"/>
+            <path d="M14 25.1v-2.6h2.6M37.4 22.5H40v2.6M40 50.9v2.6h-2.6M16.6 53.5H14v-2.6" fill="none" stroke="#ffb22e" stroke-width=".25"/>
+          </svg>
           <img class="card__logo" src="../../../public/brand/logo.webp" width="961" height="285" alt="Unity Motorsports Performance">
-          <p class="card__title">Employee ID card</p>
           <div class="card__photo" id="photo-box">
             <svg class="card__silhouette" viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="36" r="19"/><path d="M8 100c0-25 18-41 42-41s42 16 42 41z"/></svg>
-            <span class="card__photo-label">Photo</span>
+            <span class="card__photo-label">PHOTO</span>
             <img class="card__photo-img" id="photo-img" alt="" hidden>
           </div>
           <p class="card__label card__label--name">Name</p>
-          <p class="card__field card__field--name"><span id="card-name"></span></p>
+          <p class="card__chip card__chip--name"><span id="card-name"></span></p>
+          <p class="card__label card__label--role">Designation</p>
+          <p class="card__chip card__chip--role"><span id="card-role"></span></p>
           <p class="card__label card__label--code">Employee code</p>
-          <p class="card__field card__field--code"><span id="card-code"></span></p>
+          <p class="card__chip card__chip--code"><span id="card-code"></span></p>
           <p class="card__strip">unityperformance.co</p>
         </article>
       </div>
@@ -322,17 +376,32 @@
       <div class="cut cut--back">
         <svg class="marks" viewBox="0 0 70 101.6" aria-hidden="true"><path d="M8 0v6M62 0v6M8 95.6v6M62 95.6v6M0 8h6M64 8h6M0 93.6h6M64 93.6h6" stroke="#000" stroke-width="0.2" fill="none"/></svg>
         <article class="card card--back" aria-label="Back of the card">
-          <div class="card__head card__head--back"></div>
-          <div class="card__flame card__flame--back"></div>
+          <svg class="card__decor" viewBox="0 0 54 85.6" aria-hidden="true">
+            <defs>
+              <linearGradient id="b-fire" gradientUnits="userSpaceOnUse" x1="0" x2="54" y1="0" y2="0"><stop offset="0" stop-color="#e3170c"/><stop offset="0.5" stop-color="#ff5a14"/><stop offset="1" stop-color="#ffb22e"/></linearGradient>
+              <pattern id="b-hex" width="3" height="1.732" patternUnits="userSpaceOnUse"><path d="M0 .866L.5 0h1l.5.866-.5.866h-1zM2 .866h1" fill="none" stroke="#ff8a3c" stroke-opacity=".14" stroke-width=".07"/></pattern>
+              <radialGradient id="b-glow" gradientUnits="userSpaceOnUse" cx="27" cy="45" r="25"><stop offset="0" stop-color="#ff5a14" stop-opacity=".3"/><stop offset="1" stop-color="#ff5a14" stop-opacity="0"/></radialGradient>
+              <radialGradient id="b-shade" gradientUnits="userSpaceOnUse" cx="27" cy="42" r="52"><stop offset=".42" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".8"/></radialGradient>
+            </defs>
+            <rect width="54" height="85.6" fill="#08080a"/>
+            <rect width="54" height="85.6" fill="url(#b-hex)"/>
+            <rect width="54" height="85.6" fill="url(#b-glow)"/>
+            <rect width="54" height="85.6" fill="url(#b-shade)"/>
+            <path d="M2.4 7V2.4h4.6M47 2.4h4.6V7M2.4 73V77.6M51.6 73v4.6" fill="none" stroke="url(#b-fire)" stroke-width=".35"/>
+            <path d="M7 17.3H47" stroke="url(#b-fire)" stroke-width=".25" stroke-opacity=".8"/>
+            <path d="M16.6 34.8h20.8M14.6 36.4v-1.6h1.6M39.4 36.4v-1.6h-1.6M14.6 54.4v1.6h1.6M39.4 54.4v1.6h-1.6" fill="none" stroke="#ffb22e" stroke-width=".22" stroke-opacity=".9"/>
+            <text class="micro" transform="translate(3.6 60) rotate(-90)">PROPERTY OF UNITY PERFORMANCE // RANCHI // INDIA</text>
+          </svg>
           <img class="card__logo card__logo--back" src="../../../public/brand/logo.webp" width="961" height="285" alt="Unity Motorsports Performance">
           <p class="back__label">If found, please return to</p>
           <p class="back__name">Unity Performance</p>
           <p class="back__address">L-12, Argora Housing Colony,<br>Ranchi, Jharkhand 834002<br><b>+91 87096 47229</b></p>
-          <img class="back__qr" src="qr-unityperformance.svg" alt="QR code for unityperformance.co">
-          <p class="back__qr-caption">unityperformance.co</p>
+          <div class="back__qr"><img src="qr-unityperformance.svg" alt="QR code for unityperformance.co"></div>
+          <p class="back__qr-caption">Scan · unityperformance.co</p>
           <p class="back__note">This card belongs to Unity Performance. Carry it at work and return it when you leave.</p>
-          <div class="back__sign"><span></span><p>Authorised signatory</p></div>
-          <p class="card__strip">Performance · Protection · Perfection</p>
+          <div class="back__sign"></div>
+          <p class="back__sign-label">Authorised signatory</p>
+          <p class="card__strip card__strip--back">Performance · Protection · Perfection</p>
         </article>
       </div>
     </section>
@@ -343,28 +412,30 @@
     const form = $("#controls");
     const pageSize = $("#page-size");
     const PAGE_SIZES = { a4: "@page { size: A4 portrait; margin: 0; }", card: "@page { size: 54mm 85.6mm; margin: 0; }" };
+    // Each typed field, where it shows on the card, and its largest and smallest text size in card millimetres.
+    const FIELDS = [["#name", "#card-name", 3.7, 2.2], ["#role", "#card-role", 2.8, 1.8], ["#code", "#card-code", 2.4, 1.6]];
 
-    // Shrinks a long name or code until it fits on its line. Sizes are in card millimetres, so the
-    // fit on screen is the fit on paper.
+    // Shrinks a long entry until it fits its chip. Sizes are in card millimetres, so the fit on
+    // screen is the fit on paper.
     function fit(span, largest, smallest) {
-      const field = span.parentElement;
+      const chip = span.parentElement;
+      const room = () => chip.clientWidth - parseFloat(getComputedStyle(chip).paddingLeft) - parseFloat(getComputedStyle(chip).paddingRight);
       let size = largest;
-      field.style.fontSize = `calc(${size} * var(--u))`;
-      while (span.getBoundingClientRect().width > field.clientWidth && size > smallest) {
+      chip.style.fontSize = `calc(${size} * var(--u))`;
+      while (span.getBoundingClientRect().width > room() && size > smallest) {
         size = Math.round((size - 0.1) * 10) / 10;
-        field.style.fontSize = `calc(${size} * var(--u))`;
+        chip.style.fontSize = `calc(${size} * var(--u))`;
       }
     }
 
     function show() {
-      for (const [input, span, largest, smallest] of [[$("#name"), $("#card-name"), 4.2, 2.4], [$("#code"), $("#card-code"), 3.6, 2.2]]) {
-        span.textContent = input.value.trim();
-        span.parentElement.classList.toggle("is-filled", Boolean(span.textContent));
+      for (const [input, target, largest, smallest] of FIELDS) {
+        const span = $(target);
+        span.textContent = $(input).value.trim();
         fit(span, largest, smallest);
       }
     }
-    $("#name").addEventListener("input", show);
-    $("#code").addEventListener("input", show);
+    for (const [input] of FIELDS) $(input).addEventListener("input", show);
     document.fonts.ready.then(show);
     window.addEventListener("resize", show);
 
