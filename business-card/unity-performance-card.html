@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Unity Performance Card</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --page-bg: #eceef1;
+    --page-ink: #3a3f47;
+    --ink: #15171a;
+    --muted: #6b7079;
+    --paper: #ffffff;
+    --accent: #d7262e;
+    --photo-bg: #eef0f3;
+    --photo-line: #c4c8ce;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --page-bg: #101215; --page-ink: #b9bec6; }
+  }
+  :root[data-theme="dark"] { --page-bg: #101215; --page-ink: #b9bec6; }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--page-bg);
+    color: var(--page-ink);
+    font-family: Inter, "Helvetica Neue", Arial, sans-serif;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .toolbar {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 24px 16px 8px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 14px;
+  }
+  .toolbar button {
+    font: 600 14px Inter, sans-serif;
+    padding: 9px 16px;
+    border: 0;
+    border-radius: 6px;
+    background: var(--accent);
+    color: #fff;
+    cursor: pointer;
+  }
+
+  .sheet {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 28px;
+    justify-content: center;
+    padding: 16px 16px 40px;
+  }
+  .side { display: flex; flex-direction: column; gap: 8px; align-items: center; }
+  .side-label { font-size: 12px; letter-spacing: .12em; text-transform: uppercase; }
+  .zoom { zoom: 1.6; }
+
+  /* ---------- Card: real size 3.5in x 2in ---------- */
+  .card {
+    position: relative;
+    width: 3.5in;
+    height: 2in;
+    overflow: hidden;
+    border-radius: .1in;
+    box-shadow: 0 1px 2px rgba(0,0,0,.12), 0 8px 24px rgba(0,0,0,.14);
+  }
+
+  .slash {
+    display: inline-block;
+    width: .07in;
+    height: .82em;
+    background: var(--accent);
+    transform: skewX(-20deg);
+  }
+
+  .brand { cursor: pointer; }
+  .brand .wordmark { display: flex; flex-direction: column; line-height: 1; }
+  .brand .unity {
+    display: flex;
+    align-items: center;
+    gap: .06in;
+    font-weight: 900;
+    letter-spacing: .02em;
+  }
+  .brand .perf { font-weight: 600; letter-spacing: .34em; }
+  .brand img { display: none; object-fit: contain; }
+  .brand.has-logo .wordmark { display: none; }
+  .brand.has-logo img { display: block; }
+
+  /* Front */
+  .front { background: var(--paper); color: var(--ink); }
+  .front .body {
+    position: absolute;
+    top: .2in; left: .2in; right: .2in;
+    display: grid;
+    grid-template-columns: .9in 1fr;
+    column-gap: .2in;
+  }
+  .photo {
+    position: relative;
+    width: .9in;
+    height: 1.2in;
+    border-radius: .04in;
+    background: var(--photo-bg) center / cover no-repeat;
+    border: .75pt solid var(--photo-line);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    overflow: hidden;
+    cursor: pointer;
+  }
+  .photo svg { width: .66in; height: auto; color: var(--photo-line); }
+  .photo span {
+    position: absolute;
+    top: .08in;
+    font-size: 5.5pt;
+    font-weight: 600;
+    letter-spacing: .18em;
+    color: var(--muted);
+  }
+  .photo.has-photo { border-color: transparent; }
+  .photo.has-photo svg, .photo.has-photo span { display: none; }
+
+  .info { display: flex; flex-direction: column; justify-content: space-between; height: 1.2in; }
+  .front .brand .unity { font-size: 17pt; }
+  .front .brand .perf { font-size: 6.4pt; margin-top: .045in; padding-left: .13in; }
+  .front .brand img { height: .42in; max-width: 1.9in; }
+
+  .fields {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    column-gap: .09in;
+    row-gap: .13in;
+    align-items: end;
+  }
+  .label {
+    font-size: 5.6pt;
+    font-weight: 600;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding-bottom: .02in;
+  }
+  .line {
+    display: block;
+    min-height: .2in;
+    border-bottom: .75pt solid var(--ink);
+    font-size: 8.5pt;
+    font-weight: 600;
+    line-height: .2in;
+    white-space: nowrap;
+    overflow: hidden;
+    outline: none;
+  }
+  .line:focus { background: rgba(215,38,46,.06); }
+
+  .footer {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    height: .26in;
+    background: var(--ink);
+    display: flex;
+    align-items: center;
+    padding-left: .2in;
+    color: #fff;
+    font-size: 5.6pt;
+    font-weight: 600;
+    letter-spacing: .3em;
+  }
+  .footer::after {
+    content: "";
+    position: absolute;
+    right: -.12in; top: 0; bottom: 0;
+    width: 1.05in;
+    background: var(--accent);
+    transform: skewX(-20deg);
+  }
+  .footer::before {
+    content: "";
+    position: absolute;
+    right: 1.03in; top: 0; bottom: 0;
+    width: .07in;
+    background: var(--accent);
+    transform: skewX(-20deg);
+  }
+
+  /* Back */
+  .back {
+    background: var(--ink);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .back::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(-70deg, rgba(255,255,255,.035) 0 .02in, transparent .02in .09in);
+    -webkit-mask-image: linear-gradient(90deg, transparent 45%, #000);
+    mask-image: linear-gradient(90deg, transparent 45%, #000);
+  }
+  .back .brand { position: relative; }
+  .back .brand .unity { font-size: 28pt; gap: .1in; }
+  .back .brand .slash { width: .11in; }
+  .back .brand .perf { font-size: 9.6pt; margin-top: .07in; padding-left: .21in; }
+  .back .brand img { height: .8in; max-width: 2.6in; }
+  .back .rule {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    height: .05in;
+    background: var(--accent);
+  }
+
+  .hidden-input { display: none; }
+
+  @media (max-width: 600px) {
+    .zoom { zoom: 1; }
+  }
+
+  @page { size: 3.5in 2in; margin: 0; }
+  @media print {
+    body { background: none; }
+    .toolbar, .side-label { display: none; }
+    .sheet { display: block; padding: 0; }
+    .side { display: block; }
+    .zoom { zoom: 1; }
+    .card { border-radius: 0; box-shadow: none; break-after: page; }
+    .line:focus { background: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="toolbar">
+  <p>Click the photo box to add a photo, click a line to type, click the logo to replace it.</p>
+  <button type="button" onclick="window.print()">Print / Save PDF</button>
+</div>
+
+<main class="sheet">
+  <div class="side">
+    <div class="side-label">Front</div>
+    <div class="zoom">
+      <section class="card front" aria-label="Card front">
+        <div class="body">
+          <label class="photo" title="Click to add photo">
+            <span>PHOTO</span>
+            <svg viewBox="0 0 64 56" fill="currentColor" aria-hidden="true">
+              <circle cx="32" cy="18" r="12"/>
+              <path d="M6 56c0-14.4 11.6-24 26-24s26 9.6 26 24z"/>
+            </svg>
+            <input class="hidden-input" type="file" accept="image/*" data-target="photo">
+          </label>
+          <div class="info">
+            <label class="brand" title="Click to replace with your logo image">
+              <span class="wordmark">
+                <span class="unity"><i class="slash"></i>UNITY</span>
+                <span class="perf">PERFORMANCE</span>
+              </span>
+              <img alt="Unity Performance">
+              <input class="hidden-input" type="file" accept="image/*" data-target="logo">
+            </label>
+            <div class="fields">
+              <span class="label">Name</span>
+              <span class="line" contenteditable="true" spellcheck="false" aria-label="Name"></span>
+              <span class="label">User ID</span>
+              <span class="line" contenteditable="true" spellcheck="false" aria-label="User ID"></span>
+            </div>
+          </div>
+        </div>
+        <div class="footer">EMPLOYEE</div>
+      </section>
+    </div>
+  </div>
+
+  <div class="side">
+    <div class="side-label">Back</div>
+    <div class="zoom">
+      <section class="card back" aria-label="Card back">
+        <label class="brand" title="Click to replace with your logo image">
+          <span class="wordmark">
+            <span class="unity"><i class="slash"></i>UNITY</span>
+            <span class="perf">PERFORMANCE</span>
+          </span>
+          <img alt="Unity Performance">
+          <input class="hidden-input" type="file" accept="image/*" data-target="logo">
+        </label>
+        <div class="rule"></div>
+      </section>
+    </div>
+  </div>
+</main>
+
+<script>
+  // Images stay in this browser tab only; nothing is uploaded.
+  document.querySelectorAll('input[type=file]').forEach((input) => {
+    input.addEventListener('change', () => {
+      const file = input.files[0];
+      if (!file) return;
+      const url = URL.createObjectURL(file);
+      if (input.dataset.target === 'photo') {
+        const photo = input.closest('.photo');
+        photo.style.backgroundImage = `url("${url}")`;
+        photo.classList.add('has-photo');
+      } else {
+        document.querySelectorAll('.brand').forEach((brand) => {
+          brand.querySelector('img').src = url;
+          brand.classList.add('has-logo');
+        });
+      }
+    });
+  });
+
+  document.querySelectorAll('.line').forEach((line) => {
+    line.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); line.blur(); } });
+  });
+</script>
+</body>
+</html>
