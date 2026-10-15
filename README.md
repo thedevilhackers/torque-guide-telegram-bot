@@ -196,6 +196,12 @@ The logo and icons were cut from the Unity Motorsports Performance banner; the o
 
 To change the logo later, replace `public/brand/logo.webp` and `public/brand/logo.png` with new files of the same names.
 
+**Employee ID card** (`brand/id-card/`): a standard ID card size (54 × 85.6 mm, upright) with the logo, a blank photo box, and lines for the name and employee code; the back has the workshop address, phone, a QR code to the website and a signature line.
+
+- `unity-id-card.html`: open it in Chrome or Safari on a computer to type a name and employee code, add a photo and print, on A4 paper to cut out and laminate, or on an ID card printer. Leave the fields empty to print blank cards and fill them in by hand.
+- `unity-id-card-blank.pdf` (card size, front and back) and `unity-id-card-blank-a4.pdf` (A4 with cut marks) are the blank card ready to print; `unity-id-card-front.png` and `unity-id-card-back.png` are each side at 600 dpi for a print shop.
+- To change the design, edit `source/card.html`, then run `node brand/id-card/source/build.mjs`. `source/export.cjs` remakes the PDFs and pictures; it needs [Playwright](https://playwright.dev).
+
 ## Project layout
 
 ```
@@ -214,7 +220,7 @@ public/vendor/          Three.js (with its model loader), GSAP and Lenis for the
 public/models/          the home page's 3D car and its licence
 landing/                builds the home page as one self-contained file (landing/dist/)
 deploy/vps/             VPS installer and updater (systemd, Caddy, firewall, backups)
-brand/                  brand kit: originals, transparent logo, Telegram pictures
+brand/                  brand kit: originals, transparent logo, Telegram pictures, employee ID card
 test/                   node --test suites
 ```
 

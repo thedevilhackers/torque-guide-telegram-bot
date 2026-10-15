@@ -1,0 +1,419 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Unity Performance ID Card</title>
+  <style id="page-size">@page { size: A4 portrait; margin: 0; }</style>
+  <style>
+    @font-face { font-family: "Anton"; font-weight: 400; src: url("../../../public/fonts/anton-400.woff2") format("woff2"); }
+    @font-face { font-family: "Barlow"; font-weight: 400; src: url("../../../public/fonts/barlow-400.woff2") format("woff2"); }
+    @font-face { font-family: "Barlow"; font-weight: 600; src: url("../../../public/fonts/barlow-600.woff2") format("woff2"); }
+    @font-face { font-family: "Barlow Condensed"; font-weight: 600; src: url("../../../public/fonts/barlow-condensed-600.woff2") format("woff2"); }
+    @font-face { font-family: "Barlow Condensed"; font-weight: 700; src: url("../../../public/fonts/barlow-condensed-700.woff2") format("woff2"); }
+
+    /* The card is a standard ID card (CR80) standing upright: 54 × 85.6 mm. Every card measurement
+       uses --u, which is one millimetre when printed and larger on screen. A dark header carries the
+       logo; the name and code sit on white so they can also be written by hand. */
+    :root {
+      color-scheme: dark;
+      --card-ink: #0d0b0b;
+      --card-paper: #ffffff;
+      --card-text: #171312;
+      --card-muted: #6d6660;
+      --card-line: #b3aca5;
+      --card-label: #c43d0a;
+      --fire: linear-gradient(90deg, #c4100a, #ff4a14 45%, #ff8a1a 75%, #ffb22e);
+      --bg: #110f0f;
+      --panel: #1b1817;
+      --field: #0c0a0a;
+      --text: #f4f2ef;
+      --muted: #aaa39d;
+      --edge: rgba(255, 255, 255, 0.13);
+      --display: "Anton", Impact, "Arial Narrow", sans-serif;
+      --body: "Barlow", system-ui, -apple-system, "Segoe UI", sans-serif;
+      --cond: "Barlow Condensed", "Arial Narrow", sans-serif;
+    }
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.5 var(--body); -webkit-font-smoothing: antialiased; }
+
+    /* Page around the card */
+    .app {
+      display: grid;
+      grid-template-columns: minmax(0, 330px) minmax(0, 1fr);
+      grid-template-areas: "intro intro" "controls sheet";
+      gap: 28px 44px;
+      max-width: 1100px;
+      margin: 0 auto;
+      padding-block: 36px 56px;
+      padding-left: max(16px, env(safe-area-inset-left, 0px));
+      padding-right: max(16px, env(safe-area-inset-right, 0px));
+    }
+    .intro { grid-area: intro; }
+    .intro h1 { margin: 0 0 10px; font: 400 clamp(34px, 5vw, 54px)/1 var(--display); letter-spacing: 0.01em; text-transform: uppercase; }
+    .intro h1 span { background: var(--fire); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    .intro p { max-width: 62ch; margin: 0; color: var(--muted); }
+    .controls { grid-area: controls; display: grid; gap: 18px; align-content: start; padding: 22px; background: var(--panel); border: 1px solid var(--edge); border-radius: 10px; }
+    .field { display: grid; gap: 8px; }
+    .field label, .layout legend { color: var(--muted); font: 600 13px/1 var(--cond); letter-spacing: 0.16em; text-transform: uppercase; }
+    .field input {
+      height: 48px;
+      padding: 0 14px;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 6px;
+      background: var(--field);
+      color: var(--text);
+      font: 500 17px var(--body);
+    }
+    .field input:focus { outline: none; border-color: #ff6a14; box-shadow: 0 0 0 3px rgba(255, 106, 20, 0.25); }
+    .photo-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+    .button {
+      min-height: 44px;
+      padding: 0 16px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text);
+      font: 600 15px/1 var(--cond);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      cursor: pointer;
+    }
+    .button:hover { background: rgba(255, 255, 255, 0.12); }
+    .layout { display: grid; gap: 10px; margin: 0; padding: 0; border: 0; }
+    .layout legend { margin-bottom: 10px; padding: 0; }
+    .layout label { display: flex; align-items: flex-start; gap: 10px; color: var(--text); font-size: 15px; line-height: 1.35; cursor: pointer; }
+    .layout input { margin-top: 3px; accent-color: #ff6a14; }
+    .layout small { display: block; color: var(--muted); font-size: 13px; }
+    .print {
+      height: 52px;
+      border: 0;
+      border-radius: 6px;
+      background: var(--fire);
+      color: #fff;
+      font: 700 17px/1 var(--cond);
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      text-shadow: 0 1px 2px rgba(80, 10, 0, 0.45);
+      cursor: pointer;
+    }
+    .print:hover { filter: brightness(1.08); }
+    .hint { margin: 0; color: var(--muted); font-size: 13px; }
+    :focus-visible { outline: 2px solid #ffb22e; outline-offset: 3px; }
+
+    .sheet {
+      grid-area: sheet;
+      display: flex;
+      flex-wrap: wrap;
+      align-content: start;
+      gap: 28px;
+      --u: min(1.6mm, calc((100vw - 32px) / 54));
+    }
+    .sheet__note, .marks { display: none; }
+    .cut { position: relative; }
+
+    /* The card */
+    .card {
+      position: relative;
+      width: calc(54 * var(--u));
+      height: calc(85.6 * var(--u));
+      overflow: hidden;
+      border-radius: calc(3.2 * var(--u));
+      background: var(--card-paper);
+      color: var(--card-text);
+      font-family: var(--body);
+      box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55);
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    .card > * { position: absolute; margin: 0; }
+    .card__head {
+      inset: 0 0 auto;
+      height: calc(33 * var(--u));
+      background: radial-gradient(90% 75% at 50% 0%, #2b2322 0%, var(--card-ink) 72%);
+      clip-path: polygon(0 0, 100% 0, 100% calc(26 * var(--u)), 0 calc(33 * var(--u)));
+    }
+    .card__flame {
+      inset: 0;
+      background: var(--fire);
+      clip-path: polygon(0 calc(33 * var(--u)), 100% calc(26 * var(--u)), 100% calc(27.6 * var(--u)), 0 calc(34.6 * var(--u)));
+    }
+    .card__logo { top: calc(7 * var(--u)); left: 50%; width: calc(40 * var(--u)); height: auto; transform: translateX(-50%); }
+    .card__title {
+      top: calc(19.8 * var(--u));
+      left: 0;
+      right: 0;
+      padding-left: 0.34em;
+      color: #f4f2ef;
+      font: 700 calc(2.2 * var(--u))/1 var(--cond);
+      letter-spacing: 0.34em;
+      text-align: center;
+      text-transform: uppercase;
+    }
+    .card__photo {
+      top: calc(24 * var(--u));
+      left: calc(14.5 * var(--u));
+      width: calc(25 * var(--u));
+      height: calc(30 * var(--u));
+      overflow: hidden;
+      background: #eeebe6;
+      border: calc(0.7 * var(--u)) solid #fff;
+      box-shadow: 0 0 0 calc(0.35 * var(--u)) #ff6a14;
+    }
+    .card__silhouette { position: absolute; left: 14%; right: 14%; bottom: 0; width: 72%; fill: #d9d3cc; }
+    .card__photo-label {
+      position: absolute;
+      top: 38%;
+      left: 0;
+      right: 0;
+      padding-left: 0.3em;
+      color: #9b938b;
+      font: 700 calc(1.9 * var(--u))/1 var(--cond);
+      letter-spacing: 0.3em;
+      text-align: center;
+      text-transform: uppercase;
+    }
+    .card__photo-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 28%; }
+    .card__photo.has-photo .card__silhouette, .card__photo.has-photo .card__photo-label { display: none; }
+    .card__label, .back__label {
+      left: 0;
+      right: 0;
+      padding-left: 0.26em;
+      color: var(--card-label);
+      font: 700 calc(1.9 * var(--u))/1 var(--cond);
+      letter-spacing: 0.26em;
+      text-align: center;
+      text-transform: uppercase;
+    }
+    .card__label--name { top: calc(57.2 * var(--u)); }
+    .card__label--code { top: calc(67.8 * var(--u)); }
+    /* Blank fields show a writing line; a typed value replaces it. */
+    .card__field {
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      overflow: hidden;
+      border-bottom: calc(0.25 * var(--u)) solid var(--card-line);
+      color: var(--card-text);
+      white-space: nowrap;
+    }
+    .card__field.is-filled { border-bottom-color: transparent; }
+    .card__field--name { top: calc(59.8 * var(--u)); left: calc(5 * var(--u)); right: calc(5 * var(--u)); height: calc(6 * var(--u)); font: 400 calc(4.2 * var(--u))/1.1 var(--display); letter-spacing: 0.02em; text-transform: uppercase; }
+    .card__field--code { top: calc(70.3 * var(--u)); left: calc(11 * var(--u)); right: calc(11 * var(--u)); height: calc(5.5 * var(--u)); font: 700 calc(3.6 * var(--u))/1.1 var(--cond); letter-spacing: 0.14em; text-transform: uppercase; }
+    .card__strip {
+      inset: auto 0 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: calc(6 * var(--u));
+      padding-left: 0.24em;
+      background: var(--card-ink);
+      color: #f4f2ef;
+      font: 600 calc(1.9 * var(--u))/1 var(--cond);
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+    }
+    .card__strip::before { content: ""; position: absolute; inset: 0 0 auto; height: calc(0.8 * var(--u)); background: var(--fire); }
+
+    /* Back of the card */
+    .card__head--back { height: calc(20 * var(--u)); clip-path: polygon(0 0, 100% 0, 100% calc(16 * var(--u)), 0 calc(20 * var(--u))); }
+    .card__flame--back { clip-path: polygon(0 calc(20 * var(--u)), 100% calc(16 * var(--u)), 100% calc(17.4 * var(--u)), 0 calc(21.4 * var(--u))); }
+    .card__logo--back { top: calc(6.2 * var(--u)); width: calc(28 * var(--u)); }
+    .back__label { top: calc(24 * var(--u)); }
+    .back__name { top: calc(27 * var(--u)); left: 0; right: 0; font: 400 calc(3.4 * var(--u))/1 var(--display); letter-spacing: 0.03em; text-align: center; text-transform: uppercase; }
+    .back__address { top: calc(31.4 * var(--u)); left: 0; right: 0; font: 400 calc(2.3 * var(--u))/1.38 var(--body); text-align: center; }
+    .back__address b { font-weight: 600; }
+    .back__qr { top: calc(42.6 * var(--u)); left: calc(19.5 * var(--u)); width: calc(15 * var(--u)); height: calc(15 * var(--u)); }
+    .back__qr-caption { top: calc(58.7 * var(--u)); left: 0; right: 0; color: var(--card-muted); font: 600 calc(1.9 * var(--u))/1 var(--cond); letter-spacing: 0.1em; text-align: center; }
+    .back__note { top: calc(62.6 * var(--u)); left: calc(5 * var(--u)); right: calc(5 * var(--u)); color: var(--card-muted); font: 400 calc(1.75 * var(--u))/1.42 var(--body); text-align: center; }
+    .back__sign { top: calc(70.6 * var(--u)); left: calc(12 * var(--u)); right: calc(12 * var(--u)); }
+    .back__sign span { display: block; height: calc(3.2 * var(--u)); border-bottom: calc(0.25 * var(--u)) solid var(--card-line); }
+    .back__sign p { margin: calc(0.9 * var(--u)) 0 0; padding-left: 0.2em; color: var(--card-muted); font: 600 calc(1.6 * var(--u))/1 var(--cond); letter-spacing: 0.2em; text-align: center; text-transform: uppercase; }
+
+    @media (max-width: 860px) {
+      .app { grid-template-columns: minmax(0, 1fr); grid-template-areas: "intro" "controls" "sheet"; }
+      .sheet { justify-content: center; }
+    }
+
+    /* Exported pictures: the cards alone, at true size. At 600 dpi a CSS pixel is 6.25 dots, so
+       each card starts on a multiple of 4 pixels to keep its edges on whole dots. */
+    body.export { background: #fff; }
+    body.export .ui { display: none; }
+    body.export .app { display: block; max-width: none; margin: 0; padding: 40px; }
+    body.export .sheet { --u: 1mm; flex-wrap: nowrap; gap: calc(244px - 54mm); }
+    body.export .card { border-radius: 0; box-shadow: none; }
+
+    @media print {
+      body { background: #fff; }
+      .app { display: block; max-width: none; margin: 0; padding: 0; }
+      .ui { display: none !important; }
+      .sheet { --u: 1mm; display: block; }
+      .card { border-radius: 0; box-shadow: none; }
+      /* A4: front and back side by side at actual size, with corner marks to cut along. */
+      body[data-print="a4"] .sheet { position: relative; width: 210mm; height: 296mm; }
+      body[data-print="a4"] .sheet__note { display: block; position: absolute; top: 16mm; left: 22mm; right: 22mm; margin: 0; color: #333; font: 400 9.5pt/1.5 var(--body); text-align: center; }
+      body[data-print="a4"] .sheet__note b { font-weight: 600; }
+      body[data-print="a4"] .cut { position: absolute; top: 40mm; width: 70mm; height: 101.6mm; }
+      body[data-print="a4"] .cut--front { left: 37mm; }
+      body[data-print="a4"] .cut--back { left: 103mm; }
+      body[data-print="a4"] .card { position: absolute; top: 8mm; left: 8mm; }
+      body[data-print="a4"] .marks { display: block; position: absolute; inset: 0; width: 70mm; height: 101.6mm; }
+      /* ID card printer: the front on one card-sized page, the back on the next. */
+      body[data-print="card"] .cut--front { break-after: page; }
+    }
+  </style>
+</head>
+<body data-print="a4">
+  <main class="app">
+    <header class="intro ui">
+      <h1>Employee <span>ID card</span></h1>
+      <p>Type a name and employee code and add a photo, then print. Leave them empty to print a blank card and fill it in by hand.</p>
+    </header>
+
+    <form class="controls ui" id="controls" autocomplete="off">
+      <div class="field">
+        <label for="name">Name</label>
+        <input id="name" name="name" maxlength="40" spellcheck="false">
+      </div>
+      <div class="field">
+        <label for="code">Employee code</label>
+        <input id="code" name="code" maxlength="20" placeholder="e.g. UP-001" spellcheck="false">
+      </div>
+      <div class="field">
+        <label for="photo-add">Photo</label>
+        <div class="photo-actions">
+          <button class="button" type="button" id="photo-add">Add photo</button>
+          <button class="button" type="button" id="photo-remove" hidden>Remove photo</button>
+        </div>
+        <input id="photo" type="file" accept="image/*" hidden>
+      </div>
+      <fieldset class="layout">
+        <legend>Print on</legend>
+        <label><input type="radio" name="layout" value="a4" checked><span>A4 paper<small>Front and back side by side, to cut out and laminate</small></span></label>
+        <label><input type="radio" name="layout" value="card"><span>ID card printer<small>Card size, 54 × 86 mm: front on page 1, back on page 2</small></span></label>
+      </fieldset>
+      <button class="print" type="submit">Print</button>
+      <p class="hint">In the print window, keep Scale at 100% (Actual size) so the card prints at its real size. To make a PDF, choose Save as PDF.</p>
+    </form>
+
+    <section class="sheet" aria-label="Card, front and back">
+      <p class="sheet__note"><b>Unity Performance employee ID card.</b> Printed at 100% (actual size), each side is 54 × 85.6 mm. Cut along the corner marks, then laminate the front and back together.</p>
+
+      <div class="cut cut--front">
+        <svg class="marks" viewBox="0 0 70 101.6" aria-hidden="true"><path d="M8 0v6M62 0v6M8 95.6v6M62 95.6v6M0 8h6M64 8h6M0 93.6h6M64 93.6h6" stroke="#000" stroke-width="0.2" fill="none"/></svg>
+        <article class="card card--front" aria-label="Front of the card">
+          <div class="card__head"></div>
+          <div class="card__flame"></div>
+          <img class="card__logo" src="../../../public/brand/logo.webp" width="961" height="285" alt="Unity Motorsports Performance">
+          <p class="card__title">Employee ID card</p>
+          <div class="card__photo" id="photo-box">
+            <svg class="card__silhouette" viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="36" r="19"/><path d="M8 100c0-25 18-41 42-41s42 16 42 41z"/></svg>
+            <span class="card__photo-label">Photo</span>
+            <img class="card__photo-img" id="photo-img" alt="" hidden>
+          </div>
+          <p class="card__label card__label--name">Name</p>
+          <p class="card__field card__field--name"><span id="card-name"></span></p>
+          <p class="card__label card__label--code">Employee code</p>
+          <p class="card__field card__field--code"><span id="card-code"></span></p>
+          <p class="card__strip">unityperformance.co</p>
+        </article>
+      </div>
+
+      <div class="cut cut--back">
+        <svg class="marks" viewBox="0 0 70 101.6" aria-hidden="true"><path d="M8 0v6M62 0v6M8 95.6v6M62 95.6v6M0 8h6M64 8h6M0 93.6h6M64 93.6h6" stroke="#000" stroke-width="0.2" fill="none"/></svg>
+        <article class="card card--back" aria-label="Back of the card">
+          <div class="card__head card__head--back"></div>
+          <div class="card__flame card__flame--back"></div>
+          <img class="card__logo card__logo--back" src="../../../public/brand/logo.webp" width="961" height="285" alt="Unity Motorsports Performance">
+          <p class="back__label">If found, please return to</p>
+          <p class="back__name">Unity Performance</p>
+          <p class="back__address">L-12, Argora Housing Colony,<br>Ranchi, Jharkhand 834002<br><b>+91 87096 47229</b></p>
+          <img class="back__qr" src="qr-unityperformance.svg" alt="QR code for unityperformance.co">
+          <p class="back__qr-caption">unityperformance.co</p>
+          <p class="back__note">This card belongs to Unity Performance. Carry it at work and return it when you leave.</p>
+          <div class="back__sign"><span></span><p>Authorised signatory</p></div>
+          <p class="card__strip">Performance · Protection · Perfection</p>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const $ = (selector) => document.querySelector(selector);
+    const form = $("#controls");
+    const pageSize = $("#page-size");
+    const PAGE_SIZES = { a4: "@page { size: A4 portrait; margin: 0; }", card: "@page { size: 54mm 85.6mm; margin: 0; }" };
+
+    // Shrinks a long name or code until it fits on its line. Sizes are in card millimetres, so the
+    // fit on screen is the fit on paper.
+    function fit(span, largest, smallest) {
+      const field = span.parentElement;
+      let size = largest;
+      field.style.fontSize = `calc(${size} * var(--u))`;
+      while (span.getBoundingClientRect().width > field.clientWidth && size > smallest) {
+        size = Math.round((size - 0.1) * 10) / 10;
+        field.style.fontSize = `calc(${size} * var(--u))`;
+      }
+    }
+
+    function show() {
+      for (const [input, span, largest, smallest] of [[$("#name"), $("#card-name"), 4.2, 2.4], [$("#code"), $("#card-code"), 3.6, 2.2]]) {
+        span.textContent = input.value.trim();
+        span.parentElement.classList.toggle("is-filled", Boolean(span.textContent));
+        fit(span, largest, smallest);
+      }
+    }
+    $("#name").addEventListener("input", show);
+    $("#code").addEventListener("input", show);
+    document.fonts.ready.then(show);
+    window.addEventListener("resize", show);
+
+    const photoInput = $("#photo");
+    const photoBox = $("#photo-box");
+    const photo = $("#photo-img");
+    $("#photo-add").addEventListener("click", () => photoInput.click());
+    photoInput.addEventListener("change", () => {
+      const file = photoInput.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.addEventListener("load", () => {
+        photo.src = reader.result;
+        photo.hidden = false;
+        photoBox.classList.add("has-photo");
+        $("#photo-add").textContent = "Change photo";
+        $("#photo-remove").hidden = false;
+      });
+      reader.readAsDataURL(file);
+    });
+    $("#photo-remove").addEventListener("click", () => {
+      photo.removeAttribute("src");
+      photo.hidden = true;
+      photoBox.classList.remove("has-photo");
+      photoInput.value = "";
+      $("#photo-add").textContent = "Add photo";
+      $("#photo-remove").hidden = true;
+    });
+
+    function setLayout(layout) {
+      document.body.dataset.print = layout;
+      pageSize.textContent = PAGE_SIZES[layout];
+    }
+    form.addEventListener("change", (event) => {
+      if (event.target.name === "layout") setLayout(event.target.value);
+    });
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      show();
+      window.print();
+    });
+
+    // ?export shows only the cards at true size, for saving pictures of them.
+    if (new URLSearchParams(location.search).has("export")) document.body.classList.add("export");
+    const layout = new URLSearchParams(location.search).get("layout");
+    if (layout in PAGE_SIZES) {
+      form.elements.layout.value = layout;
+      setLayout(layout);
+    }
+  </script>
+</body>
+</html>
