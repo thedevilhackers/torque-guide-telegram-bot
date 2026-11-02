@@ -1,0 +1,66 @@
+{
+  "categories": [
+    { "id": "shakes", "name": "Thick Shakes", "icon": "shake", "tone": "blush", "blurb": "Our signature. Thick enough to stand a straw in." },
+    { "id": "coffee", "name": "Coffee & Tea", "icon": "coffee", "tone": "latte", "blurb": "Hot, iced and everything in between." },
+    { "id": "coolers", "name": "Coolers & Mocktails", "icon": "mocktail", "tone": "sage", "blurb": "Fizzy, fruity and made for Ranchi afternoons." },
+    { "id": "bites", "name": "Snacks & Bites", "icon": "fries", "tone": "butter", "blurb": "Made for sharing. Or not." },
+    { "id": "momos", "name": "Momos & Chinese", "icon": "momo", "tone": "peach", "blurb": "Steamed, fried and tossed in the wok." },
+    { "id": "pizza", "name": "Pizza & Pasta", "icon": "pizza", "tone": "apricot", "blurb": "Cheesy, saucy, generous." },
+    { "id": "burgers", "name": "Burgers & Sandwiches", "icon": "burger", "tone": "honey", "blurb": "Stacked high and toasted right." },
+    { "id": "desserts", "name": "Desserts & Bakery", "icon": "cake", "tone": "berry", "blurb": "Save room. Seriously." }
+  ],
+  "items": [
+    { "id": "oreo-thick-shake", "category": "shakes", "name": "Oreo Thick Shake", "description": "Crushed Oreo, vanilla ice cream and chocolate drizzle, finished with whipped cream.", "price": 199, "veg": true, "bestseller": true, "available": true },
+    { "id": "nutella-brownie-shake", "category": "shakes", "name": "Nutella Brownie Shake", "description": "Nutella, chunks of warm brownie and chocolate ice cream. Our most indulgent pour.", "price": 249, "veg": true, "bestseller": true, "available": true },
+    { "id": "kitkat-shake", "category": "shakes", "name": "KitKat Crunch Shake", "description": "Blended KitKat, chocolate sauce and a wafer crown.", "price": 209, "veg": true, "available": true },
+    { "id": "cold-coffee-ice-cream", "category": "shakes", "name": "Cold Coffee with Ice Cream", "description": "Strong, creamy cold coffee topped with a scoop of vanilla.", "price": 179, "veg": true, "bestseller": true, "available": true },
+    { "id": "blueberry-cheesecake-shake", "category": "shakes", "name": "Blueberry Cheesecake Shake", "description": "Blueberry compote, cream cheese and crumbled biscuit.", "price": 239, "veg": true, "available": true },
+    { "id": "strawberry-shake", "category": "shakes", "name": "Strawberry Cream Shake", "description": "Strawberry crush, fresh cream and a pink cloud of whipped cream.", "price": 189, "veg": true, "available": true },
+
+    { "id": "cappuccino", "category": "coffee", "name": "Cappuccino", "description": "Double shot, velvety microfoam, a dusting of cocoa.", "price": 149, "veg": true, "available": true },
+    { "id": "cafe-latte", "category": "coffee", "name": "Café Latte", "description": "Smooth espresso with plenty of steamed milk.", "price": 159, "veg": true, "available": true },
+    { "id": "hazelnut-cold-brew", "category": "coffee", "name": "Hazelnut Cold Brew", "description": "Slow-steeped cold brew over ice with hazelnut and a splash of milk.", "price": 189, "veg": true, "available": true },
+    { "id": "hot-chocolate", "category": "coffee", "name": "Hot Chocolate", "description": "Rich, thick, topped with marshmallows.", "price": 169, "veg": true, "available": true },
+    { "id": "masala-chai", "category": "coffee", "name": "Masala Chai", "description": "Kadak chai brewed with ginger, cardamom and our house masala.", "price": 79, "veg": true, "available": true },
+    { "id": "lemon-iced-tea", "category": "coffee", "name": "Lemon Iced Tea", "description": "Brewed black tea, fresh lemon, lots of ice.", "price": 129, "veg": true, "available": true },
+
+    { "id": "virgin-mojito", "category": "coolers", "name": "Virgin Mojito", "description": "Fresh mint, lime and soda, crushed ice.", "price": 149, "veg": true, "bestseller": true, "available": true },
+    { "id": "blue-lagoon", "category": "coolers", "name": "Blue Lagoon", "description": "Blue curaçao syrup, lemonade and a citrus twist.", "price": 159, "veg": true, "available": true },
+    { "id": "watermelon-cooler", "category": "coolers", "name": "Watermelon Cooler", "description": "Fresh watermelon, mint and a pinch of black salt.", "price": 149, "veg": true, "available": true },
+    { "id": "kiwi-ginger-fizz", "category": "coolers", "name": "Kiwi Ginger Fizz", "description": "Kiwi, ginger and lime topped with soda.", "price": 169, "veg": true, "available": true },
+
+    { "id": "peri-peri-fries", "category": "bites", "name": "Peri Peri Fries", "description": "Crisp fries tossed in fiery peri peri with a garlic dip.", "price": 149, "veg": true, "spicy": true, "bestseller": true, "available": true },
+    { "id": "cheese-garlic-bread", "category": "bites", "name": "Cheese Garlic Bread", "description": "Toasted baguette, garlic butter and a blanket of mozzarella.", "price": 169, "veg": true, "available": true },
+    { "id": "loaded-nachos", "category": "bites", "name": "Loaded Nachos", "description": "Corn chips, cheese sauce, salsa, jalapeños and sour cream.", "price": 219, "veg": true, "available": true },
+    { "id": "paneer-tikka-bites", "category": "bites", "name": "Paneer Tikka Bites", "description": "Char-grilled paneer, peppers and onions with mint chutney.", "price": 239, "veg": true, "spicy": true, "available": true },
+    { "id": "bbq-chicken-wings", "category": "bites", "name": "BBQ Chicken Wings", "description": "Six wings glazed in smoky barbecue sauce.", "price": 279, "veg": false, "available": true },
+    { "id": "chicken-popcorn", "category": "bites", "name": "Chicken Popcorn", "description": "Bite-size crispy chicken with a spicy mayo dip.", "price": 229, "veg": false, "available": true },
+
+    { "id": "veg-steamed-momos", "category": "momos", "name": "Veg Steamed Momos", "description": "Eight hand-folded momos with fiery red chutney.", "price": 139, "veg": true, "available": true },
+    { "id": "chicken-steamed-momos", "category": "momos", "name": "Chicken Steamed Momos", "description": "Juicy chicken filling, eight pieces, red chutney.", "price": 169, "veg": false, "bestseller": true, "available": true },
+    { "id": "paneer-fried-momos", "category": "momos", "name": "Paneer Fried Momos", "description": "Golden-fried paneer momos with schezwan dip.", "price": 169, "veg": true, "available": true },
+    { "id": "chilli-paneer", "category": "momos", "name": "Chilli Paneer", "description": "Wok-tossed paneer, peppers and onion in a spicy glaze.", "price": 229, "veg": true, "spicy": true, "available": true },
+    { "id": "chilli-chicken", "category": "momos", "name": "Chilli Chicken", "description": "Crispy chicken tossed with green chillies and soy.", "price": 259, "veg": false, "spicy": true, "available": true },
+    { "id": "veg-hakka-noodles", "category": "momos", "name": "Veg Hakka Noodles", "description": "Smoky wok noodles with crunchy vegetables.", "price": 189, "veg": true, "available": true },
+
+    { "id": "margherita-pizza", "category": "pizza", "name": "Margherita Pizza", "description": "Tomato sauce, mozzarella and basil. Classic for a reason.", "price": 249, "veg": true, "available": true },
+    { "id": "farmhouse-pizza", "category": "pizza", "name": "Farmhouse Pizza", "description": "Capsicum, onion, tomato, mushroom and sweet corn.", "price": 299, "veg": true, "bestseller": true, "available": true },
+    { "id": "paneer-tikka-pizza", "category": "pizza", "name": "Paneer Tikka Pizza", "description": "Tandoori paneer, onion and a mint-mayo swirl.", "price": 319, "veg": true, "available": true },
+    { "id": "bbq-chicken-pizza", "category": "pizza", "name": "BBQ Chicken Pizza", "description": "Smoky barbecue chicken, red onion and mozzarella.", "price": 349, "veg": false, "available": true },
+    { "id": "penne-arrabbiata", "category": "pizza", "name": "Penne Arrabbiata", "description": "Penne in a spicy, garlicky tomato sauce.", "price": 239, "veg": true, "spicy": true, "available": true },
+    { "id": "alfredo-penne", "category": "pizza", "name": "Creamy Alfredo Penne", "description": "Penne in a silky parmesan cream sauce with herbs.", "price": 259, "veg": true, "available": true },
+    { "id": "chicken-alfredo", "category": "pizza", "name": "Chicken Alfredo Pasta", "description": "Alfredo sauce, grilled chicken and mushrooms.", "price": 299, "veg": false, "available": true },
+
+    { "id": "classic-veg-burger", "category": "burgers", "name": "Classic Veg Burger", "description": "Crispy veg patty, lettuce, tomato and house sauce.", "price": 159, "veg": true, "available": true },
+    { "id": "paneer-crunch-burger", "category": "burgers", "name": "Paneer Crunch Burger", "description": "Crumb-fried paneer slab, slaw and chipotle mayo.", "price": 199, "veg": true, "available": true },
+    { "id": "crispy-chicken-burger", "category": "burgers", "name": "Crispy Chicken Burger", "description": "Buttermilk-fried chicken, pickles and spicy mayo.", "price": 219, "veg": false, "bestseller": true, "available": true },
+    { "id": "paneer-tikka-sandwich", "category": "burgers", "name": "Paneer Tikka Sandwich", "description": "Grilled triple-decker with paneer tikka and cheese.", "price": 179, "veg": true, "available": true },
+    { "id": "chicken-club-sandwich", "category": "burgers", "name": "Chicken Club Sandwich", "description": "Grilled chicken, egg, lettuce and tomato on toasted bread.", "price": 229, "veg": false, "available": true },
+
+    { "id": "sizzling-brownie", "category": "desserts", "name": "Sizzling Brownie", "description": "Hot fudge brownie on a sizzler plate with vanilla ice cream.", "price": 229, "veg": true, "bestseller": true, "available": true },
+    { "id": "belgian-waffle", "category": "desserts", "name": "Belgian Chocolate Waffle", "description": "Crisp waffle, Belgian chocolate sauce and ice cream.", "price": 199, "veg": true, "available": true },
+    { "id": "blueberry-cheesecake", "category": "desserts", "name": "Blueberry Cheesecake", "description": "Baked cheesecake, buttery base, blueberry topping.", "price": 199, "veg": true, "available": true },
+    { "id": "red-velvet-pastry", "category": "desserts", "name": "Red Velvet Pastry", "description": "Soft red velvet sponge with cream cheese frosting.", "price": 129, "veg": true, "available": true },
+    { "id": "choco-croissant", "category": "desserts", "name": "Chocolate Croissant", "description": "Flaky, buttery and filled with dark chocolate.", "price": 119, "veg": true, "available": true }
+  ]
+}

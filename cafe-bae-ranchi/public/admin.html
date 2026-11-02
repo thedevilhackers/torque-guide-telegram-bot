@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en-IN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Cafe BAE · Staff dashboard</title>
+  <meta name="theme-color" content="#2A1B14">
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..800;1,9..144,300..800&family=Manrope:wght@400;500;600;700;800&display=swap">
+  <link rel="stylesheet" href="/css/styles.css">
+  <link rel="stylesheet" href="/css/admin.css">
+</head>
+<body class="admin">
+  <section class="login" id="login" hidden>
+    <form class="login-card" id="loginForm" novalidate>
+      <a href="/" class="brand"><span class="brand-mark" aria-hidden="true"><svg class="icon"><use href="/assets/icons.svg#i-heart"/></svg></span><span class="brand-word">Cafe <b>BAE</b></span></a>
+      <h1>Staff dashboard</h1>
+      <p>Orders, bookings, menu and reviews in one place.</p>
+      <label class="field" data-field="token"><span>Admin token</span><input name="token" type="password" autocomplete="current-password" required></label>
+      <label class="check"><input type="checkbox" name="remember"> Keep me signed in on this device</label>
+      <button class="btn btn-primary btn-block" type="submit">Sign in</button>
+    </form>
+  </section>
+
+  <div class="admin-app" id="app" hidden>
+    <aside class="side">
+      <a href="/" class="brand brand-light" target="_blank" rel="noopener"><span class="brand-mark" aria-hidden="true"><svg class="icon"><use href="/assets/icons.svg#i-heart"/></svg></span><span class="brand-word">Cafe <b>BAE</b></span></a>
+      <nav class="tabs" id="tabs" aria-label="Dashboard sections">
+        <button type="button" data-tab="overview"><svg class="icon"><use href="/assets/icons.svg#i-sparkle"/></svg>Overview</button>
+        <button type="button" data-tab="orders"><svg class="icon"><use href="/assets/icons.svg#i-receipt"/></svg>Orders<span class="count" data-count="orders"></span></button>
+        <button type="button" data-tab="bookings"><svg class="icon"><use href="/assets/icons.svg#i-calendar"/></svg>Bookings<span class="count" data-count="bookings"></span></button>
+        <button type="button" data-tab="menu"><svg class="icon"><use href="/assets/icons.svg#i-shake"/></svg>Menu</button>
+        <button type="button" data-tab="reviews"><svg class="icon"><use href="/assets/icons.svg#i-star"/></svg>Reviews<span class="count" data-count="reviews"></span></button>
+        <button type="button" data-tab="enquiries"><svg class="icon"><use href="/assets/icons.svg#i-gift"/></svg>Parties<span class="count" data-count="enquiries"></span></button>
+        <button type="button" data-tab="subscribers"><svg class="icon"><use href="/assets/icons.svg#i-mail"/></svg>Subscribers</button>
+        <button type="button" data-tab="settings"><svg class="icon"><use href="/assets/icons.svg#i-clock"/></svg>Settings</button>
+      </nav>
+      <button type="button" class="signout" id="signOut"><svg class="icon"><use href="/assets/icons.svg#i-logout"/></svg>Sign out</button>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <h1 id="viewTitle">Overview</h1>
+          <p class="sub" id="viewSub"></p>
+        </div>
+        <div class="topbar-actions">
+          <span class="status-pill" id="adminStatus"><i aria-hidden="true"></i><span></span></span>
+          <label class="pause-toggle" title="Stop new online orders, e.g. when the kitchen is slammed">
+            <input type="checkbox" id="pauseOrders">
+            <span class="switch" aria-hidden="true"></span>
+            <span>Pause online orders</span>
+          </label>
+          <button type="button" class="icon-btn" id="refreshBtn" aria-label="Refresh"><svg class="icon"><use href="/assets/icons.svg#i-refresh"/></svg></button>
+        </div>
+      </header>
+      <div class="view" id="view" aria-live="polite"></div>
+    </main>
+  </div>
+
+  <div class="toasts" id="toasts" role="status" aria-live="polite"></div>
+  <script type="module" src="/js/admin.js"></script>
+</body>
+</html>

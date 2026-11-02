@@ -1,0 +1,80 @@
+{
+  "name": "Cafe BAE",
+  "city": "Ranchi",
+  "seoTitle": "Cafe BAE Ranchi | Thick Shakes, Coffee & Comfort Food in Lalpur",
+  "tagline": "Thick shakes, slow coffee and comfort plates in Lalpur, Ranchi.",
+  "description": "Cafe BAE is Ranchi's cosy all-day cafe on Hazaribagh Road, Lalpur. Thick shakes, coffee, pizzas, momos, pasta and desserts. Order from your table, pick up, or book a table online.",
+  "website": "https://www.cafebae.in",
+  "phone": "+91 90312 78991",
+  "whatsapp": "919031278991",
+  "email": "",
+  "instagram": "",
+  "address": {
+    "street": "84, Hazaribagh Road, near Hotel Arya, opp. Manjusha Complex",
+    "locality": "Lalpur",
+    "city": "Ranchi",
+    "region": "Jharkhand",
+    "postalCode": "834001",
+    "country": "IN"
+  },
+  "mapsQuery": "Cafe BAE, Hazaribagh Road, Lalpur, Ranchi 834001",
+  "priceForTwo": 500,
+  "cuisines": ["Cafe", "Beverages", "Continental", "Chinese", "Bakery", "Desserts"],
+  "hours": {
+    "mon": ["10:00", "22:00"],
+    "tue": ["10:00", "22:00"],
+    "wed": ["10:00", "22:00"],
+    "thu": ["10:00", "22:00"],
+    "fri": ["10:00", "22:00"],
+    "sat": ["10:00", "22:00"],
+    "sun": ["10:00", "22:00"]
+  },
+  "announcement": "Now taking table bookings online. Skip the weekend wait and reserve your corner.",
+  "outlets": [
+    {
+      "id": "lalpur",
+      "name": "Cafe BAE",
+      "area": "Lalpur",
+      "kind": "The original",
+      "tone": "blush",
+      "blurb": "Our home on Hazaribagh Road. Towering shakes, scan-and-order tables and the after-college buzz Lalpur loves.",
+      "address": "84, Hazaribagh Road, opp. Manjusha Complex, Lalpur, Ranchi 834001",
+      "hours": "10:00 AM – 10:00 PM, every day",
+      "mapsQuery": "Cafe BAE, Hazaribagh Road, Lalpur, Ranchi 834001"
+    },
+    {
+      "id": "yaarana",
+      "name": "Yaarana Rooftop",
+      "area": "Lalpur",
+      "kind": "Open sky",
+      "tone": "sage",
+      "blurb": "Rooftop seating made for birthdays, catch-ups and long evenings with your people.",
+      "address": "84, Hazaribagh Road, Lalpur, Ranchi 834001",
+      "hours": "Call ahead for rooftop timings",
+      "mapsQuery": "Yaarana rooftop by Cafe BAE, Lalpur, Ranchi"
+    },
+    {
+      "id": "yellow",
+      "name": "YELLOW by Cafe BAE",
+      "area": "Dibdih",
+      "kind": "Sunny side",
+      "tone": "butter",
+      "blurb": "Our brightest space on Bypass Road. The same BAE favourites in a sunshine-yellow setting.",
+      "address": "Maria Height, Bypass Road, Dibdih, Ranchi 834002",
+      "hours": "11:00 AM – 10:00 PM, every day",
+      "mapsQuery": "YELLOW by Cafe BAE, Bypass Road, Dibdih, Ranchi"
+    }
+  ],
+  "orders": {
+    "gstPercent": 5,
+    "paused": false,
+    "acceptWhenClosed": false
+  },
+  "reservations": {
+    "slotMinutes": 30,
+    "seatsPerSlot": 40,
+    "maxGuests": 20,
+    "daysAhead": 30,
+    "lastSeatingBeforeCloseMinutes": 60
+  }
+}

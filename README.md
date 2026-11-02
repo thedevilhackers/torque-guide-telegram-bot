@@ -1,5 +1,7 @@
 # Torque Guide Telegram Bot
 
+> This repository also contains the **Cafe BAE Ranchi website** in [`cafe-bae-ranchi/`](cafe-bae-ranchi/README.md). It is a separate app with its own `package.json`.
+
 This is a Node.js Telegram bot for vehicle-tuning enquiries. It uses inline menus to collect the vehicle brand, model, fuel type, model year, ECU family and requested tuning stage. It then uses OpenAI to return a cautious planning estimate: power figures, required parts/work and pre-tuning checks.
 
 It intentionally does **not** generate tune files, claim unverified specifications, or suggest disabling emissions, safety or diagnostic systems.

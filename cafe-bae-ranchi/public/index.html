@@ -1,0 +1,513 @@
+<!doctype html>
+<html lang="en-IN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>{{title}}</title>
+  <meta name="description" content="{{description}}">
+  {{canonicalTag}}
+  <meta name="theme-color" content="#FBF4EA">
+  <meta property="og:type" content="restaurant">
+  <meta property="og:site_name" content="{{name}} {{city}}">
+  <meta property="og:title" content="{{title}}">
+  <meta property="og:description" content="{{description}}">
+  <meta property="og:image" content="{{ogImage}}">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:locale" content="en_IN">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..800;1,9..144,300..800&family=Manrope:wght@400;500;600;700;800&display=swap">
+  <link rel="stylesheet" href="/css/styles.css">
+  <script src="/js/boot.js"></script>
+  <script type="application/ld+json">{{jsonLd}}</script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <div class="announce" id="announce" hidden>
+    <div class="container announce-inner">
+      <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#i-sparkle"/></svg>
+      <p id="announceText"></p>
+      <button class="announce-close" id="announceClose" type="button" aria-label="Dismiss announcement">
+        <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#i-close"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <header class="site-header" id="header">
+    <div class="container header-inner">
+      <a href="#top" class="brand" aria-label="{{name}} home">
+        <span class="brand-mark" aria-hidden="true"><svg class="icon"><use href="/assets/icons.svg#i-heart"/></svg></span>
+        <span class="brand-word">Cafe <b>BAE</b></span>
+      </a>
+      <nav class="nav" id="nav" aria-label="Main">
+        <a href="#menu">Menu</a>
+        <a href="#spaces">Spaces</a>
+        <a href="#reserve">Reserve</a>
+        <a href="#celebrate">Parties</a>
+        <a href="#reviews">Reviews</a>
+        <a href="#visit">Visit</a>
+        <a class="nav-call" href="{{phoneHref}}"><svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#i-phone"/></svg> {{phone}}</a>
+      </nav>
+      <div class="header-actions">
+        <span class="status-pill {{statusClass}}" id="statusPill"><i aria-hidden="true"></i><span>{{statusLabel}}</span></span>
+        <button class="track-chip" id="trackChip" type="button" hidden>
+          <span class="pulse" aria-hidden="true"></span><span id="trackChipText">Track order</span>
+        </button>
+        <button class="cart-btn" id="cartBtn" type="button" aria-label="Open your order">
+          <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#i-bag"/></svg>
+          <span class="cart-count" id="cartCount" hidden>0</span>
+        </button>
+        <button class="menu-toggle" id="menuToggle" type="button" aria-expanded="false" aria-controls="nav" aria-label="Open navigation">
+          <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#i-menu"/></svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="hero" id="top">
+      <div class="container hero-grid">
+        <div class="hero-copy">
+          <div class="table-banner" id="tableBanner" hidden>
+            <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#i-qr"/></svg>
+            <span id="tableBannerText"></span>
+          </div>
+          <p class="eyebrow reveal"><svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#i-pin"/></svg> Hazaribagh Road, Lalpur · Ranchi</p>
+          <h1 class="display reveal">Thick shakes, <em>slow</em> coffee &amp; your favourite corner in Ranchi.</h1>
+          <p class="lead reveal">Cafe BAE is where Ranchi catches up, over towering shakes, comfort plates and conversations that run long. Order from your table, grab it to go, or book the corner you love.</p>
+          <div class="hero-ctas reveal">
+            <a class="btn btn-primary" href="#menu">Order now <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#i-arrow"/></svg></a>
+            <a class="btn btn-ghost" href="#reserve"><svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#i-calendar"/></svg> Book a table</a>
+          </div>
+          <ul class="hero-facts reveal">
+            <li><strong>≈ ₹<span id="priceForTwo">500</span></strong><span>for two</span></li>
+            <li><strong>Veg &amp; non-veg</strong><span>clearly marked</span></li>
+            <li><strong>Scan &amp; order</strong><span>right at your table</span></li>
+          </ul>
+        </div>
+
+        <div class="hero-visual">
+          <svg class="hero-badge" viewBox="0 0 140 140" aria-hidden="true">
+            <defs><path id="badgeCircle" d="M70 70 m-52 0 a52 52 0 1 1 104 0 a52 52 0 1 1 -104 0"/></defs>
+            <circle cx="70" cy="70" r="68" class="badge-bg"/>
+            <g class="badge-spin">
+              <text class="badge-text"><textPath href="#badgeCircle" textLength="318" lengthAdjust="spacing">THICK SHAKES • CAFE BAE • RANCHI •</textPath></text>
+            </g>
+            <path class="badge-heart" d="M70 86s-15-8.9-15-19.5a8.2 8.2 0 0 1 15-4.6 8.2 8.2 0 0 1 15 4.6C85 77.1 70 86 70 86Z"/>
+          </svg>
+
+          <svg class="hero-art" viewBox="0 0 560 620" role="img" aria-labelledby="heroArtTitle">
+            <title id="heroArtTitle">Illustration of a chocolate cookie thick shake and a latte</title>
+            <defs>
+              <linearGradient id="shakeFill" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#A86B4E"/>
+                <stop offset="1" stop-color="#6F4130"/>
+              </linearGradient>
+              <linearGradient id="archFill" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#F7CFC6"/>
+                <stop offset="1" stop-color="#F2B4A8"/>
+              </linearGradient>
+              <clipPath id="glassClip"><path d="M150 250H330L304 562Q302 576 288 576H192Q178 576 176 562Z"/></clipPath>
+            </defs>
+
+            <path d="M48 620V280C48 158 146 60 268 60h24c122 0 220 98 220 220v340Z" fill="url(#archFill)"/>
+            <path d="M74 620V284c0-108 86-196 196-196h20c110 0 196 88 196 196v336" fill="none" stroke="#FFFDF8" stroke-opacity=".55" stroke-width="2" stroke-dasharray="2 10" stroke-linecap="round"/>
+            <circle cx="456" cy="116" r="54" fill="#F5C84C"/>
+
+            <g class="sparkles">
+              <path class="spark s1" d="M112 176c1.3 9 4.6 12.3 13.6 13.6-9 1.3-12.3 4.6-13.6 13.6-1.3-9-4.6-12.3-13.6-13.6 9-1.3 12.3-4.6 13.6-13.6Z" fill="#E8553E"/>
+              <path class="spark s2" d="M486 312c1 7 3.6 9.6 10.6 10.6-7 1-9.6 3.6-10.6 10.6-1-7-3.6-9.6-10.6-10.6 7-1 9.6-3.6 10.6-10.6Z" fill="#2A1B14"/>
+              <path class="spark s3" d="M96 420c.8 5.5 2.8 7.5 8.3 8.3-5.5.8-7.5 2.8-8.3 8.3-.8-5.5-2.8-7.5-8.3-8.3 5.5-.8 7.5-2.8 8.3-8.3Z" fill="#F5C84C"/>
+            </g>
+
+            <ellipse cx="240" cy="586" rx="96" ry="10" fill="#2A1B14" opacity=".12"/>
+
+            <!-- straw -->
+            <line x1="292" y1="262" x2="344" y2="72" stroke="#FFFDF8" stroke-width="16" stroke-linecap="round"/>
+            <line x1="292" y1="262" x2="344" y2="72" stroke="#E8553E" stroke-width="16" stroke-dasharray="13 13"/>
+
+            <!-- shake in glass -->
+            <g clip-path="url(#glassClip)">
+              <rect x="140" y="250" width="200" height="340" fill="url(#shakeFill)"/>
+              <g fill="#3A2620" opacity=".55">
+                <circle cx="200" cy="380" r="4"/><circle cx="262" cy="410" r="5"/><circle cx="232" cy="460" r="3"/>
+                <circle cx="282" cy="352" r="3"/><circle cx="214" cy="512" r="4"/><circle cx="270" cy="500" r="3"/>
+                <circle cx="190" cy="440" r="3"/><circle cx="246" cy="540" r="4"/><circle cx="296" cy="452" r="3"/>
+              </g>
+              <g fill="#4A2A1E">
+                <rect x="140" y="250" width="200" height="26"/>
+                <rect x="158" y="262" width="13" height="44" rx="6.5"/>
+                <rect x="181" y="262" width="13" height="70" rx="6.5"/>
+                <rect x="205" y="262" width="13" height="36" rx="6.5"/>
+                <rect x="228" y="262" width="13" height="58" rx="6.5"/>
+                <rect x="252" y="262" width="13" height="84" rx="6.5"/>
+                <rect x="276" y="262" width="13" height="40" rx="6.5"/>
+                <rect x="299" y="262" width="13" height="64" rx="6.5"/>
+                <rect x="320" y="262" width="13" height="34" rx="6.5"/>
+              </g>
+            </g>
+            <path d="M150 250H330L304 562Q302 576 288 576H192Q178 576 176 562Z" fill="none" stroke="#FFFDF8" stroke-opacity=".8" stroke-width="5" stroke-linejoin="round"/>
+            <path d="M170 300 186 540" stroke="#FFFDF8" stroke-opacity=".45" stroke-width="9" stroke-linecap="round"/>
+
+            <!-- whipped cream -->
+            <g fill="#E9D5C1">
+              <circle cx="170" cy="250" r="26"/><circle cx="206" cy="232" r="32"/><circle cx="246" cy="224" r="34"/>
+              <circle cx="286" cy="234" r="30"/><circle cx="316" cy="250" r="24"/><circle cx="224" cy="196" r="26"/>
+              <circle cx="264" cy="198" r="26"/><circle cx="244" cy="170" r="22"/>
+            </g>
+            <g fill="#FFF7EC">
+              <circle cx="168" cy="244" r="26"/><circle cx="204" cy="226" r="32"/><circle cx="244" cy="218" r="34"/>
+              <circle cx="284" cy="228" r="30"/><circle cx="314" cy="244" r="24"/><circle cx="222" cy="190" r="26"/>
+              <circle cx="262" cy="192" r="26"/><circle cx="242" cy="164" r="22"/>
+            </g>
+            <path d="M178 236c18-18 34 14 54-10s36 12 54-10 24 10 32 2" fill="none" stroke="#4A2A1E" stroke-width="6" stroke-linecap="round"/>
+            <path d="M212 196c14-12 30 8 44-10" fill="none" stroke="#4A2A1E" stroke-width="5" stroke-linecap="round"/>
+
+            <!-- cookie -->
+            <g transform="rotate(-18 312 196)">
+              <circle cx="312" cy="196" r="22" fill="#2E201B"/>
+              <circle cx="312" cy="196" r="15" fill="none" stroke="#5A463D" stroke-width="2" stroke-dasharray="3 4"/>
+            </g>
+
+            <!-- cherry -->
+            <path d="M246 126c2-17 12-27 24-31" fill="none" stroke="#4F6B3A" stroke-width="4" stroke-linecap="round"/>
+            <circle cx="244" cy="140" r="17" fill="#D93A2B"/>
+            <circle cx="238" cy="134" r="4.5" fill="#FFFDF8" opacity=".7"/>
+
+            <!-- latte -->
+            <ellipse cx="440" cy="580" rx="90" ry="12" fill="#2A1B14" opacity=".1"/>
+            <ellipse cx="440" cy="566" rx="94" ry="17" fill="#FFFDF8"/>
+            <ellipse cx="440" cy="562" rx="58" ry="8" fill="#F1E4D3"/>
+            <path d="M506 486c40-4 42 50-6 46" fill="none" stroke="#FFFDF8" stroke-width="13" stroke-linecap="round"/>
+            <path d="M372 470h136v26c0 42-28 64-68 64s-68-22-68-64Z" fill="#FFFDF8"/>
+            <path d="M440 534s-11-6.5-11-14.3a6 6 0 0 1 11-3.4 6 6 0 0 1 11 3.4c0 7.8-11 14.3-11 14.3Z" fill="#E8553E"/>
+            <ellipse cx="440" cy="470" rx="68" ry="13" fill="#9B6244" stroke="#F3E7D8" stroke-width="5"/>
+            <path d="M440 478c-14-8-16-16-8-18 4-1 7 2 8 5 1-3 4-6 8-5 8 2 6 10-8 18Z" fill="#F3DDC4"/>
+            <g class="steam" fill="none" stroke="#FFFDF8" stroke-width="6" stroke-linecap="round" opacity=".9">
+              <path class="st1" d="M418 446c-10-16 12-26 2-44"/>
+              <path class="st2" d="M442 440c-10-20 14-30 2-54"/>
+              <path class="st3" d="M466 446c-10-16 12-26 2-42"/>
+            </g>
+          </svg>
+
+          <a class="hero-tag" id="heroTag" href="#favourites" hidden>
+            <span class="hero-tag-icon" aria-hidden="true"><svg class="icon"><use href="/assets/icons.svg#i-heart"/></svg></span>
+            <span><small>Crowd favourite</small><strong id="heroTagName"></strong></span>
+            <span class="hero-tag-price" id="heroTagPrice"></span>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <div class="marquee" aria-hidden="true">
+      <div class="marquee-track">
+        <span>Thick shakes</span><i>✦</i><span>Cold coffee</span><i>✦</i><span>Momos</span><i>✦</i><span>Cheesy pizzas</span><i>✦</i><span>Sizzling brownies</span><i>✦</i><span>Rooftop evenings</span><i>✦</i>
+        <span>Thick shakes</span><i>✦</i><span>Cold coffee</span><i>✦</i><span>Momos</span><i>✦</i><span>Cheesy pizzas</span><i>✦</i><span>Sizzling brownies</span><i>✦</i><span>Rooftop evenings</span><i>✦</i>
+      </div>
+    </div>
+
+    <section class="section favourites" id="favourites">
+      <div class="container">
+        <div class="section-head reveal">
+          <div>
+            <p class="kicker">Most loved</p>
+            <h2 class="title">The BAE classics</h2>
+          </div>
+          <div class="rail-nav">
+            <button type="button" class="icon-btn" id="favPrev" aria-label="Scroll favourites left"><svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#i-chevron-left"/></svg></button>
+            <button type="button" class="icon-btn" id="favNext" aria-label="Scroll favourites right"><svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#i-chevron-right"/></svg></button>
+          </div>
+        </div>
+        <div class="fav-rail" id="favRail"></div>
+      </div>
+    </section>
+
+    <section class="section menu-section" id="menu">
+      <div class="container">
+        <div class="section-head reveal">
+          <div>
+            <p class="kicker">Made to order</p>
+            <h2 class="title">The menu</h2>
+          </div>
+          <p class="section-note">Order for your table or for pickup. You pay at the counter or at your table, no app needed.</p>
+        </div>
+        <div class="menu-toolbar">
+          <label class="search">
+            <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#i-search"/></svg>
+            <input id="menuSearch" type="search" placeholder="Search shakes, momos, pizza…" aria-label="Search the menu" autocomplete="off">
+          </label>
+          <label class="veg-toggle">
+            <input type="checkbox" id="vegOnly">
+            <span class="switch" aria-hidden="true"></span>
+            <span><i class="diet veg" aria-hidden="true"></i> Veg only</span>
+          </label>
+        </div>
+        <nav class="cat-nav" id="catNav" aria-label="Menu categories"></nav>
+        <div id="menuList" class="menu-list"></div>
+        <p class="menu-foot">Prices in ₹ and exclusive of 5% GST. Please tell us about any allergies when you order.</p>
+      </div>
+    </section>
+
+    <section class="section how">
+      <div class="container">
+        <div class="section-head reveal">
+          <div>
+            <p class="kicker">Your way</p>
+            <h2 class="title">Three ways to BAE</h2>
+          </div>
+        </div>
+        <ol class="how-grid">
+          <li class="how-card reveal">
+            <span class="how-icon tone-blush"><svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#i-qr"/></svg></span>
+            <h3>Scan &amp; order at your table</h3>
+            <p>Scan the code on your table, add what you fancy and send it straight to the kitchen. Watch it go from <em>received</em> to <em>ready</em> live.</p>
+          </li>
+          <li class="how-card reveal">
+            <span class="how-icon tone-butter"><svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#i-bag"/></svg></span>
+            <h3>Order ahead, pick it up</h3>
+            <p>Running late for class or work? Order online and we'll let you know the moment your shake is ready at the counter.</p>
+          </li>
+          <li class="how-card reveal">
+            <span class="how-icon tone-sage"><svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#i-calendar"/></svg></span>
+            <h3>Book the corner you love</h3>
+            <p>Reserve a table in seconds for dates, birthdays and big group catch-ups. See which times are still free before you book.</p>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <section class="section spaces" id="spaces">
+      <div class="container">
+        <div class="section-head reveal">
+          <div>
+            <p class="kicker">Our spaces</p>
+            <h2 class="title">Three moods, one BAE</h2>
+          </div>
+          <p class="section-note">From the original Lalpur cafe to open-sky evenings and our sunniest space in Dibdih.</p>
+        </div>
+        <div class="spaces-grid" id="spacesGrid"></div>
+      </div>
+    </section>
+
+    <section class="section reserve" id="reserve">
+      <div class="container reserve-grid">
+        <div class="reserve-copy reveal">
+          <p class="kicker">Reservations</p>
+          <h2 class="title">Save your seat.<br><em>Skip the wait.</em></h2>
+          <p class="lead">Pick a day, a time and how many of you are coming. You'll see live availability, and our team will call or WhatsApp to confirm.</p>
+          <ul class="perks">
+            <li><svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#i-check"/></svg> <span>Free to book, no deposit</span></li>
+            <li><svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#i-check"/></svg> <span>Groups of up to <span id="maxGuests">20</span> online</span></li>
+            <li><svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#i-check"/></svg> <span>Tell us the occasion and we'll do our best to make it special</span></li>
+          </ul>
+          <p class="reserve-call">Bigger group or same-day plan? Call us on <a href="{{phoneHref}}">{{phone}}</a></p>
+        </div>
+
+        <div class="book-card reveal" id="bookCard">
+          <form id="bookForm" novalidate>
+            <fieldset class="book-step">
+              <legend>1 · Pick a day</legend>
+              <div class="date-strip" id="dateStrip" role="radiogroup" aria-label="Booking date"></div>
+            </fieldset>
+            <div class="book-step book-guests">
+              <span class="legend" id="guestsLabel">2 · Guests</span>
+              <div class="stepper stepper-lg" role="group" aria-labelledby="guestsLabel">
+                <button type="button" id="guestsMinus" aria-label="Fewer guests"><svg class="icon"><use href="/assets/icons.svg#i-minus"/></svg></button>
+                <output id="guestsOut" aria-live="polite">2</output>
+                <button type="button" id="guestsPlus" aria-label="More guests"><svg class="icon"><use href="/assets/icons.svg#i-plus"/></svg></button>
+              </div>
+            </div>
+            <fieldset class="book-step" data-field="time">
+              <legend>3 · Pick a time</legend>
+              <div class="slot-grid" id="slotGrid" role="radiogroup" aria-label="Booking time"></div>
+              <p class="slot-msg" id="slotMsg"></p>
+            </fieldset>
+            <div class="field-row">
+              <label class="field" data-field="name"><span>Your name</span><input name="name" autocomplete="name" maxlength="60" required></label>
+              <label class="field" data-field="phone"><span>Mobile number</span><input name="phone" type="tel" inputmode="tel" autocomplete="tel" maxlength="16" placeholder="98765 43210" required></label>
+            </div>
+            <div class="field-row">
+              <label class="field" data-field="occasion"><span>Occasion</span>
+                <select name="occasion">
+                  <option value="">Just because</option>
+                  <option value="birthday">Birthday</option>
+                  <option value="date">Date night</option>
+                  <option value="anniversary">Anniversary</option>
+                  <option value="friends">Friends catch-up</option>
+                  <option value="family">Family outing</option>
+                  <option value="work">Work meeting</option>
+                  <option value="other">Something else</option>
+                </select>
+              </label>
+              <label class="field" data-field="email"><span>Email <i>(optional)</i></span><input name="email" type="email" autocomplete="email" maxlength="254"></label>
+            </div>
+            <label class="field" data-field="notes"><span>Anything we should know? <i>(optional)</i></span><textarea name="notes" rows="2" maxlength="300" placeholder="High chair, window seat, surprise cake…"></textarea></label>
+            <input class="hp" name="company" tabindex="-1" autocomplete="off" aria-hidden="true">
+            <button class="btn btn-accent btn-block" type="submit" id="bookSubmit">Request booking</button>
+            <p class="form-note">No payment needed. We'll confirm by phone or WhatsApp.</p>
+          </form>
+          <div class="book-done" id="bookDone" hidden></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section celebrate" id="celebrate">
+      <div class="container celebrate-grid">
+        <div class="celebrate-copy reveal">
+          <p class="kicker">Parties &amp; events</p>
+          <h2 class="title">Birthdays, rooftop evenings &amp; <em>yaarana</em>.</h2>
+          <p class="lead">Planning something bigger? From surprise birthdays to college farewells and team dinners, tell us what you have in mind and we'll put together a plan for your group.</p>
+          <ul class="celebrate-list">
+            <li><span class="tone-blush"><svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#i-gift"/></svg></span><div><strong>Birthdays &amp; surprises</strong><p>Cakes, decor requests and the perfect table.</p></div></li>
+            <li><span class="tone-sage"><svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#i-users"/></svg></span><div><strong>Group get-togethers</strong><p>Set menus and shareable platters for big groups.</p></div></li>
+            <li><span class="tone-butter"><svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#i-sparkle"/></svg></span><div><strong>Rooftop evenings</strong><p>Open-sky seating at Yaarana Rooftop.</p></div></li>
+          </ul>
+        </div>
+        <form class="enquiry-card reveal" id="enquiryForm" novalidate>
+          <h3>Plan your party</h3>
+          <div class="field-row">
+            <label class="field" data-field="name"><span>Your name</span><input name="name" autocomplete="name" maxlength="60" required></label>
+            <label class="field" data-field="phone"><span>Mobile number</span><input name="phone" type="tel" inputmode="tel" autocomplete="tel" maxlength="16" required></label>
+          </div>
+          <div class="field-row">
+            <label class="field" data-field="date"><span>Date <i>(optional)</i></span><input name="date" type="date" id="enquiryDate"></label>
+            <label class="field" data-field="guests"><span>Guests <i>(approx.)</i></span><input name="guests" type="number" min="1" max="500" inputmode="numeric"></label>
+          </div>
+          <label class="field" data-field="email"><span>Email <i>(optional)</i></span><input name="email" type="email" autocomplete="email" maxlength="254"></label>
+          <label class="field" data-field="message"><span>Tell us about it</span><textarea name="message" rows="3" maxlength="1000" required placeholder="A surprise 21st for 15 friends, rooftop if possible…"></textarea></label>
+          <input class="hp" name="company" tabindex="-1" autocomplete="off" aria-hidden="true">
+          <button class="btn btn-primary btn-block" type="submit">Send enquiry</button>
+        </form>
+      </div>
+    </section>
+
+    <section class="section reviews" id="reviews">
+      <div class="container">
+        <div class="section-head reveal">
+          <div>
+            <p class="kicker">Love notes</p>
+            <h2 class="title">What our guests say</h2>
+          </div>
+          <div class="review-stats" id="reviewStats"></div>
+        </div>
+        <div class="reviews-grid">
+          <div class="review-list" id="reviewList" aria-live="polite"></div>
+          <form class="review-form reveal" id="reviewForm" novalidate>
+            <h3>Been to BAE? Leave a note.</h3>
+            <fieldset class="star-input" data-field="rating">
+              <legend>Your rating</legend>
+              <div class="stars-pick" id="starsPick">
+                <input type="radio" name="rating" id="r5" value="5"><label for="r5" title="Loved it"><svg class="icon"><use href="/assets/icons.svg#i-star"/></svg><span class="sr-only">5 stars</span></label>
+                <input type="radio" name="rating" id="r4" value="4"><label for="r4" title="Really good"><svg class="icon"><use href="/assets/icons.svg#i-star"/></svg><span class="sr-only">4 stars</span></label>
+                <input type="radio" name="rating" id="r3" value="3"><label for="r3" title="Good"><svg class="icon"><use href="/assets/icons.svg#i-star"/></svg><span class="sr-only">3 stars</span></label>
+                <input type="radio" name="rating" id="r2" value="2"><label for="r2" title="Could be better"><svg class="icon"><use href="/assets/icons.svg#i-star"/></svg><span class="sr-only">2 stars</span></label>
+                <input type="radio" name="rating" id="r1" value="1"><label for="r1" title="Not for me"><svg class="icon"><use href="/assets/icons.svg#i-star"/></svg><span class="sr-only">1 star</span></label>
+              </div>
+            </fieldset>
+            <label class="field" data-field="name"><span>Your name</span><input name="name" autocomplete="given-name" maxlength="40" required></label>
+            <label class="field" data-field="text"><span>Your review</span><textarea name="text" rows="4" maxlength="600" required placeholder="What did you order? How was it?"></textarea></label>
+            <input class="hp" name="company" tabindex="-1" autocomplete="off" aria-hidden="true">
+            <button class="btn btn-primary btn-block" type="submit">Post review</button>
+            <p class="form-note">Reviews appear after a quick check by our team.</p>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <section class="section visit" id="visit">
+      <div class="container visit-grid">
+        <div class="visit-map reveal">
+          <div class="map-fallback" aria-hidden="true">
+            <span class="pin"><svg class="icon"><use href="/assets/icons.svg#i-heart"/></svg></span>
+            <strong>Cafe BAE, Lalpur</strong>
+            <p>Hazaribagh Road, opposite Manjusha Complex. Tap “Get directions” for turn-by-turn navigation.</p>
+          </div>
+          <iframe title="Map showing {{name}}, {{city}}" src="{{mapsEmbed}}" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe>
+        </div>
+        <div class="visit-card reveal">
+          <p class="kicker">Come say hi</p>
+          <h2 class="title">Visit us</h2>
+          <ul class="visit-list">
+            <li><svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#i-pin"/></svg><div><strong>Address</strong><p>{{address}}</p></div></li>
+            <li><svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#i-phone"/></svg><div><strong>Call or WhatsApp</strong><p><a href="{{phoneHref}}">{{phone}}</a></p></div></li>
+            <li><svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#i-clock"/></svg><div><strong>Opening hours</strong><table class="hours" id="hoursTable"><tbody></tbody></table></div></li>
+          </ul>
+          <div class="visit-ctas">
+            <a class="btn btn-primary" href="{{mapsLink}}" target="_blank" rel="noopener"><svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#i-directions"/></svg> Get directions</a>
+            <a class="btn btn-ghost" id="whatsappLink" href="#" target="_blank" rel="noopener"><svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#i-whatsapp"/></svg> WhatsApp us</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="newsletter">
+      <div class="container newsletter-inner reveal">
+        <div>
+          <h2 class="title">First sips of new drops.</h2>
+          <p>New shakes, seasonal specials and event nights. One short email, now and then.</p>
+        </div>
+        <form class="newsletter-form" id="newsletterForm" novalidate>
+          <label class="sr-only" for="newsletterEmail">Email address</label>
+          <input id="newsletterEmail" name="email" type="email" placeholder="you@example.com" autocomplete="email" required>
+          <input class="hp" name="company" tabindex="-1" autocomplete="off" aria-hidden="true">
+          <button class="btn btn-accent" type="submit">Subscribe</button>
+        </form>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-grid">
+      <div class="footer-brand">
+        <a href="#top" class="brand brand-light"><span class="brand-mark" aria-hidden="true"><svg class="icon"><use href="/assets/icons.svg#i-heart"/></svg></span><span class="brand-word">Cafe <b>BAE</b></span></a>
+        <p>Shakes, coffee &amp; comfort food in Lalpur, Ranchi.</p>
+      </div>
+      <div>
+        <h4>Explore</h4>
+        <ul><li><a href="#menu">Menu</a></li><li><a href="#reserve">Book a table</a></li><li><a href="#celebrate">Parties &amp; events</a></li><li><a href="#reviews">Reviews</a></li></ul>
+      </div>
+      <div>
+        <h4>Visit</h4>
+        <ul><li>{{address}}</li><li><a href="{{phoneHref}}">{{phone}}</a></li></ul>
+      </div>
+      <div>
+        <h4>Hours</h4>
+        <p id="footerHours">10:00 AM – 10:00 PM</p>
+        <p class="status-line"><span class="status-pill {{statusClass}}" id="footerStatus"><i aria-hidden="true"></i><span>{{statusLabel}}</span></span></p>
+      </div>
+    </div>
+    <div class="container footer-base">
+      <p>© {{year}} {{name}}, {{city}}. All rights reserved.</p>
+      <p>Prices exclude 5% GST. Menu and availability may change.</p>
+    </div>
+  </footer>
+
+  <button class="cart-bar" id="cartBar" type="button" hidden>
+    <span class="cart-bar-count" id="cartBarCount"></span>
+    <span class="cart-bar-total" id="cartBarTotal"></span>
+    <span class="cart-bar-cta">View order <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#i-arrow"/></svg></span>
+  </button>
+
+  <div class="scrim" id="scrim" hidden></div>
+  <aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-labelledby="drawerTitle" inert>
+    <div class="drawer-head">
+      <h2 id="drawerTitle">Your order</h2>
+      <button class="icon-btn" id="drawerClose" type="button" aria-label="Close">
+        <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#i-close"/></svg>
+      </button>
+    </div>
+    <div class="drawer-body" id="drawerBody"></div>
+  </aside>
+
+  <div class="toasts" id="toasts" role="status" aria-live="polite"></div>
+
+  <script type="application/json" id="boot">{{boot}}</script>
+  <script type="module" src="/js/app.js"></script>
+</body>
+</html>
