@@ -13,6 +13,20 @@ namespace Gateway;
  */
 final class MagnusBilling
 {
+    /**
+     * MagnusBilling's SqlInject filter rejects any request value containing these strings (case-insensitive),
+     * logs it as an attack and, after three hits, bans the caller's IP. For this gateway that IP is the
+     * server itself, so such values are never sent; see isSafeValue().
+     */
+    private const MAGNUS_BLOCKED = [
+        'update ', 'select ', ' set ', ' table ', 'delete from', ' database ', 'drop table', 'drop database',
+        'schema', 'concat', 'foreign_key', 'truncate ', 'create ', 'print', 'echo ', 'while', 'shell_exec',
+        'popen', 'proc_open', 'passthru', 'eval', 'assert', 'fopen', 'file_get_contents', 'file_put_contents',
+        'unlink', 'mkdir', 'rmdir', 'copy', 'rename', 'curl_exec', 'curl_init', 'fsockopen', 'socket_connect',
+        'mysql_query', 'mysqli_query', 'pg_query', 'sqlite_query', 'prepare', 'alert', 'src=', '<img',
+        'console', 'extractvalue',
+    ];
+
     /** @var string */
     private $url;
     /** @var string */
@@ -40,6 +54,14 @@ final class MagnusBilling
         }
 
         $request = array_merge(['module' => $module, 'action' => $action], $params);
+        foreach ($request as $key => $value) {
+            $values = $key === 'filter' ? self::filterValues((string) $value) : [(string) $value];
+            foreach ($values as $item) {
+                if (!self::isSafeValue($item)) {
+                    throw new \RuntimeException('Refusing to send a value MagnusBilling would treat as an attack (field "' . $key . '").');
+                }
+            }
+        }
         $mt = explode(' ', microtime());
         $request['nonce'] = $mt[1] . substr($mt[0], 2, 6);
 
@@ -99,6 +121,9 @@ final class MagnusBilling
      */
     public function findUser(string $username): ?array
     {
+        if (!self::isSafeValue($username)) {
+            return null;
+        }
         $rows = $this->read('user', [[
             'type' => 'string',
             'field' => 'username',
@@ -169,6 +194,43 @@ final class MagnusBilling
         }
 
         return is_array($rows) ? $rows : [];
+    }
+
+    /**
+     * True if MagnusBilling's SqlInject filter would accept $value (see MAGNUS_BLOCKED).
+     */
+    public static function isSafeValue(string $value): bool
+    {
+        if (strlen($value) > 250) {
+            return false;
+        }
+        $lower = strtolower($value);
+        foreach (self::MAGNUS_BLOCKED as $blocked) {
+            if (strpos($lower, $blocked) !== false) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * @return string[] the scalar values inside a JSON filter, as MagnusBilling inspects them
+     */
+    private static function filterValues(string $json): array
+    {
+        $decoded = json_decode($json, true);
+        if (!is_array($decoded)) {
+            return [$json];
+        }
+        $values = [];
+        array_walk_recursive($decoded, static function ($value) use (&$values): void {
+            if (is_string($value)) {
+                $values[] = $value;
+            }
+        });
+
+        return $values;
     }
 
     private static function message(array $result, string $fallback): string

@@ -27,6 +27,9 @@ final class FakeServices
     /** @var array<int,array<string,mixed>> */
     public $magnusCalls = [];
 
+    /** Requests MagnusBilling's SqlInject filter would have flagged (3 = server IP banned). */
+    public $sqlInjectStrikes = 0;
+
     public $magnusDown = false;
     public $oxapayDown = false;
     /** Simulates a refill that is saved by MagnusBilling but whose reply is lost. */
@@ -107,6 +110,27 @@ final class FakeServices
             return ['status' => 404, 'body' => 'route mismatch'];
         }
         $this->magnusCalls[] = $post;
+
+        // --- Same idea as MagnusBilling's SqlInject::sanitize(): flag and, after 3 hits, ban the caller.
+        if ($this->sqlInjectStrikes > 2) {
+            return ['status' => 200, 'body' => 'banned'];
+        }
+        $blocked = ['update ', 'select ', ' set ', ' table ', 'schema', 'concat', 'create ', 'print', 'echo ', 'while',
+            'eval', 'assert', 'unlink', 'mkdir', 'copy', 'rename', 'prepare', 'alert', 'src=', '<img', 'console'];
+        $scan = [];
+        array_walk_recursive($post, function ($value) use (&$scan) { $scan[] = (string) $value; });
+        if (isset($post['filter'])) {
+            $decoded = json_decode((string) $post['filter'], true);
+            array_walk_recursive($decoded, function ($value) use (&$scan) { $scan[] = (string) $value; });
+        }
+        foreach ($scan as $value) {
+            foreach ($blocked as $word) {
+                if (strpos(strtolower($value), $word) !== false || strlen($value) > 1000) {
+                    $this->sqlInjectStrikes++;
+                    return self::json(['rows' => [], 'count' => 0, 'success' => false, 'errors' => 'Invalid request parameters.']);
+                }
+            }
+        }
 
         $filters = isset($post['filter']) ? json_decode((string) $post['filter'], true) : [];
 

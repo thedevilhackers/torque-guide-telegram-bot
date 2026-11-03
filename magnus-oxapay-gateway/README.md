@@ -24,65 +24,120 @@ Features:
 - **Safe crediting**: webhooks are checked with HMAC and re-checked with OxaPay's API. Each order is credited once, even if OxaPay sends the webhook several times or MagnusBilling times out mid-request.
 - No Composer and no framework: plain PHP 7.4+ with the `curl` extension and either SQLite or MySQL.
 
-## 1. Install on the MagnusBilling server
+## 1. Install on your MagnusBilling server (one command)
 
-These steps assume Debian/Ubuntu with Apache, which is what the MagnusBilling installer sets up. They also assume `www.unitycarrier.com` points to that server. If your website is hosted somewhere else, see [Hosting it elsewhere](#hosting-it-elsewhere).
+`install.sh` installs the gateway on a server that already runs MagnusBilling 7 or 8 on Debian 11, 12 or 13, for example Unity Carrier's server `212.113.119.248`. It doesn't modify MagnusBilling's files, Asterisk or the firewall, and you can safely run it again.
 
-```bash
-cd /var/www
-git clone <this repository> unity-src
-cp -r unity-src/magnus-oxapay-gateway /var/www/magnus-oxapay-gateway
-cd /var/www/magnus-oxapay-gateway
-cp config.example.php config.php
-```
+Before you start, have these ready:
 
-```bash
-apt-get install -y php-sqlite3 php-curl php-mbstring
-```
+- **OxaPay merchant API key**: OxaPay dashboard → Merchant Service → Generate API key. You can also add it later.
+- **Optional:** a domain for HTTPS, for example `pay.unitycarrier.com`, with a DNS **A record** pointing to `212.113.119.248`.
+- **Optional:** a Telegram bot token from [@BotFather](https://t.me/BotFather).
 
-Give the web server write access to `data/` and keep `config.php` private:
+Log in to the server as root over SSH and download the code. GitHub asks for your username and a personal access token if the repository is private.
 
 ```bash
-chown -R www-data:www-data data
-chmod 750 data
-chown root:www-data config.php
-chmod 640 config.php
+cd /root
+git clone -b claude/inspiring-euler-lb921s https://github.com/thedevilhackers/torque-guide-telegram-bot.git unitycarrier-src
 ```
 
-The MagnusBilling installer already installs `php-sqlite3`, `php-curl` and `php-mbstring` and opens ports 80/443, so the `apt-get` line above is usually a no-op and no firewall change is needed.
+Alternatively, download the branch as a ZIP from GitHub, upload it to `/root` with WinSCP, and unzip it.
 
-Publish **only** the `public/` folder at `https://www.unitycarrier.com/pay`:
+Run the installer and answer its questions. Pressing Enter accepts the value in brackets.
 
 ```bash
-ln -s /var/www/magnus-oxapay-gateway/public /var/www/html/pay
+bash /root/unitycarrier-src/magnus-oxapay-gateway/install.sh
 ```
 
-```bash
-systemctl reload apache2
+```
+==> Checking the server
+  ✓ Debian GNU/Linux 13 (trixie)
+  ✓ MagnusBilling, Apache and PHP 8.4 found
+==> Settings
+  Company name [Unity Carrier]:
+  Public IP of this server [212.113.119.248]:
+  Domain for the payment page (leave empty to use the IP): pay.unitycarrier.com
+  OxaPay merchant API key (can be added later): ********
+  Start in OxaPay test mode (sandbox, no real money)? [y/N]: y
+  Telegram bot token: ********
+==> Configuring (MagnusBilling API key, OxaPay, Telegram)
+  ✓ Created a MagnusBilling API key for admin 'root' (create + read, 127.0.0.1 only)
+  ✓ MagnusBilling API works at http://127.0.0.1/mbilling
+...
+Unity Carrier top-up gateway is installed.
+  Payment page:     https://pay.unitycarrier.com/pay/
 ```
 
-OxaPay and Telegram need **HTTPS**. If the site does not have a certificate yet, get one with `certbot --apache -d www.unitycarrier.com`.
+What the installer does:
 
-> Never put the whole `magnus-oxapay-gateway` folder inside `/var/www/html`. `config.php` and `data/` must stay outside the web root. The included `.htaccess` files are only a backup safeguard.
+| Step | Details |
+| --- | --- |
+| Files | Copies the app to `/var/www/unitycarrier-pay`. Only its `public/` folder is published, at `/pay`, through the link `/var/www/html/pay`. `config.php` (mode 640) and `data/` (www-data, mode 750) stay out of reach of the web. |
+| MagnusBilling | Adds one API key to **Settings → API** with **create + read** permission, usable from `127.0.0.1` only. The installer reads the database login from `/etc/asterisk/res_config_mysql.conf`. |
+| Domain | If the domain resolves to this server, it adds an Apache site for it and offers a free Let's Encrypt certificate. No redirect is added, and the existing IP access and `/mbilling` keep working. Without a domain, the page runs at `http://212.113.119.248/pay/`. |
+| Telegram | With HTTPS the bot uses a webhook. Without HTTPS, the installer creates a `unitycarrier-pay-bot` systemd service that uses long polling. |
+| Check | Ends with `bin/cli.php check`, which tests the database, MagnusBilling API, OxaPay key and Telegram. |
 
-## 2. Create the MagnusBilling API key
+Common follow-ups. The installed copy includes the installer, so you can run these from anywhere as `bash /var/www/unitycarrier-pay/install.sh ...`:
 
-1. In MagnusBilling, open **Settings → API** and click **Add**.
-2. **Username**: your admin user (for example `root`).
-3. **API key** and **API secret**: two different random strings of 15 or more characters, with no spaces. `php bin/cli.php secret` prints one.
-4. **Action**: allow **create** and **read** (`cr`). The gateway reads users and refills and creates refills. It never updates or deletes anything.
-5. **Allowed IPs**: the IP address the gateway calls from. Use `127.0.0.1` when it runs on the Magnus server itself.
-6. **Status**: active.
+- **Change settings** (amounts, bonus, colours, test/live): edit `/var/www/unitycarrier-pay/config.php`, then run the installer again. Your edits are kept.
+- **Go live after testing**:
 
-Put them in `config.php`:
+  ```bash
+  bash install.sh --live
+  ```
 
-```php
-'magnus' => [
-    'url' => 'http://127.0.0.1/mbilling',
-    'api_key' => '...',
-    'api_secret' => '...',
-],
-```
+- **Add HTTPS later**:
+
+  ```bash
+  bash install.sh --domain pay.unitycarrier.com
+  ```
+
+- **Update to a newer version**: run `git pull` in `/root/unitycarrier-src`, then run `/root/unitycarrier-src/magnus-oxapay-gateway/install.sh` again.
+- **Remove it**: this removes the page, the bot service and the Magnus API key, and keeps the payment records.
+
+  ```bash
+  bash install.sh --uninstall
+  ```
+
+  Add `--purge` to delete the records too.
+
+- **Unattended install**:
+
+  ```bash
+  bash install.sh --yes --company "Unity Carrier" --ip 212.113.119.248 --oxapay-key KEY --sandbox
+  ```
+
+### Manual install
+
+If you'd rather not use the installer:
+
+1. Copy the folder to `/var/www/unitycarrier-pay` and run `cp config.example.php config.php`.
+2. Fix ownership and permissions:
+
+   ```bash
+   chown -R www-data:www-data data
+   chmod 750 data
+   chown root:www-data config.php
+   chmod 640 config.php
+   ```
+
+3. Link only `public/`:
+
+   ```bash
+   ln -s /var/www/unitycarrier-pay/public /var/www/html/pay
+   ```
+
+4. Create the API key yourself: **Settings → API → Add**, with these settings:
+   - user `root`
+   - a random key and a different random secret, 15+ characters, no spaces
+   - action `cr`
+   - allowed IPs `127.0.0.1`
+   - status active
+
+   Then put the key and secret in `config.php` under `magnus`.
+
+> Never put the whole folder inside `/var/www/html`. Only `public/` may be reachable from the web.
 
 ## 3. Create the OxaPay merchant key
 
@@ -92,9 +147,10 @@ Set `'sandbox' => true` while you test. In sandbox mode, invoices use OxaPay's t
 
 ## 4. Check the setup
 
+The installer runs this check at the end. Run it again any time with:
+
 ```bash
-cd /var/www/magnus-oxapay-gateway
-php bin/cli.php check
+php /var/www/unitycarrier-pay/bin/cli.php check
 ```
 
 ```
@@ -110,14 +166,8 @@ Open `https://www.unitycarrier.com/pay/`, enter a username and an amount, and pa
 ## 5. Telegram bot (optional)
 
 1. Message [@BotFather](https://t.me/BotFather), send `/newbot`, and copy the token.
-2. In `config.php`, set `telegram.enabled => true`, `bot_token`, `bot_username`, and `webhook_secret` (use `php bin/cli.php secret`).
-3. Connect the bot:
-
-```bash
-php bin/cli.php telegram:webhook
-```
-
-4. Send `/id` to your bot. Put the number it replies with into `telegram.admin_chat_ids`. That chat then gets payment alerts and the admin commands.
+2. Run `bash install.sh` and paste the token when asked. The installer connects the bot: through a webhook with HTTPS, or through the `unitycarrier-pay-bot` service without it.
+3. Send `/id` to your bot. Run `bash install.sh` again and enter that number as the admin chat ID. That chat then gets payment alerts and the admin commands.
 
 | Who | Command | What it does |
 | --- | --- | --- |
@@ -131,7 +181,7 @@ php bin/cli.php telegram:webhook
 | Admin | `/balance <username>` | Current MagnusBilling balance |
 | Admin | `/stats` | Credited totals for today, 7 days and 30 days |
 
-To test without HTTPS, run `php bin/cli.php telegram:poll`. It switches the bot to long polling. Run `telegram:webhook` again afterwards.
+Bot service logs: `journalctl -u unitycarrier-pay-bot -f`.
 
 ## JSON API
 
@@ -212,11 +262,14 @@ Order statuses: `pending` → `paying` → `credited`. Other outcomes are `expir
 ## Admin command line
 
 ```bash
+cd /var/www/unitycarrier-pay
 php bin/cli.php orders 20
 php bin/cli.php order <id>
 php bin/cli.php retry <id>
 php bin/cli.php check
 ```
+
+When you run these as root, they switch to the `www-data` user by themselves, so the database files keep the right owner.
 
 Everything is logged as JSON lines to `data/gateway.log`.
 
@@ -245,7 +298,8 @@ Running the gateway on the Magnus server is supported and keeps the Magnus API o
 - Publish only `public/`. The rest of the folder, including `config.php` and `data/`, stays outside `/var/www/html`.
 - Restrict the Magnus API key to **create + read** and **Allowed IPs `127.0.0.1`**. Then a leaked key is useless from outside the server. For least privilege, give the API key its own admin group that can only use *Users* and *Refills*.
 - Use only an OxaPay **merchant** key here. A merchant key cannot send payouts. Never put a payout key on this server.
-- Use SQLite in `data/` or a separate MySQL user. Never use the MariaDB root password or the `mbillingUser` account.
+- Use SQLite in `data/` (the default) or a separate MySQL user. Never use the MariaDB root password or the `mbillingUser` account for the gateway's own data. The installer only reads that account once, to add the API key.
+- MagnusBilling logs any request containing words such as `copy`, `print`, `eval` or `alert` as an SQL-injection attempt. After three of them it bans the caller's IP, which for this gateway is the server itself. The gateway never sends such values to MagnusBilling. As a result, accounts whose username contains one of those words can't be topped up here.
 - Serve the site over HTTPS (`certbot --apache`).
 - Pointing your public domain at this server makes `/mbilling` easier to find. Change the default `root` password, use a strong admin password, and keep fail2ban running.
 - Back up `data/gateway.sqlite` together with your Magnus backups.
@@ -258,7 +312,7 @@ The gateway can run on any PHP 7.4+ host. It does not have to run on the Magnus 
 
 - Set `magnus.url` to `https://<magnus-server>/mbilling`, and put the host's outgoing IP in the API key's **Allowed IPs**.
 - Point the web root of a domain or subdomain (for example `pay.unitycarrier.com`) at the `public/` folder, and set `site.base_url` to match.
-- For nginx, use `root /var/www/magnus-oxapay-gateway/public;` with the usual `location ~ \.php$` block for PHP-FPM.
+- For nginx, use `root /var/www/unitycarrier-pay/public;` with the usual `location ~ \.php$` block for PHP-FPM.
 
 ## Troubleshooting
 

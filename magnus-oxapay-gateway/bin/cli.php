@@ -41,7 +41,8 @@ function usage(): void
     line('  order <id>         show one order');
     line('  retry <id>         re-check with OxaPay, or force a credit retry for paid orders');
     line('  telegram:webhook   register {base_url}/telegram.php with Telegram');
-    line('  telegram:poll      run the bot with long polling (testing without a public URL)');
+    line('  telegram:unhook    remove the Telegram webhook');
+    line('  telegram:poll      run the bot with long polling (no HTTPS needed)');
 }
 
 if (in_array($command, ['help', '--help', '-h'], true)) {
@@ -54,6 +55,16 @@ if ($command === 'secret') {
     exit(0);
 }
 
+// Run as the owner of data/ (www-data) so SQLite files never end up owned by root.
+if (function_exists('posix_geteuid') && posix_geteuid() === 0) {
+    $owner = @fileowner(GATEWAY_ROOT . '/data');
+    $group = @filegroup(GATEWAY_ROOT . '/data');
+    if ($owner !== false && $owner !== 0 && $group !== false) {
+        posix_setgid($group);
+        posix_setuid($owner);
+    }
+}
+
 try {
     $app = App::load();
 } catch (\Throwable $e) {
@@ -61,6 +72,20 @@ try {
     exit(1);
 }
 
+
+function registerBotCommands(App $app): void
+{
+    try {
+        $app->telegram()->call('setMyCommands', ['commands' => [
+            ['command' => 'topup', 'description' => 'Add balance to an account'],
+            ['command' => 'status', 'description' => 'Check a payment'],
+            ['command' => 'cancel', 'description' => 'Stop the current step'],
+            ['command' => 'help', 'description' => 'Show help'],
+        ]]);
+    } catch (\Throwable $e) {
+        line('Note: could not set the bot command menu: ' . $e->getMessage());
+    }
+}
 
 function printOrder(array $order): void
 {
@@ -153,7 +178,7 @@ try {
             }
             $url = $app->baseUrl() . '/telegram.php';
             if (strpos($url, 'https://') !== 0) {
-                throw new \RuntimeException('Telegram webhooks need https. Set site.base_url to your https URL.');
+                throw new \RuntimeException('Telegram webhooks need https. Set site.base_url to your https URL, or use telegram:poll.');
             }
             $app->telegram()->call('setWebhook', [
                 'url' => $url,
@@ -161,19 +186,20 @@ try {
                 'allowed_updates' => ['message', 'callback_query'],
                 'drop_pending_updates' => true,
             ]);
-            $app->telegram()->call('setMyCommands', ['commands' => [
-                ['command' => 'topup', 'description' => 'Add balance to an account'],
-                ['command' => 'status', 'description' => 'Check a payment'],
-                ['command' => 'cancel', 'description' => 'Stop the current step'],
-                ['command' => 'help', 'description' => 'Show help'],
-            ]]);
+            registerBotCommands($app);
             line("Telegram webhook set to {$url}");
+            break;
+
+        case 'telegram:unhook':
+            $app->telegram()->call('deleteWebhook');
+            line('Telegram webhook removed');
             break;
 
         case 'telegram:poll':
             $tg = $app->telegram();
             $tg->call('deleteWebhook');
-            line('Polling Telegram. Press Ctrl+C to stop. (Run telegram:webhook again when done.)');
+            registerBotCommands($app);
+            line('Polling Telegram. Press Ctrl+C to stop.');
             $offset = 0;
             while (true) {
                 $updates = $tg->call('getUpdates', [

@@ -577,13 +577,16 @@ final class Payments
             $template .= ' #{order}';
         }
 
-        return substr(strtr($template, [
+        $description = substr(strtr($template, [
             '{order}' => (string) $order['id'],
             '{track}' => (string) $order['track_id'],
             '{username}' => (string) $order['username'],
             '{amount}' => number_format((float) $order['amount'], 2, '.', ''),
             '{currency}' => (string) $order['currency'],
-        ]), 0, 400);
+        ]), 0, 200);
+
+        // Words such as "copy" or "print" make MagnusBilling reject the request and flag this server as an attacker.
+        return MagnusBilling::isSafeValue($description) ? $description : 'OxaPay top-up #' . $order['id'];
     }
 
     /**

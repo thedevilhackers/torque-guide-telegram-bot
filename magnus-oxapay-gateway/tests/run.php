@@ -172,6 +172,28 @@ test('create order: return_url and reference only for trusted API clients', func
     }, 'invalid_return_url');
 });
 
+test('values MagnusBilling treats as attacks are never sent (would ban 127.0.0.1)', function () {
+    [$app, $fake] = makeApp(['payments' => ['refill_description' => 'Print receipt {order}']]);
+    foreach (['evaltest', 'copy1', 'xprintx', 'Alert'] as $name) {
+        throwsUserError(function () use ($app, $name) {
+            $app->payments()->createOrder(['username' => $name, 'amount' => '10'], 'web');
+        }, 'unknown_user');
+    }
+    same(0, count($fake->magnusCalls), 'no Magnus request for unsafe usernames');
+
+    // An unsafe refill description template falls back to a safe one.
+    $order = $app->payments()->createOrder(['username' => 'alice', 'amount' => '10'], 'web');
+    $fake->oxapayStatus($order['track_id'], 'Paid');
+    [$body, $hmac] = $fake->webhook($order['track_id'], 'Paid');
+    same([200, 'ok'], $app->payments()->handleWebhook($body, $hmac));
+    same('credited', $app->payments()->getOrder($order['id'])['status']);
+    check(strpos($fake->refills[0]['description'], 'OxaPay top-up #' . $order['id']) === 0, 'fallback description');
+    same(0, $fake->sqlInjectStrikes, 'no SqlInject strikes');
+
+    check(\Gateway\MagnusBilling::isSafeValue('100234'), 'normal username is safe');
+    check(!\Gateway\MagnusBilling::isSafeValue(str_repeat('a', 251)), 'too long');
+});
+
 // -------------------------------------------------------------- webhook
 
 test('webhook: bad HMAC is rejected and nothing is credited', function () {
@@ -201,6 +223,7 @@ test('webhook: paid invoice credits Magnus exactly once', function () {
     same(11.5, $fake->users[7]['credit']);
     check(strpos($fake->refills[0]['description'], $order['id']) !== false, 'refill description has the order id');
     same(1, $fake->refills[0]['payment']);
+    same(0, $fake->sqlInjectStrikes, 'default requests pass MagnusBilling\'s SqlInject filter');
     $stored = $app->payments()->getOrder($order['id']);
     same('credited', $stored['status']);
     same('1', $stored['refill_id']);
