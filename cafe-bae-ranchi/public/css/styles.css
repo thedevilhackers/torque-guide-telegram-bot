@@ -1472,3 +1472,31 @@ legend { padding: 0; }
 }
 
 .menu-group { scroll-margin-top: calc(var(--header-h) + 84px); }
+
+/* Sections the owner has switched off in the dashboard (body gets no-<feature> classes). */
+.no-ordering [data-feature~="ordering"],
+.no-pickup [data-feature~="pickup"],
+.no-dineIn [data-feature~="dineIn"],
+.no-bookings [data-feature~="bookings"],
+.no-reviews [data-feature~="reviews"],
+.no-enquiries [data-feature~="enquiries"],
+.no-newsletter [data-feature~="newsletter"] { display: none !important; }
+
+/* WhatsApp opt-in */
+.optin {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 2px 0 16px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: #e9f8ee;
+  color: #145c2e;
+  font-weight: 700;
+  font-size: 0.92rem;
+  cursor: pointer;
+}
+.optin input { width: 20px; height: 20px; accent-color: #1e8e3e; flex: none; }
+.optin .icon { color: #25d366; width: 20px; height: 20px; flex: none; }
+.tracker-eta { display: inline-flex; align-items: center; gap: 8px; margin: -12px 0 22px; padding: 8px 14px; border-radius: 999px; background: #fff1d6; font-weight: 700; font-size: 0.92rem; }
+.tracker-eta .icon { width: 18px; height: 18px; color: #c98a00; }

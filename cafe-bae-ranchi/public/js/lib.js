@@ -96,6 +96,7 @@ export function toast(message, { type = "info", timeout = 4200 } = {}) {
   if (!host) return;
   const el = h("div", { class: `toast ${type}` }, icon(type === "error" ? "bell" : "check"), h("span", { text: message }));
   host.append(el);
+  while (host.children.length > 3) host.firstElementChild.remove();
   setTimeout(() => {
     el.classList.add("out");
     el.addEventListener("animationend", () => el.remove(), { once: true });

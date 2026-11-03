@@ -26,7 +26,7 @@
   <script src="/js/boot.js"></script>
   <script type="application/ld+json">{{jsonLd}}</script>
 </head>
-<body>
+<body class="{{bodyClass}}">
   <a class="skip-link" href="#main">Skip to content</a>
 
   <div class="announce" id="announce" hidden>
@@ -48,9 +48,9 @@
       <nav class="nav" id="nav" aria-label="Main">
         <a href="#menu">Menu</a>
         <a href="#spaces">Spaces</a>
-        <a href="#reserve">Reserve</a>
-        <a href="#celebrate">Parties</a>
-        <a href="#reviews">Reviews</a>
+        <a href="#reserve" data-feature="bookings">Reserve</a>
+        <a href="#celebrate" data-feature="enquiries">Parties</a>
+        <a href="#reviews" data-feature="reviews">Reviews</a>
         <a href="#visit">Visit</a>
         <a class="nav-call" href="{{phoneHref}}"><svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#i-phone"/></svg> {{phone}}</a>
       </nav>
@@ -59,7 +59,7 @@
         <button class="track-chip" id="trackChip" type="button" hidden>
           <span class="pulse" aria-hidden="true"></span><span id="trackChipText">Track order</span>
         </button>
-        <button class="cart-btn" id="cartBtn" type="button" aria-label="Open your order">
+        <button class="cart-btn" id="cartBtn" type="button" aria-label="Open your order" data-feature="ordering">
           <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#i-bag"/></svg>
           <span class="cart-count" id="cartCount" hidden>0</span>
         </button>
@@ -83,7 +83,7 @@
           <p class="lead reveal">Cafe BAE is where Ranchi catches up, over towering shakes, comfort plates and conversations that run long. Order from your table, grab it to go, or book the corner you love.</p>
           <div class="hero-ctas reveal">
             <a class="btn btn-primary" href="#menu">Order now <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#i-arrow"/></svg></a>
-            <a class="btn btn-ghost" href="#reserve"><svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#i-calendar"/></svg> Book a table</a>
+            <a class="btn btn-ghost" href="#reserve" data-feature="bookings"><svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#i-calendar"/></svg> Book a table</a>
           </div>
           <ul class="hero-facts reveal">
             <li><strong>≈ ₹<span id="priceForTwo">500</span></strong><span>for two</span></li>
@@ -263,17 +263,17 @@
           </div>
         </div>
         <ol class="how-grid">
-          <li class="how-card reveal">
+          <li class="how-card reveal" data-feature="ordering dineIn">
             <span class="how-icon tone-blush"><svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#i-qr"/></svg></span>
             <h3>Scan &amp; order at your table</h3>
             <p>Scan the code on your table, add what you fancy and send it straight to the kitchen. Watch it go from <em>received</em> to <em>ready</em> live.</p>
           </li>
-          <li class="how-card reveal">
+          <li class="how-card reveal" data-feature="ordering pickup">
             <span class="how-icon tone-butter"><svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#i-bag"/></svg></span>
             <h3>Order ahead, pick it up</h3>
             <p>Running late for class or work? Order online and we'll let you know the moment your shake is ready at the counter.</p>
           </li>
-          <li class="how-card reveal">
+          <li class="how-card reveal" data-feature="bookings">
             <span class="how-icon tone-sage"><svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#i-calendar"/></svg></span>
             <h3>Book the corner you love</h3>
             <p>Reserve a table in seconds for dates, birthdays and big group catch-ups. See which times are still free before you book.</p>
@@ -295,7 +295,7 @@
       </div>
     </section>
 
-    <section class="section reserve" id="reserve">
+    <section class="section reserve" id="reserve" data-feature="bookings">
       <div class="container reserve-grid">
         <div class="reserve-copy reveal">
           <p class="kicker">Reservations</p>
@@ -349,6 +349,7 @@
             </div>
             <label class="field" data-field="notes"><span>Anything we should know? <i>(optional)</i></span><textarea name="notes" rows="2" maxlength="300" placeholder="High chair, window seat, surprise cake…"></textarea></label>
             <input class="hp" name="company" tabindex="-1" autocomplete="off" aria-hidden="true">
+            <label class="optin" id="bookOptIn" hidden><input type="checkbox" name="whatsappUpdates" value="1"><svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#i-whatsapp"/></svg> Send my booking confirmation on WhatsApp</label>
             <button class="btn btn-accent btn-block" type="submit" id="bookSubmit">Request booking</button>
             <p class="form-note">No payment needed. We'll confirm by phone or WhatsApp.</p>
           </form>
@@ -357,7 +358,7 @@
       </div>
     </section>
 
-    <section class="section celebrate" id="celebrate">
+    <section class="section celebrate" id="celebrate" data-feature="enquiries">
       <div class="container celebrate-grid">
         <div class="celebrate-copy reveal">
           <p class="kicker">Parties &amp; events</p>
@@ -387,7 +388,7 @@
       </div>
     </section>
 
-    <section class="section reviews" id="reviews">
+    <section class="section reviews" id="reviews" data-feature="reviews">
       <div class="container">
         <div class="section-head reveal">
           <div>
@@ -446,7 +447,7 @@
       </div>
     </section>
 
-    <section class="newsletter">
+    <section class="newsletter" data-feature="newsletter">
       <div class="container newsletter-inner reveal">
         <div>
           <h2 class="title">First sips of new drops.</h2>
@@ -470,7 +471,7 @@
       </div>
       <div>
         <h4>Explore</h4>
-        <ul><li><a href="#menu">Menu</a></li><li><a href="#reserve">Book a table</a></li><li><a href="#celebrate">Parties &amp; events</a></li><li><a href="#reviews">Reviews</a></li></ul>
+        <ul><li><a href="#menu">Menu</a></li><li data-feature="bookings"><a href="#reserve">Book a table</a></li><li data-feature="enquiries"><a href="#celebrate">Parties &amp; events</a></li><li data-feature="reviews"><a href="#reviews">Reviews</a></li></ul>
       </div>
       <div>
         <h4>Visit</h4>
@@ -488,7 +489,7 @@
     </div>
   </footer>
 
-  <button class="cart-bar" id="cartBar" type="button" hidden>
+  <button class="cart-bar" id="cartBar" type="button" hidden data-feature="ordering">
     <span class="cart-bar-count" id="cartBarCount"></span>
     <span class="cart-bar-total" id="cartBarTotal"></span>
     <span class="cart-bar-cta">View order <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#i-arrow"/></svg></span>

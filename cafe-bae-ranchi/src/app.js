@@ -4,20 +4,17 @@ import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import zlib from "node:zlib";
-import { HttpError, applySecurityHeaders, clientIp, createRateLimiter, readJson, sendJson } from "./http.js";
+import { registerAdminApi } from "./admin-api.js";
+import { createAuth } from "./auth.js";
+import { FEATURE_KEYS, OCCASIONS, RELEASED_RESERVATION_STATUSES } from "./constants.js";
+import { HttpError, applySecurityHeaders, clientIp, createRateLimiter, parseJsonObject, readJson, readRaw, sendJson } from "./http.js";
 import { Store } from "./store.js";
-import { DAY_KEYS, DAY_NAMES, dayWindow, daysBetween, hoursTable, istParts, openStatus, parseIsoDate, reservationSlots, toMinutes } from "./time.js";
+import { DAY_KEYS, DAY_NAMES, dayWindow, daysBetween, formatClock, formatDayLabel, hoursTable, istParts, openStatus, parseIsoDate, reservationSlots } from "./time.js";
 import { ValidationError, cleanText, createChecker } from "./validate.js";
+import { createWhatsApp } from "./whatsapp.js";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
-export const ORDER_STATUSES = ["received", "preparing", "ready", "completed", "cancelled"];
-const ACTIVE_ORDER_STATUSES = new Set(["received", "preparing", "ready"]);
-export const RESERVATION_STATUSES = ["pending", "confirmed", "seated", "cancelled", "no-show"];
-const RELEASED_RESERVATION_STATUSES = new Set(["cancelled", "no-show"]);
-const REVIEW_STATUSES = ["pending", "approved", "rejected"];
-const ENQUIRY_STATUSES = ["new", "handled"];
-const OCCASIONS = ["", "birthday", "date", "anniversary", "friends", "family", "work", "other"];
 
 // [max requests, window in ms] per visitor IP
 const RATE_LIMITS = {
@@ -49,7 +46,6 @@ const MIME_TYPES = {
 };
 const COMPRESSIBLE = /^(text\/|application\/(json|manifest\+json|xml)|image\/svg\+xml)/;
 
-const sha256 = (value) => crypto.createHash("sha256").update(String(value)).digest();
 const newId = () => crypto.randomBytes(12).toString("base64url");
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // 32 chars: no 0/O or 1/I mix-ups
 const bookingCode = () => [...crypto.randomBytes(6)].map((byte) => CODE_ALPHABET[byte % 32]).join("");
@@ -58,8 +54,6 @@ const escapeHtml = (value) =>
   String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
 const safeJson = (value) =>
   JSON.stringify(value).replace(/</g, "\\u003c").replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029");
-const slugify = (value) =>
-  cleanText(value).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 48) || "item";
 const isBot = (body) => typeof body.company === "string" && body.company.trim() !== "";
 
 export async function createApp(options = {}) {
@@ -68,12 +62,13 @@ export async function createApp(options = {}) {
   const publicDir = path.resolve(options.publicDir ?? path.join(ROOT, "public"));
   const now = options.now ?? (() => new Date());
   const trustProxy = Boolean(options.trustProxy);
-  const adminDigest = options.adminToken ? sha256(options.adminToken) : null;
   const rateLimits = { ...RATE_LIMITS, ...options.rateLimits };
 
   const store = new Store({ dataDir, seedDir });
   await store.init();
   const limiter = createRateLimiter();
+  const auth = createAuth({ store, now, masterKey: options.adminToken });
+  const whatsapp = createWhatsApp({ store, now, config: options.whatsapp, fetchImpl: options.fetch, logger: options.logger });
   const fileCache = new Map();
   const orderStreams = new Map();
   let streamCount = 0;
@@ -86,11 +81,20 @@ export async function createApp(options = {}) {
   const site = () => store.get("site");
   const menu = () => store.get("menu");
   const today = () => istParts(now()).iso;
+  const features = () => ({ ...Object.fromEntries(FEATURE_KEYS.map((key) => [key, true])), ...site().features });
+
+  function requireFeature(key, message) {
+    if (!features()[key]) throw new HttpError(403, message);
+  }
 
   // ---------- public views ----------
 
   function orderAvailability() {
     const settings = site();
+    const on = features();
+    if (!on.ordering || (!on.pickup && !on.dineIn)) {
+      return { accepting: false, reason: "Online ordering is switched off right now. Please order at the counter." };
+    }
     if (settings.orders?.paused) {
       return { accepting: false, reason: "Online ordering is paused for a little while. Please order at the counter." };
     }
@@ -122,10 +126,17 @@ export async function createApp(options = {}) {
       hours: hoursTable(settings.hours, current),
       status: openStatus(settings.hours, current),
       today: istParts(current).iso,
-      orders: { gstPercent: settings.orders?.gstPercent ?? 5, ...orderAvailability() },
+      features: features(),
+      orders: {
+        gstPercent: settings.orders?.gstPercent ?? 5,
+        types: { pickup: features().pickup, dineIn: features().dineIn },
+        whatsappUpdates: whatsapp.offersCustomerUpdates("order"),
+        ...orderAvailability()
+      },
       reservations: {
         maxGuests: settings.reservations?.maxGuests ?? 20,
-        daysAhead: settings.reservations?.daysAhead ?? 30
+        daysAhead: settings.reservations?.daysAhead ?? 30,
+        whatsappUpdates: whatsapp.offersCustomerUpdates("booking")
       }
     };
   }
@@ -154,6 +165,9 @@ export async function createApp(options = {}) {
     name: order.name,
     items: order.items.map(({ name, qty, price }) => ({ name, qty, price })),
     amounts: order.amounts,
+    etaMinutes: order.etaMinutes ?? null,
+    readyBy: order.readyBy ?? null,
+    readyByLabel: order.readyBy ? formatClock(new Date(order.readyBy)) : null,
     createdAt: order.createdAt,
     updatedAt: order.updatedAt
   });
@@ -195,6 +209,8 @@ export async function createApp(options = {}) {
           })
         : "";
     const notes = check.text("notes", { label: "Notes", optional: true, max: 300 });
+    if (type === "pickup" && !features().pickup) check.fail("type", "Pickup orders are switched off right now.");
+    if (type === "dine-in" && !features().dineIn) check.fail("type", "Ordering from the table is switched off right now.");
     const lines = orderLines(body.items, check);
     check.done();
 
@@ -217,6 +233,7 @@ export async function createApp(options = {}) {
       name,
       phone,
       notes,
+      whatsappOptIn: body.whatsappUpdates === true,
       items: lines,
       amounts: { subtotal, gst, total: subtotal + gst, gstPercent },
       createdAt: current.toISOString(),
@@ -225,6 +242,9 @@ export async function createApp(options = {}) {
     };
     orders.push(order);
     await store.save("orders");
+    const ref = { type: "order", id: order.id };
+    whatsapp.notify("order_staff_alert", order, ref);
+    whatsapp.notify("order_received", order, ref);
     ctx.json(201, publicOrder(order));
   }
 
@@ -309,6 +329,7 @@ export async function createApp(options = {}) {
   async function createReservation(ctx) {
     const body = await readJson(ctx.req);
     rateLimit(ctx, "reservation");
+    requireFeature("bookings", "Online table booking is switched off right now. Please call us to book.");
     if (isBot(body)) return ctx.json(201, { code: bookingCode(), status: "pending" });
 
     const settings = site();
@@ -356,11 +377,13 @@ export async function createApp(options = {}) {
       guests,
       occasion,
       notes,
+      whatsappOptIn: body.whatsappUpdates === true,
       createdAt,
       updatedAt: createdAt
     };
     reservations.push(reservation);
     await store.save("reservations");
+    whatsapp.notify("booking_staff_alert", bookingView(reservation), { type: "reservation", id: reservation.id });
     ctx.json(201, { code: reservation.code, status: reservation.status, name, date, time: slot.label, guests });
   }
 
@@ -380,6 +403,7 @@ export async function createApp(options = {}) {
   async function createReview(ctx) {
     const body = await readJson(ctx.req);
     rateLimit(ctx, "review");
+    requireFeature("reviews", "Reviews are switched off right now.");
     if (isBot(body)) return ctx.json(201, { status: "pending" });
     const check = createChecker(body);
     const name = check.text("name", { label: "Name", max: 40 });
@@ -394,6 +418,7 @@ export async function createApp(options = {}) {
   async function createEnquiry(ctx) {
     const body = await readJson(ctx.req);
     rateLimit(ctx, "enquiry");
+    requireFeature("enquiries", "Party enquiries are switched off right now. Please call us.");
     if (isBot(body)) return ctx.json(201, { status: "received" });
     const check = createChecker(body);
     const name = check.text("name", { label: "Name", max: 60 });
@@ -406,14 +431,17 @@ export async function createApp(options = {}) {
     if (date && (!parseIsoDate(date) || daysBetween(today(), date) < 0)) check.fail("date", "Pick a date from today onwards.");
     check.done();
     const createdAt = now().toISOString();
-    store.get("enquiries").push({ id: newId(), status: "new", type, name, phone, email, date, guests, message, createdAt });
+    const enquiry = { id: newId(), status: "new", type, name, phone, email, date, guests, message, createdAt };
+    store.get("enquiries").push(enquiry);
     await store.save("enquiries");
+    whatsapp.notify("enquiry_staff_alert", { ...enquiry, dateLabel: date ? formatDayLabel(date) : "" }, { type: "enquiry", id: enquiry.id });
     ctx.json(201, { status: "received" });
   }
 
   async function subscribe(ctx) {
     const body = await readJson(ctx.req);
     rateLimit(ctx, "subscribe");
+    requireFeature("newsletter", "Newsletter sign-ups are switched off right now.");
     if (isBot(body)) return ctx.json(201, { ok: true });
     const check = createChecker(body);
     const email = check.email("email");
@@ -427,175 +455,36 @@ export async function createApp(options = {}) {
     ctx.json(201, { ok: true });
   }
 
-  // ---------- admin API ----------
+  // ---------- shared staff-side helpers ----------
 
-  function requireAdmin(ctx) {
-    if (!adminDigest) throw new HttpError(503, "The admin dashboard is disabled. Set ADMIN_TOKEN and restart the server.");
-    const failureKey = `${ctx.ip}:admin-fail`;
-    if (limiter.count(failureKey) >= ADMIN_FAILURE_LIMIT) {
-      throw new HttpError(429, "Too many wrong attempts. Try again in 15 minutes.");
-    }
-    const header = String(ctx.req.headers.authorization || "");
-    const token = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
-    if (!token || !crypto.timingSafeEqual(sha256(token), adminDigest)) {
-      limiter.hit(failureKey, ADMIN_FAILURE_LIMIT, ADMIN_FAILURE_WINDOW);
-      throw new HttpError(401, "That admin token isn't right.");
-    }
+  const bookingView = (reservation) => ({ ...reservation, dateLabel: formatDayLabel(reservation.date), timeLabel: reservation.timeLabel });
+
+  async function audit(actor, action, details = "") {
+    store.get("audit").push({ id: newId(), at: now().toISOString(), actorId: actor?.id ?? "system", actorName: actor?.name ?? "System", action, details });
+    await store.save("audit");
   }
 
-  function adminSummary() {
-    const day = today();
-    const orders = store.get("orders");
-    const todaysOrders = orders.filter((o) => o.day === day && o.status !== "cancelled");
-    const reservations = store.get("reservations");
-    const todaysBookings = reservations.filter((r) => r.date === day && !RELEASED_RESERVATION_STATUSES.has(r.status));
-    return {
-      today: day,
-      status: openStatus(site().hours, now()),
-      ordersPaused: Boolean(site().orders?.paused),
-      orders: {
-        today: todaysOrders.length,
-        revenueToday: todaysOrders.reduce((sum, o) => sum + o.amounts.total, 0),
-        active: orders.filter((o) => ACTIVE_ORDER_STATUSES.has(o.status)).length
-      },
-      reservations: {
-        today: todaysBookings.length,
-        guestsToday: todaysBookings.reduce((sum, r) => sum + r.guests, 0),
-        pending: reservations.filter((r) => r.status === "pending" && r.date >= day).length
-      },
-      reviews: { pending: store.get("reviews").filter((r) => r.status === "pending").length },
-      enquiries: { open: store.get("enquiries").filter((e) => e.status === "new").length },
-      subscribers: store.get("subscribers").length
-    };
+  /** Called after staff change an order's status: updates live trackers and sends WhatsApp updates. */
+  function onOrderStatus(order, previous) {
+    notifyOrder(order);
+    if (order.status === previous) return;
+    const ref = { type: "order", id: order.id };
+    if (order.status === "preparing") whatsapp.notify("order_preparing", order, ref);
+    if (order.status === "ready") whatsapp.notify("order_ready", order, ref);
   }
 
-  function adminOrders(ctx) {
-    const scope = ctx.url.searchParams.get("scope") || "active";
-    const orders = store.get("orders");
-    if (scope === "active") return { orders: orders.filter((o) => ACTIVE_ORDER_STATUSES.has(o.status)) };
-    const list = scope === "today" ? orders.filter((o) => o.day === today()) : orders;
-    return { orders: list.slice(-300).reverse() };
-  }
-
-  async function updateStatus(ctx, collection, id, allowed, onChange) {
-    const body = await readJson(ctx.req);
-    const check = createChecker(body);
-    const status = check.oneOf("status", allowed, { label: "Status" });
-    check.done();
-    const record = store.get(collection).find((entry) => entry.id === id);
-    if (!record) throw new HttpError(404, "Not found.");
-    const at = now().toISOString();
-    record.status = status;
-    record.updatedAt = at;
-    onChange?.(record, at);
-    await store.save(collection);
-    return record;
-  }
-
-  function adminReservations(ctx) {
-    const scope = ctx.url.searchParams.get("scope") || "upcoming";
-    const day = today();
-    const all = store.get("reservations");
-    const byTime = (a, b) => (a.date + a.time).localeCompare(b.date + b.time);
-    if (scope === "today") return { reservations: all.filter((r) => r.date === day).sort(byTime) };
-    if (scope === "past") return { reservations: all.filter((r) => r.date < day).sort(byTime).reverse().slice(0, 300) };
-    return { reservations: all.filter((r) => r.date >= day).sort(byTime).slice(0, 300) };
-  }
-
-  function readMenuItem(body, partial) {
-    const check = createChecker(body);
-    const has = (key) => body[key] !== undefined;
-    const fields = {};
-    if (!partial || has("name")) fields.name = check.text("name", { label: "Name", max: 60 });
-    if (!partial || has("description")) fields.description = check.text("description", { label: "Description", optional: true, max: 200 });
-    if (!partial || has("price")) fields.price = check.int("price", { label: "Price", min: 0, max: 100_000 });
-    if (!partial || has("category")) {
-      fields.category = check.oneOf("category", menu().categories.map((c) => c.id), { label: "Category" });
-    }
-    for (const key of ["veg", "bestseller", "spicy", "available"]) if (has(key)) fields[key] = check.bool(key);
-    if (has("image")) {
-      fields.image = check.text("image", {
-        label: "Image link",
-        optional: true,
-        max: 500,
-        pattern: /^(\/[^\s"'<>]*|https:\/\/[^\s"'<>]+)$/,
-        patternMessage: "Use a link that starts with https:// or /images/."
-      });
-    }
-    check.done();
-    return fields;
-  }
-
-  async function createMenuItem(ctx) {
-    const fields = readMenuItem(await readJson(ctx.req), false);
-    const items = menu().items;
-    const base = slugify(fields.name);
-    let id = base;
-    for (let n = 2; items.some((item) => item.id === id); n += 1) id = `${base}-${n}`;
-    const item = { id, veg: true, bestseller: false, spicy: false, available: true, ...fields };
-    items.push(item);
-    await store.save("menu");
-    ctx.json(201, { item });
-  }
-
-  async function updateMenuItem(ctx, id) {
-    const item = menu().items.find((candidate) => candidate.id === id);
-    if (!item) throw new HttpError(404, "That menu item doesn't exist.");
-    Object.assign(item, readMenuItem(await readJson(ctx.req), true));
-    await store.save("menu");
-    return { item };
-  }
-
-  async function deleteMenuItem(ctx, id) {
-    const items = menu().items;
-    const index = items.findIndex((item) => item.id === id);
-    if (index === -1) throw new HttpError(404, "That menu item doesn't exist.");
-    items.splice(index, 1);
-    await store.save("menu");
-    return { ok: true };
-  }
-
-  function adminSettings() {
-    const settings = site();
-    return {
-      announcement: settings.announcement ?? "",
-      ordersPaused: Boolean(settings.orders?.paused),
-      hours: Object.fromEntries(DAY_KEYS.map((key) => [key, settings.hours?.[key] ?? null]))
-    };
-  }
-
-  async function updateSettings(ctx) {
-    const body = await readJson(ctx.req);
-    const check = createChecker(body);
-    const settings = site();
-    const announcement = body.announcement !== undefined ? check.text("announcement", { label: "Announcement", optional: true, max: 160 }) : undefined;
-    const paused = check.bool("ordersPaused");
-    let hours;
-    if (body.hours !== undefined) {
-      if (!body.hours || typeof body.hours !== "object" || Array.isArray(body.hours)) check.fail("hours", "Hours must be an object.");
-      else {
-        hours = {};
-        for (const key of DAY_KEYS) {
-          const value = body.hours[key];
-          if (value === null || value === undefined) continue;
-          if (!Array.isArray(value) || value.length !== 2 || value.some((t) => toMinutes(t) === null) || value[0] === value[1]) {
-            check.fail("hours", `Use HH:MM opening and closing times for ${key}.`);
-          } else hours[key] = value;
-        }
-      }
-    }
-    check.done();
-    if (announcement !== undefined) settings.announcement = announcement;
-    if (paused !== undefined) settings.orders = { ...settings.orders, paused };
-    if (hours) settings.hours = hours;
-    await store.save("site");
-    return adminSettings();
+  function onReservationStatus(reservation, previous) {
+    if (reservation.status === previous) return;
+    const ref = { type: "reservation", id: reservation.id };
+    if (reservation.status === "confirmed") whatsapp.notify("booking_confirmed", bookingView(reservation), ref);
+    if (reservation.status === "cancelled" && ["pending", "confirmed"].includes(previous)) whatsapp.notify("booking_cancelled", bookingView(reservation), ref);
   }
 
   // ---------- routing ----------
 
   const routes = [];
-  const route = (method, pattern, handler, admin = false) => routes.push({ method, pattern, handler, admin });
+  // access: undefined = public, "any" = any signed-in staff member, otherwise a permission name
+  const route = (method, pattern, handler, access) => routes.push({ method, pattern, handler, access });
 
   route("GET", /^\/api\/site$/, () => publicSite());
   route("GET", /^\/api\/menu$/, () => publicMenu());
@@ -609,31 +498,60 @@ export async function createApp(options = {}) {
   route("POST", /^\/api\/enquiries$/, createEnquiry);
   route("POST", /^\/api\/subscribe$/, subscribe);
 
-  route("GET", /^\/api\/admin\/summary$/, adminSummary, true);
-  route("GET", /^\/api\/admin\/orders$/, adminOrders, true);
-  route(
-    "PATCH",
-    /^\/api\/admin\/orders\/([\w-]{8,40})$/,
-    async (ctx, id) => {
-      const order = await updateStatus(ctx, "orders", id, ORDER_STATUSES, (record, at) => record.history.push({ status: record.status, at }));
-      notifyOrder(order);
-      return { order };
-    },
-    true
-  );
-  route("GET", /^\/api\/admin\/reservations$/, adminReservations, true);
-  route("PATCH", /^\/api\/admin\/reservations\/([\w-]{8,40})$/, async (ctx, id) => ({ reservation: await updateStatus(ctx, "reservations", id, RESERVATION_STATUSES) }), true);
-  route("GET", /^\/api\/admin\/reviews$/, () => ({ reviews: store.get("reviews").slice(-300).reverse() }), true);
-  route("PATCH", /^\/api\/admin\/reviews\/([\w-]{8,40})$/, async (ctx, id) => ({ review: await updateStatus(ctx, "reviews", id, REVIEW_STATUSES) }), true);
-  route("GET", /^\/api\/admin\/enquiries$/, () => ({ enquiries: store.get("enquiries").slice(-300).reverse() }), true);
-  route("PATCH", /^\/api\/admin\/enquiries\/([\w-]{8,40})$/, async (ctx, id) => ({ enquiry: await updateStatus(ctx, "enquiries", id, ENQUIRY_STATUSES) }), true);
-  route("GET", /^\/api\/admin\/subscribers$/, () => ({ subscribers: store.get("subscribers").slice().reverse() }), true);
-  route("GET", /^\/api\/admin\/menu$/, () => menu(), true);
-  route("POST", /^\/api\/admin\/menu\/items$/, createMenuItem, true);
-  route("PATCH", /^\/api\/admin\/menu\/items\/([\w-]{1,64})$/, updateMenuItem, true);
-  route("DELETE", /^\/api\/admin\/menu\/items\/([\w-]{1,64})$/, deleteMenuItem, true);
-  route("GET", /^\/api\/admin\/settings$/, adminSettings, true);
-  route("PATCH", /^\/api\/admin\/settings$/, updateSettings, true);
+  // Meta calls these: GET once to verify the webhook, then POST for every message and delivery update.
+  route("GET", /^\/api\/whatsapp\/webhook$/, (ctx) => {
+    const challenge = whatsapp.verifySubscription(ctx.url.searchParams);
+    if (challenge === null) throw new HttpError(403, "Webhook verification failed.");
+    ctx.res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8" });
+    ctx.res.end(challenge);
+  });
+  route("POST", /^\/api\/whatsapp\/webhook$/, async (ctx) => {
+    const raw = await readRaw(ctx.req, 512 * 1024);
+    const result = await whatsapp.handleWebhook(raw, ctx.req.headers["x-hub-signature-256"], parseJsonObject(raw));
+    if (!result.ok) throw new HttpError(401, "Invalid signature.");
+    return { ok: true };
+  });
+
+  registerAdminApi({
+    route,
+    store,
+    now,
+    today,
+    site,
+    menu,
+    features,
+    auth,
+    whatsapp,
+    limiter,
+    audit,
+    publicOrder,
+    bookingView,
+    onOrderStatus,
+    onReservationStatus,
+    failedAuth,
+    authLocked
+  });
+
+  function authLocked(ctx) {
+    return limiter.count(`${ctx.ip}:admin-fail`) >= ADMIN_FAILURE_LIMIT;
+  }
+
+  function failedAuth(ctx) {
+    limiter.hit(`${ctx.ip}:admin-fail`, ADMIN_FAILURE_LIMIT, ADMIN_FAILURE_WINDOW);
+  }
+
+  function authorise(ctx, access) {
+    if (authLocked(ctx)) throw new HttpError(429, "Too many failed sign-in attempts. Try again in 15 minutes.");
+    const actor = auth.authenticate(ctx.req);
+    if (!actor) {
+      if (ctx.req.headers.authorization) failedAuth(ctx);
+      throw new HttpError(401, "Please sign in again.");
+    }
+    if (access !== "any" && !actor.permissions.includes(access)) {
+      throw new HttpError(403, "Your account doesn't have access to this. Ask the owner to change your permissions.");
+    }
+    ctx.actor = actor;
+  }
 
   async function handleApi(ctx) {
     const { method } = ctx.req;
@@ -643,7 +561,7 @@ export async function createApp(options = {}) {
       if (!match) continue;
       pathMatched = true;
       if (entry.method !== method && !(entry.method === "GET" && method === "HEAD")) continue;
-      if (entry.admin) requireAdmin(ctx);
+      if (entry.access) authorise(ctx, entry.access);
       const result = await entry.handler(ctx, ...match.slice(1));
       if (!ctx.res.headersSent && result !== undefined) sendJson(ctx.res, 200, result);
       return;
@@ -766,7 +684,8 @@ export async function createApp(options = {}) {
       ogImage: `${(settings.website || "").replace(/\/$/, "")}/assets/og-image.png`,
       mapsEmbed: `https://www.google.com/maps?q=${encodeURIComponent(settings.mapsQuery || "")}&output=embed`,
       mapsLink: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(settings.mapsQuery || "")}`,
-      year: istParts(now()).iso.slice(0, 4)
+      year: istParts(now()).iso.slice(0, 4),
+      bodyClass: FEATURE_KEYS.filter((key) => !features()[key]).map((key) => `no-${key}`).join(" ")
     };
     const raw = {
       canonicalTag: settings.website ? `<link rel="canonical" href="${escapeHtml(settings.website)}">` : "",
@@ -849,8 +768,9 @@ export async function createApp(options = {}) {
       server.close(() => resolve());
       server.closeAllConnections?.();
     });
+    await whatsapp.flush();
     await store.flush();
   }
 
-  return { server, store, close };
+  return { server, store, whatsapp, close };
 }

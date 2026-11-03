@@ -30,6 +30,15 @@
     "sun": ["10:00", "22:00"]
   },
   "announcement": "Now taking table bookings online. Skip the weekend wait and reserve your corner.",
+  "features": {
+    "ordering": true,
+    "pickup": true,
+    "dineIn": true,
+    "bookings": true,
+    "reviews": true,
+    "enquiries": true,
+    "newsletter": true
+  },
   "outlets": [
     {
       "id": "lalpur",
@@ -76,5 +85,45 @@
     "maxGuests": 20,
     "daysAhead": 30,
     "lastSeatingBeforeCloseMinutes": 60
+  },
+  "whatsappApi": {
+    "enabled": false,
+    "autoReply": true,
+    "language": "en",
+    "staffNumbers": [],
+    "events": {
+      "order_staff_alert": {
+        "enabled": true,
+        "template": "bae_new_order"
+      },
+      "booking_staff_alert": {
+        "enabled": true,
+        "template": "bae_new_booking"
+      },
+      "enquiry_staff_alert": {
+        "enabled": true,
+        "template": "bae_new_enquiry"
+      },
+      "order_received": {
+        "enabled": true,
+        "template": "bae_order_received"
+      },
+      "order_preparing": {
+        "enabled": true,
+        "template": "bae_order_preparing"
+      },
+      "order_ready": {
+        "enabled": true,
+        "template": "bae_order_ready"
+      },
+      "booking_confirmed": {
+        "enabled": true,
+        "template": "bae_booking_confirmed"
+      },
+      "booking_cancelled": {
+        "enabled": true,
+        "template": "bae_booking_cancelled"
+      }
+    }
   }
 }

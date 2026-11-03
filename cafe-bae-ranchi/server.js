@@ -16,15 +16,25 @@ const port = Number(process.env.PORT) || 3000;
 let adminToken = process.env.ADMIN_TOKEN;
 if (!adminToken) {
   adminToken = crypto.randomBytes(18).toString("base64url");
-  console.warn(`ADMIN_TOKEN is not set. Temporary admin token for this run: ${adminToken}`);
+  console.warn(`ADMIN_TOKEN is not set. Temporary setup/master key for this run: ${adminToken}`);
   console.warn("Set ADMIN_TOKEN in your environment before going live.");
 }
 
+const env = process.env;
 const app = await createApp({
-  dataDir: process.env.DATA_DIR,
+  dataDir: env.DATA_DIR,
   adminToken,
-  trustProxy: process.env.TRUST_PROXY === "1"
+  trustProxy: env.TRUST_PROXY === "1",
+  whatsapp: {
+    accessToken: env.WHATSAPP_ACCESS_TOKEN,
+    phoneNumberId: env.WHATSAPP_PHONE_NUMBER_ID,
+    appSecret: env.WHATSAPP_APP_SECRET,
+    verifyToken: env.WHATSAPP_VERIFY_TOKEN,
+    apiVersion: env.WHATSAPP_API_VERSION
+  }
 });
+const wa = app.whatsapp.status();
+console.log(wa.configured ? `WhatsApp Cloud API connected (number …${wa.phoneNumberId.slice(-4)}).` : "WhatsApp Cloud API not configured: click-to-chat buttons only.");
 
 app.server.listen(port, () => {
   console.log(`Cafe BAE website running at http://localhost:${port}`);

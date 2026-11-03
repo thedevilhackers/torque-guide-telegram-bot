@@ -10,8 +10,15 @@ export const COLLECTIONS = {
   reservations: "array",
   reviews: "array",
   enquiries: "array",
-  subscribers: "array"
+  subscribers: "array",
+  users: "array",
+  sessions: "array",
+  audit: "array",
+  messages: "array"
 };
+
+// Logs are trimmed to their newest entries so the JSON files stay small.
+const CAPS = { audit: 5000, messages: 3000, sessions: 2000 };
 
 async function readJsonFile(file) {
   return JSON.parse(await readFile(file, "utf8"));
@@ -65,6 +72,8 @@ export class Store {
   }
 
   save(name) {
+    const cap = CAPS[name];
+    if (cap && this.data[name].length > cap) this.data[name].splice(0, this.data[name].length - cap);
     const file = this.fileFor(name);
     const temp = `${file}.${process.pid}.tmp`;
     const write = async () => {

@@ -124,3 +124,18 @@ export function reservationSlots(hours, isoDate, settings, now = new Date()) {
   }
   return slots;
 }
+
+const SHORT_DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const SHORT_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** "Tue, 4 Nov" for an ISO date. */
+export function formatDayLabel(iso) {
+  const date = parseIsoDate(iso);
+  if (!date) return iso || "";
+  return `${SHORT_DAYS[date.getUTCDay()]}, ${date.getUTCDate()} ${SHORT_MONTHS[date.getUTCMonth()]}`;
+}
+
+/** "1:45 PM" in IST for a Date. */
+export function formatClock(date) {
+  return formatTime(istParts(date).minutes);
+}

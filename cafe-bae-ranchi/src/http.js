@@ -43,9 +43,7 @@ export function sendJson(res, status, body) {
   res.end(payload);
 }
 
-export async function readJson(req, limit = 32 * 1024) {
-  const type = String(req.headers["content-type"] || "").toLowerCase();
-  if (!type.startsWith("application/json")) throw new HttpError(415, "Requests must be sent as JSON.");
+export async function readRaw(req, limit = 32 * 1024) {
   const chunks = [];
   let size = 0;
   for await (const chunk of req) {
@@ -53,15 +51,25 @@ export async function readJson(req, limit = 32 * 1024) {
     if (size > limit) throw new HttpError(413, "That request is too large.");
     chunks.push(chunk);
   }
-  if (size === 0) return {};
+  return Buffer.concat(chunks);
+}
+
+export function parseJsonObject(buffer) {
   let parsed;
   try {
-    parsed = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+    parsed = JSON.parse(buffer.toString("utf8"));
   } catch {
     throw new HttpError(400, "The request body is not valid JSON.");
   }
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new HttpError(400, "Send a JSON object.");
   return parsed;
+}
+
+export async function readJson(req, limit = 32 * 1024) {
+  const type = String(req.headers["content-type"] || "").toLowerCase();
+  if (!type.startsWith("application/json")) throw new HttpError(415, "Requests must be sent as JSON.");
+  const body = await readRaw(req, limit);
+  return body.length === 0 ? {} : parseJsonObject(body);
 }
 
 export function clientIp(req, trustProxy) {

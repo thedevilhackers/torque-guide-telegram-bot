@@ -1,0 +1,11 @@
+export const ORDER_STATUSES = ["received", "preparing", "ready", "completed", "cancelled"];
+export const ACTIVE_ORDER_STATUSES = new Set(["received", "preparing", "ready"]);
+export const PAYMENT_METHODS = ["cash", "upi", "card", "other"];
+export const RESERVATION_STATUSES = ["pending", "confirmed", "seated", "cancelled", "no-show"];
+export const RELEASED_RESERVATION_STATUSES = new Set(["cancelled", "no-show"]);
+export const REVIEW_STATUSES = ["pending", "approved", "rejected"];
+export const ENQUIRY_STATUSES = ["new", "handled"];
+export const OCCASIONS = ["", "birthday", "date", "anniversary", "friends", "family", "work", "other"];
+export const FEATURE_KEYS = ["ordering", "pickup", "dineIn", "bookings", "reviews", "enquiries", "newsletter"];
+export const CATEGORY_ICONS = ["shake", "coffee", "mocktail", "fries", "momo", "pizza", "burger", "cake"];
+export const TONES = ["blush", "latte", "sage", "butter", "peach", "apricot", "honey", "berry"];

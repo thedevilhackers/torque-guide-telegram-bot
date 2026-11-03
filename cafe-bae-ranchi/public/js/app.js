@@ -136,8 +136,23 @@ function statusClass(status) {
   return status.closingSoon ? "is-soon" : "is-open";
 }
 
+const FEATURE_KEYS = ["ordering", "pickup", "dineIn", "bookings", "reviews", "enquiries", "newsletter"];
+const feature = (key) => state.site?.features?.[key] !== false;
+
+function applyFeatures() {
+  for (const key of FEATURE_KEYS) document.body.classList.toggle(`no-${key}`, !feature(key));
+  $("#bookOptIn").hidden = !state.site.reservations.whatsappUpdates;
+}
+
+/** Order types the owner currently allows, in display order. */
+function allowedOrderTypes() {
+  const types = state.site.orders.types ?? { pickup: true, dineIn: true };
+  return [types.dineIn !== false && "dine-in", types.pickup !== false && "pickup"].filter(Boolean);
+}
+
 function renderSite() {
   const site = state.site;
+  applyFeatures();
   for (const pill of [$("#statusPill"), $("#footerStatus")]) {
     if (!pill) continue;
     pill.className = `status-pill ${statusClass(site.status)}`;
@@ -441,7 +456,8 @@ function fillControl(el) {
   const id = el.dataset.control;
   const item = itemsById.get(id);
   const qty = state.cart.get(id) ?? 0;
-  if (!item?.available) el.replaceChildren(h("span", { class: "sold-out", text: "Sold out" }));
+  if (!feature("ordering")) el.replaceChildren();
+  else if (!item?.available) el.replaceChildren(h("span", { class: "sold-out", text: "Sold out" }));
   else if (!qty) {
     el.replaceChildren(
       h("button", { type: "button", class: "add-btn", "aria-label": `Add ${item.name} to your order`, onclick: () => changeQty(id, 1) }, icon("plus"), "Add")
@@ -678,6 +694,8 @@ function checkoutView() {
     h("span", { text: "Table number" }),
     h("input", { name: "table", inputmode: "numeric", maxlength: "8", value: state.table, placeholder: "On the card on your table", required: true })
   );
+  const types = allowedOrderTypes();
+  if (!types.includes(state.orderType) && types.length) state.orderType = types[0];
   tableField.hidden = state.orderType !== "dine-in";
 
   const typeButton = (type, label, iconName) =>
@@ -702,7 +720,9 @@ function checkoutView() {
     "form",
     { class: "checkout", novalidate: true, onsubmit: placeOrder },
     cartItemsList(),
-    h("div", { class: "segmented", role: "group", "aria-label": "How would you like it?" }, typeButton("dine-in", "At my table", "qr"), typeButton("pickup", "Pickup", "bag")),
+    types.length > 1
+      ? h("div", { class: "segmented", role: "group", "aria-label": "How would you like it?" }, typeButton("dine-in", "At my table", "qr"), typeButton("pickup", "Pickup", "bag"))
+      : h("p", { class: "drawer-note order-type-note", text: state.orderType === "dine-in" ? "We'll bring your order to your table." : "Pickup only: collect your order at the counter." }),
     tableField,
     h(
       "div",
@@ -722,6 +742,9 @@ function checkoutView() {
       h("textarea", { name: "notes", rows: "2", maxlength: "300", placeholder: "Less spicy, no onion, extra ice…" })
     ),
     h("input", { class: "hp", name: "company", tabindex: "-1", autocomplete: "off", "aria-hidden": "true" }),
+    state.site.orders.whatsappUpdates
+      ? h("label", { class: "optin" }, h("input", { type: "checkbox", name: "whatsappUpdates", value: "1", checked: Boolean(guest.whatsappUpdates) }), icon("whatsapp"), "Send me order updates on WhatsApp")
+      : null,
     summaryBox(),
     availability.accepting ? null : h("div", { class: "drawer-alert", role: "status" }, icon("clock"), h("span", { text: availability.reason })),
     h("button", { class: "btn btn-accent btn-block", type: "submit", disabled: !availability.accepting }, "Place order", icon("arrow")),
@@ -756,7 +779,7 @@ async function placeOrder(event) {
   clearErrors(form);
   const values = formValues(form);
   const button = form.querySelector("[type=submit]");
-  storage.set(KEYS.guest, { name: values.name, phone: values.phone });
+  storage.set(KEYS.guest, { ...storage.get(KEYS.guest, {}), name: values.name, phone: values.phone, whatsappUpdates: values.whatsappUpdates === "1" });
   if (state.orderType === "dine-in") state.table = values.table;
   setLoading(button, true);
   try {
@@ -768,6 +791,7 @@ async function placeOrder(event) {
         name: values.name,
         phone: values.phone,
         notes: values.notes,
+        whatsappUpdates: values.whatsappUpdates === "1",
         company: values.company,
         items: cartLines().map(({ item, qty }) => ({ id: item.id, qty }))
       }
@@ -818,6 +842,9 @@ function trackerView() {
     h("p", { class: "tracker-number", text: order.type === "dine-in" ? `Table ${order.table} · Order` : "Pickup · Order" }),
     h("p", { class: "tracker-big", text: `#${String(order.number).padStart(3, "0")}` }),
     h("p", { class: "tracker-msg", text: trackerMessage(order) }),
+    order.status === "preparing" && order.readyByLabel
+      ? h("p", { class: "tracker-eta" }, icon("clock"), `Ready around ${order.readyByLabel}${order.etaMinutes ? ` · about ${order.etaMinutes} min` : ""}`)
+      : null,
     order.status === "cancelled"
       ? null
       : h(
@@ -893,6 +920,19 @@ function applyOrderUpdate(order) {
 }
 
 async function resumeOrderTracking() {
+  const linked = new URLSearchParams(location.search).get("order");
+  if (linked && /^[\w-]{8,40}$/.test(linked)) {
+    try {
+      const order = await api(`/api/orders/${encodeURIComponent(linked)}`);
+      storage.set(KEYS.order, { id: order.id, at: Date.now() });
+      startOrderTracking(order);
+      openDrawer("tracker");
+      history.replaceState(null, "", location.pathname + location.hash);
+      return;
+    } catch {
+      toast("We couldn't find that order. It may be from an earlier day.", { type: "error" });
+    }
+  }
   const saved = storage.get(KEYS.order, null);
   if (!saved?.id || Date.now() - saved.at > ORDER_TTL_MS) {
     storage.remove(KEYS.order);
@@ -1038,7 +1078,7 @@ async function submitBooking(event) {
   try {
     const booking = await api("/api/reservations", {
       method: "POST",
-      body: { ...values, date: state.booking.date, time: state.booking.time, guests: state.booking.guests }
+      body: { ...values, whatsappUpdates: values.whatsappUpdates === "1", date: state.booking.date, time: state.booking.time, guests: state.booking.guests }
     });
     showBookingDone(booking, values.phone);
   } catch (error) {
@@ -1312,8 +1352,13 @@ async function refreshSiteAndMenu() {
   try {
     const [site, menu] = await Promise.all([api("/api/site"), api("/api/menu")]);
     const acceptingChanged = site.orders.accepting !== state.site.orders.accepting;
+    const orderingChanged = site.features?.ordering !== state.site.features?.ordering;
     state.site = site;
     renderSite();
+    if (orderingChanged) {
+      refreshControls();
+      updateCartUi();
+    }
     if (JSON.stringify(menu) !== JSON.stringify(state.menu)) {
       state.menu = menu;
       indexMenu();

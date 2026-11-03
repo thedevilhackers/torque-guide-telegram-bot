@@ -14,31 +14,37 @@
   <link rel="stylesheet" href="/css/admin.css">
 </head>
 <body class="admin">
+  <section class="login" id="setup" hidden>
+    <form class="login-card" id="setupForm" novalidate>
+      <a href="/" class="brand"><span class="brand-mark" aria-hidden="true"><svg class="icon"><use href="/assets/icons.svg#i-heart"/></svg></span><span class="brand-word">Cafe <b>BAE</b></span></a>
+      <h1>Create the master account</h1>
+      <p>This is the owner's login. It controls everything, including staff accounts, the website and WhatsApp.</p>
+      <label class="field" data-field="setupKey"><span>Setup key <i>(the ADMIN_TOKEN on your server)</i></span><input name="setupKey" type="password" autocomplete="off" required></label>
+      <label class="field" data-field="name"><span>Your name</span><input name="name" autocomplete="name" maxlength="60" required></label>
+      <label class="field" data-field="username"><span>Username</span><input name="username" autocomplete="username" maxlength="32" placeholder="e.g. ayush" required></label>
+      <label class="field" data-field="password"><span>Password <i>(at least 8 characters)</i></span><input name="password" type="password" autocomplete="new-password" minlength="8" required></label>
+      <button class="btn btn-primary btn-block" type="submit">Create master account</button>
+    </form>
+  </section>
+
   <section class="login" id="login" hidden>
     <form class="login-card" id="loginForm" novalidate>
       <a href="/" class="brand"><span class="brand-mark" aria-hidden="true"><svg class="icon"><use href="/assets/icons.svg#i-heart"/></svg></span><span class="brand-word">Cafe <b>BAE</b></span></a>
-      <h1>Staff dashboard</h1>
-      <p>Orders, bookings, menu and reviews in one place.</p>
-      <label class="field" data-field="token"><span>Admin token</span><input name="token" type="password" autocomplete="current-password" required></label>
+      <h1>Staff sign in</h1>
+      <p>Orders, bookings, WhatsApp, menu and reports in one place.</p>
+      <label class="field" data-field="username"><span>Username</span><input name="username" autocomplete="username" required></label>
+      <label class="field" data-field="password"><span>Password</span><input name="password" type="password" autocomplete="current-password" required></label>
       <label class="check"><input type="checkbox" name="remember"> Keep me signed in on this device</label>
       <button class="btn btn-primary btn-block" type="submit">Sign in</button>
+      <p class="login-help">Forgot your password? Ask the owner to reset it in Staff &amp; activity.</p>
     </form>
   </section>
 
   <div class="admin-app" id="app" hidden>
     <aside class="side">
-      <a href="/" class="brand brand-light" target="_blank" rel="noopener"><span class="brand-mark" aria-hidden="true"><svg class="icon"><use href="/assets/icons.svg#i-heart"/></svg></span><span class="brand-word">Cafe <b>BAE</b></span></a>
-      <nav class="tabs" id="tabs" aria-label="Dashboard sections">
-        <button type="button" data-tab="overview"><svg class="icon"><use href="/assets/icons.svg#i-sparkle"/></svg>Overview</button>
-        <button type="button" data-tab="orders"><svg class="icon"><use href="/assets/icons.svg#i-receipt"/></svg>Orders<span class="count" data-count="orders"></span></button>
-        <button type="button" data-tab="bookings"><svg class="icon"><use href="/assets/icons.svg#i-calendar"/></svg>Bookings<span class="count" data-count="bookings"></span></button>
-        <button type="button" data-tab="menu"><svg class="icon"><use href="/assets/icons.svg#i-shake"/></svg>Menu</button>
-        <button type="button" data-tab="reviews"><svg class="icon"><use href="/assets/icons.svg#i-star"/></svg>Reviews<span class="count" data-count="reviews"></span></button>
-        <button type="button" data-tab="enquiries"><svg class="icon"><use href="/assets/icons.svg#i-gift"/></svg>Parties<span class="count" data-count="enquiries"></span></button>
-        <button type="button" data-tab="subscribers"><svg class="icon"><use href="/assets/icons.svg#i-mail"/></svg>Subscribers</button>
-        <button type="button" data-tab="settings"><svg class="icon"><use href="/assets/icons.svg#i-clock"/></svg>Settings</button>
-      </nav>
-      <button type="button" class="signout" id="signOut"><svg class="icon"><use href="/assets/icons.svg#i-logout"/></svg>Sign out</button>
+      <a href="/" class="brand brand-light" target="_blank" rel="noopener" title="Open the website"><span class="brand-mark" aria-hidden="true"><svg class="icon"><use href="/assets/icons.svg#i-heart"/></svg></span><span class="brand-word">Cafe <b>BAE</b></span></a>
+      <nav class="tabs" id="tabs" aria-label="Dashboard sections"></nav>
+      <div class="me-card" id="meCard"></div>
     </aside>
 
     <main class="main">
@@ -49,7 +55,7 @@
         </div>
         <div class="topbar-actions">
           <span class="status-pill" id="adminStatus"><i aria-hidden="true"></i><span></span></span>
-          <label class="pause-toggle" title="Stop new online orders, e.g. when the kitchen is slammed">
+          <label class="pause-toggle" id="pauseToggle" title="Stop new online orders, e.g. when the kitchen is slammed">
             <input type="checkbox" id="pauseOrders">
             <span class="switch" aria-hidden="true"></span>
             <span>Pause online orders</span>
@@ -61,7 +67,8 @@
     </main>
   </div>
 
+  <div id="printArea" class="print-area" aria-hidden="true"></div>
   <div class="toasts" id="toasts" role="status" aria-live="polite"></div>
-  <script type="module" src="/js/admin.js"></script>
+  <script type="module" src="/js/admin/main.js"></script>
 </body>
 </html>
