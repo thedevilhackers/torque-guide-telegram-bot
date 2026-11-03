@@ -44,9 +44,12 @@ Give the web server write access to `data/` and keep `config.php` private:
 
 ```bash
 chown -R www-data:www-data data
+chmod 750 data
 chown root:www-data config.php
 chmod 640 config.php
 ```
+
+The MagnusBilling installer already installs `php-sqlite3`, `php-curl` and `php-mbstring` and opens ports 80/443, so the `apt-get` line above is usually a no-op and no firewall change is needed.
 
 Publish **only** the `public/` folder at `https://www.unitycarrier.com/pay`:
 
@@ -234,6 +237,20 @@ Everything is logged as JSON lines to `data/gateway.log`.
 - `oxapay.to_currency`: for example `USDT`, to auto-convert received coins.
 - **MySQL instead of SQLite**: create a database and user, then set `database.dsn` to `mysql:host=127.0.0.1;dbname=oxapay_gateway;charset=utf8mb4` and fill in `username`/`password`. Tables are created automatically.
 - `app.trust_proxy_headers`: set to `true` only behind Cloudflare or a reverse proxy, so rate limits see the real visitor IP.
+
+## Security on the MagnusBilling server
+
+Running the gateway on the Magnus server is supported and keeps the Magnus API on `127.0.0.1`, where it is never exposed to the internet. Keep in mind that it runs as the same Apache user as the Magnus panel, so a hole in either one exposes the same things. Checklist:
+
+- Publish only `public/`. The rest of the folder, including `config.php` and `data/`, stays outside `/var/www/html`.
+- Restrict the Magnus API key to **create + read** and **Allowed IPs `127.0.0.1`**. Then a leaked key is useless from outside the server. For least privilege, give the API key its own admin group that can only use *Users* and *Refills*.
+- Use only an OxaPay **merchant** key here. A merchant key cannot send payouts. Never put a payout key on this server.
+- Use SQLite in `data/` or a separate MySQL user. Never use the MariaDB root password or the `mbillingUser` account.
+- Serve the site over HTTPS (`certbot --apache`).
+- Pointing your public domain at this server makes `/mbilling` easier to find. Change the default `root` password, use a strong admin password, and keep fail2ban running.
+- Back up `data/gateway.sqlite` together with your Magnus backups.
+
+The gateway itself has a small attack surface. It has no file uploads, no shell commands and no web admin login (admin is done through the CLI or Telegram). Every SQL query is parameterised, and all input is validated and all output escaped.
 
 ## Hosting it elsewhere
 
