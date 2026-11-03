@@ -1,5 +1,7 @@
 # Torque Guide Telegram Bot
 
+> This repository also contains [`magnus-oxapay-gateway/`](magnus-oxapay-gateway/README.md): a separate PHP website, JSON API and Telegram bot for topping up MagnusBilling balances with crypto through OxaPay.
+
 This is a Node.js Telegram bot for vehicle-tuning enquiries. It uses inline menus to collect the vehicle brand, model, fuel type, model year, ECU family and requested tuning stage. It then uses OpenAI to return a cautious planning estimate: power figures, required parts/work and pre-tuning checks.
 
 It intentionally does **not** generate tune files, claim unverified specifications, or suggest disabling emissions, safety or diagnostic systems.
