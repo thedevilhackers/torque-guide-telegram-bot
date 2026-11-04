@@ -58,6 +58,8 @@ final class App
                 'support_url' => '',
                 'logo_url' => '',
                 'accent' => '#4f46e5',
+                'theme' => 'luxury',
+                'announcement' => '',
                 'timezone' => 'UTC',
             ],
             'payments' => [
@@ -69,6 +71,7 @@ final class App
                 'credit_rate' => 1,
                 'bonus' => [],
                 'ask_email' => false,
+                'coins' => ['USDT', 'BTC', 'ETH', 'TRX', 'LTC', 'BNB', 'TON', 'DOGE'],
                 'refill_description' => 'OxaPay top-up #{order} (track {track})',
             ],
             'magnus' => [
@@ -171,6 +174,11 @@ final class App
     public function bot(): TelegramBot
     {
         return $this->bot ?? ($this->bot = new TelegramBot($this));
+    }
+
+    public function adminTools(): AdminTools
+    {
+        return new AdminTools($this);
     }
 
     /**

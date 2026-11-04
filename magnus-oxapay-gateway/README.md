@@ -17,12 +17,35 @@ Gateway adds the credit in MagnusBilling (a "refill"), exactly once ──► Te
 
 Features:
 
-- **Website**: a mobile-friendly top-up page with a live username check, preset amounts, bonus preview, dark mode, and a status page that updates itself. You can prefill it with a link: `https://www.unitycarrier.com/pay/?username=100234&amount=25`
+- **Website**: a black-and-gold "luxury" top-up page (or a light "classic" theme) with:
+  - a live username check, quick amounts and a bonus preview
+  - an optional promo banner
+  - accepted-coin badges and an FAQ
+  - a "Check a payment" box
+  - a remembered username
+- **Status page**: updates itself and has an invoice countdown, copy order ID, print receipt and **Notify me on Telegram**.
+- **Prefilled links**: `https://pay.unitycarrier.com/pay/?username=100234&amount=25`
 - **JSON API**: create payments and check order status from WHMCS, your CRM, another bot or your main website.
-- **Telegram bot**: customers type `/topup` and get a payment button. They receive a message when the credit is added. Admins get alerts and use `/recent`, `/order`, `/retry`, `/balance` and `/stats`.
+- **Telegram bot**:
+  - Customers get a menu (Top up · My payments · Help), one-tap repeat top-ups, and a message when the credit is added.
+  - Admins get payment alerts. They can also look up orders, add or remove balance, credit an order by hand, and change SIP caller IDs, each with a Confirm button.
 - **Settings in one file**: name, colours, currency, min/max, preset amounts, credit rate, bonus tiers, invoice lifetime, who pays the fee, and more.
 - **Safe crediting**: webhooks are checked with HMAC and re-checked with OxaPay's API. Each order is credited once, even if OxaPay sends the webhook several times or MagnusBilling times out mid-request.
 - No Composer and no framework: plain PHP 7.4+ with the `curl` extension and either SQLite or MySQL.
+
+## Upgrading an existing install
+
+This adds the new admin commands and redesign. It keeps your settings, payment records and HTTPS:
+
+```bash
+cd /root/unitycarrier-src && git pull
+```
+
+```bash
+bash /root/unitycarrier-src/magnus-oxapay-gateway/install.sh --yes
+```
+
+The installer also gives the gateway's MagnusBilling API key the **update** permission that `/callerid` needs, and adds the new options (`theme`, `announcement`, `coins`) to `config.php`.
 
 ## 1. Install on your MagnusBilling server (one command)
 
@@ -173,13 +196,32 @@ Open `https://www.unitycarrier.com/pay/`, enter a username and an amount, and pa
 | --- | --- | --- |
 | Everyone | `/topup` | Asks for the username, then the amount (buttons or typed), and returns a **Pay** button |
 | Everyone | `/topup 100234 25` | Same, in one line |
+| Everyone | Menu buttons **💳 Top up**, **🧾 My payments**, **❓ Help** | Always shown under the chat box |
+| Everyone | `/myorders` | This chat's last 5 payments, with **Pay** buttons for unpaid ones |
 | Everyone | `/status <order>` | Payment status |
 | Everyone | `/cancel`, `/help`, `/id` | |
-| Admin | `/recent` | Last 10 orders |
+| Admin | `/recent`, `/find <username>` | Latest orders, or all orders of one account |
 | Admin | `/order <id>` | Order details, including OxaPay status and the last error |
 | Admin | `/retry <id>` | Re-checks with OxaPay, or retries the credit for a paid order |
+| Admin | `/markpaid <id>` | Credits an order by hand, for example after the customer paid you another way |
 | Admin | `/balance <username>` | Current MagnusBilling balance |
+| Admin | `/addcredit <username> <amount> [note]` | Adds balance (a MagnusBilling refill noted "Telegram admin @you: note") |
+| Admin | `/removecredit <username> <amount> [note]` | Removes balance the same way |
+| Admin | `/sip <sip or username>` | Lists SIP accounts with their caller ID |
+| Admin | `/callerid <sip> <number>` | Changes a SIP account's caller ID (digits, optional +). MagnusBilling regenerates its SIP config right away. |
 | Admin | `/stats` | Credited totals for today, 7 days and 30 days |
+
+Admin safety:
+
+- Every change (`/addcredit`, `/removecredit`, `/markpaid`, `/callerid`) first shows a summary with **Confirm** and **Cancel** buttons. The button works once and expires after 5 minutes.
+- After the change, the bot shows the result, writes it to `data/gateway.log` with the admin's Telegram name, and tells the other admins.
+- Put only **private** chat IDs in `admin_chat_ids`. A group ID would let everyone in that group use these commands.
+- Changing caller IDs needs the **update** permission on the gateway's MagnusBilling API key. The installer grants it when you run it again.
+
+Website links that open the bot:
+
+- `t.me/<bot>?start=u_<username>` starts a top-up for that account.
+- `t.me/<bot>?start=o_<order>` sends that order's updates to the chat. The status page's **Notify me on Telegram** button uses this.
 
 Bot service logs: `journalctl -u unitycarrier-pay-bot -f`.
 
@@ -283,6 +325,10 @@ Everything is logged as JSON lines to `data/gateway.log`.
 
 ## Configuration notes
 
+- `site.theme`: `luxury` (default, black and gold) or `classic` (light, follows dark mode, uses `site.accent`).
+- `site.announcement`: a banner above the form, for example `'Get 5% bonus credit on top-ups from $100'`. Leave it empty to hide it.
+- `site.logo_url`: your logo (square works best). It's also used as the browser tab icon.
+- `payments.coins`: the coin badges shown on the page. The checkout itself lists every coin OxaPay supports.
 - `payments.credit_rate`: MagnusBilling credit per 1 unit paid. Keep `1` if Magnus also bills in USD.
 - `payments.bonus`: for example `[['min' => 100, 'percent' => 5]]` gives 5% extra credit on top-ups of 100 or more.
 - `oxapay.fee_paid_by_payer`: `1` adds the OxaPay fee to the customer's amount. `0` means you pay it.

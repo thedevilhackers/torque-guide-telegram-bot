@@ -7,13 +7,32 @@ namespace Gateway;
 /**
  * Telegram bot: customers top up from chat, admins get payment alerts and a few commands.
  *
- * Customer:  /start  /topup [username] [amount]  /status <order>  /cancel  /id  /help
- * Admin:     /recent  /order <id>  /retry <id>  /balance <username>  /stats
+ * Customer:  /start  /topup [username] [amount]  /status <order>  /myorders  /cancel  /id  /help
+ *            menu buttons, deep links t.me/<bot>?start=u_<username> (top up) and ?start=o_<order> (follow an order)
+ * Admin:     /recent  /find <username>  /order <id>  /retry <id>  /balance <username>  /stats
+ *            /sip <sip|username>  /callerid <sip> <number>  /addcredit <username> <amount> [note]
+ *            /removecredit <username> <amount> [note]  /markpaid <order>
+ * Every admin change asks for confirmation, is logged, and is announced to the other admins.
  */
 final class TelegramBot
 {
+    /** How long a Confirm button stays valid. */
+    private const CONFIRM_TTL = 300;
+
+    private const MENU_TOPUP = '💳 Top up';
+    private const MENU_ORDERS = '🧾 My payments';
+    private const MENU_HELP = '❓ Help';
+
+    private const STATUS_ICONS = [
+        'new' => '⏳', 'pending' => '⏳', 'paying' => '🔄', 'crediting' => '🔄', 'credited' => '✅',
+        'credit_failed' => '⚠️', 'review' => '🔎', 'expired' => '⌛', 'underpaid' => '⚠️', 'refunded' => '↩️', 'failed' => '❌',
+    ];
+
     /** @var App */
     private $app;
+
+    /** @var string who sent the update being handled, for the audit log */
+    private $actor = 'unknown';
 
     public function __construct(App $app)
     {
@@ -55,6 +74,9 @@ final class TelegramBot
 
     private function dispatch(array $update): void
     {
+        $from = $update['message']['from'] ?? ($update['callback_query']['from'] ?? []);
+        $this->actor = self::actorName(is_array($from) ? $from : []);
+
         if (isset($update['callback_query']) && is_array($update['callback_query'])) {
             $this->onCallback($update['callback_query']);
             return;
@@ -86,9 +108,28 @@ final class TelegramBot
 
         switch ($command) {
             case '/start':
-            case '/help':
+                $payload = (string) ($args[0] ?? '');
+                if (strpos($payload, 'o_') === 0) {
+                    $this->followOrder($chatId, substr($payload, 2));
+                    return;
+                }
+                if (strpos($payload, 'u_') === 0) {
+                    $this->startTopup($chatId, substr($payload, 2), null);
+                    return;
+                }
                 $this->clearSession($chatId);
                 $this->sendWelcome($chatId, $admin);
+                return;
+
+            case '/help':
+            case '/menu':
+                $this->clearSession($chatId);
+                $this->sendWelcome($chatId, $admin);
+                return;
+
+            case '/myorders':
+            case '/payments':
+                $this->sendMyOrders($chatId);
                 return;
 
             case '/topup':
@@ -115,6 +156,9 @@ final class TelegramBot
                 case '/recent':
                     $this->sendRecent($chatId);
                     return;
+                case '/find':
+                    $this->sendOrdersForUsername($chatId, (string) ($args[0] ?? ''));
+                    return;
                 case '/order':
                     $this->sendOrderStatus($chatId, (string) ($args[0] ?? ''), true);
                     return;
@@ -128,6 +172,23 @@ final class TelegramBot
                 case '/stats':
                     $this->sendStats($chatId);
                     return;
+                case '/sip':
+                    $this->sendSipAccounts($chatId, (string) ($args[0] ?? ''));
+                    return;
+                case '/callerid':
+                    $this->askCallerIdChange($chatId, (string) ($args[0] ?? ''), implode('', array_slice($args, 1)));
+                    return;
+                case '/addcredit':
+                case '/removecredit':
+                    $amount = (string) ($args[1] ?? '');
+                    if ($command === '/removecredit' && $amount !== '') {
+                        $amount = '-' . ltrim($amount, '+-');
+                    }
+                    $this->askCreditChange($chatId, (string) ($args[0] ?? ''), $amount, implode(' ', array_slice($args, 2)));
+                    return;
+                case '/markpaid':
+                    $this->askMarkPaid($chatId, (string) ($args[0] ?? ''));
+                    return;
             }
         }
 
@@ -136,6 +197,19 @@ final class TelegramBot
 
     private function onText(string $chatId, string $text): void
     {
+        switch ($text) {
+            case self::MENU_TOPUP:
+                $this->startTopup($chatId, null, null);
+                return;
+            case self::MENU_ORDERS:
+                $this->sendMyOrders($chatId);
+                return;
+            case self::MENU_HELP:
+                $this->clearSession($chatId);
+                $this->sendWelcome($chatId, $this->app->isAdminChat($chatId));
+                return;
+        }
+
         $session = $this->getSession($chatId);
         switch ($session['state']) {
             case 'await_username':
@@ -157,6 +231,12 @@ final class TelegramBot
             return;
         }
 
+        if (strpos($data, 'cf:') === 0) {
+            $this->tg()->answerCallback($callbackId);
+            $this->runConfirmed($chatId, substr($data, 3));
+            return;
+        }
+
         if (strpos($data, 'chk:') === 0) {
             $order = $this->payments()->getOrder(substr($data, 4));
             if ($order === null) {
@@ -172,9 +252,12 @@ final class TelegramBot
 
         if ($data === 'topup') {
             $this->startTopup($chatId, null, null);
+        } elseif (strpos($data, 'usr:') === 0) {
+            $this->startTopup($chatId, substr($data, 4), null);
         } elseif ($data === 'cancel') {
+            $wasConfirm = $this->getSession($chatId)['state'] === 'confirm';
             $this->clearSession($chatId);
-            $this->say($chatId, 'Cancelled. Send /topup to start again.');
+            $this->say($chatId, $wasConfirm ? 'Cancelled. Nothing was changed.' : 'Cancelled. Send /topup to start again.');
         } elseif (strpos($data, 'amt:') === 0) {
             $session = $this->getSession($chatId);
             if ($session['state'] !== 'await_amount') {
@@ -191,7 +274,19 @@ final class TelegramBot
     {
         if ($username === null) {
             $this->setSession($chatId, 'await_username', []);
-            $this->say($chatId, 'Send the <b>username</b> of the account you want to top up.', $this->cancelKeyboard());
+            $keyboard = [];
+            foreach ($this->payments()->recentUsernamesForChat($chatId) as $previous) {
+                if (strlen($previous) <= 56) {
+                    $keyboard[] = [['text' => '↻ ' . $previous, 'callback_data' => 'usr:' . $previous]];
+                }
+            }
+            $keyboard[] = [['text' => 'Cancel', 'callback_data' => 'cancel']];
+            $this->say(
+                $chatId,
+                'Send the <b>username</b> of the account you want to top up'
+                . (count($keyboard) > 1 ? ', or tap one you used before.' : '.'),
+                ['reply_markup' => ['inline_keyboard' => $keyboard]]
+            );
             return;
         }
         $user = $this->verifyUser($username);
@@ -236,7 +331,7 @@ final class TelegramBot
 
         $buttons = [];
         foreach ((array) $pay['presets'] as $preset) {
-            $buttons[] = ['text' => $payments->money($preset), 'callback_data' => 'amt:' . $preset];
+            $buttons[] = ['text' => $payments->money($preset, true), 'callback_data' => 'amt:' . $preset];
         }
         $keyboard = array_chunk($buttons, 3);
         $keyboard[] = [['text' => 'Cancel', 'callback_data' => 'cancel']];
@@ -288,22 +383,104 @@ final class TelegramBot
     private function sendWelcome(string $chatId, bool $admin): void
     {
         $site = $this->app->config['site'];
-        $text = '👋 <b>' . self::e((string) $site['name']) . "</b>\n"
-            . self::e((string) $site['tagline']) . "\n\n"
-            . "/topup — add balance to an account\n"
-            . "/status &lt;order&gt; — check a payment\n"
-            . '/cancel — stop the current step';
-        if ($admin) {
-            $text .= "\n\n<b>Admin</b>\n/recent — latest payments\n/order &lt;id&gt; — order details\n"
-                . "/retry &lt;id&gt; — re-check or re-credit an order\n/balance &lt;username&gt; — account balance\n/stats — totals";
-        }
-
-        $keyboard = [[['text' => '💳 Top up balance', 'callback_data' => 'topup']]];
+        $lines = [
+            '✨ <b>' . self::e((string) $site['name']) . '</b>',
+            self::e((string) $site['tagline']) . '. Pay with USDT, BTC, ETH and more; your balance is updated automatically.',
+            '',
+            '💳 <b>Top up</b>: add balance to an account',
+            '🧾 <b>My payments</b>: payments started from this chat',
+            '🔎 /status &lt;order&gt;: check any payment',
+        ];
         $base = $this->app->baseUrl();
         if (strpos($base, 'https://') === 0) {
-            $keyboard[] = [['text' => '🌐 Open website', 'url' => $base . '/']];
+            $lines[] = '🌐 <a href="' . self::e($base . '/') . '">Open the payment website</a>';
         }
-        $this->say($chatId, $text, ['reply_markup' => ['inline_keyboard' => $keyboard]]);
+        if ((string) $site['support_url'] !== '') {
+            $lines[] = '🆘 <a href="' . self::e((string) $site['support_url']) . '">Support</a>';
+        }
+        if ($admin) {
+            $lines[] = '';
+            $lines[] = '<b>Admin</b>';
+            $lines[] = '/recent · /stats · /find &lt;username&gt; · /order &lt;id&gt;';
+            $lines[] = '/retry &lt;id&gt; · /markpaid &lt;id&gt;: re-check or credit an order by hand';
+            $lines[] = '/balance &lt;username&gt;';
+            $lines[] = '/addcredit &lt;username&gt; &lt;amount&gt; [note] · /removecredit …';
+            $lines[] = '/sip &lt;sip or username&gt; · /callerid &lt;sip&gt; &lt;number&gt;';
+        }
+
+        $this->say($chatId, implode("\n", $lines), ['reply_markup' => [
+            'keyboard' => [
+                [['text' => self::MENU_TOPUP], ['text' => self::MENU_ORDERS]],
+                [['text' => self::MENU_HELP]],
+            ],
+            'resize_keyboard' => true,
+            'is_persistent' => true,
+        ]]);
+    }
+
+    private function sendMyOrders(string $chatId): void
+    {
+        $orders = $this->payments()->ordersForChat($chatId, 5);
+        if ($orders === []) {
+            $this->say($chatId, 'No payments from this chat yet. Tap <b>' . self::e(self::MENU_TOPUP) . '</b> to start one.');
+            return;
+        }
+        $lines = ['🧾 <b>Your recent payments</b>'];
+        $buttons = [];
+        foreach ($orders as $order) {
+            $order = $this->payments()->refreshIfStale($order);
+            $lines[] = $this->orderLine($order);
+            if (in_array($order['status'], ['new', 'pending'], true) && !empty($order['payment_url']) && count($buttons) < 3) {
+                $buttons[] = [['text' => 'Pay ' . $this->payments()->money($order['amount']) . ' for ' . $order['username'], 'url' => (string) $order['payment_url']]];
+            }
+        }
+        $this->say($chatId, implode("\n", $lines), $buttons === [] ? [] : ['reply_markup' => ['inline_keyboard' => $buttons]]);
+    }
+
+    private function followOrder(string $chatId, string $orderId): void
+    {
+        $order = $this->payments()->getOrder(strtolower($orderId));
+        if ($order === null) {
+            $this->say($chatId, 'Order not found. Check the link, or send /topup to start a new payment.');
+            return;
+        }
+        $linked = $this->payments()->linkTelegram((string) $order['id'], $chatId);
+        $order = $this->payments()->refreshIfStale($this->payments()->getOrder((string) $order['id']) ?? $order);
+        $intro = $linked
+            ? '🔔 Notifications are on. I will message you here when this payment is confirmed.'
+            : 'This payment already sends its updates to another Telegram chat.';
+        $extra = [];
+        if (in_array($order['status'], ['new', 'pending'], true) && !empty($order['payment_url'])) {
+            $extra = ['reply_markup' => ['inline_keyboard' => [[['text' => 'Pay ' . $this->payments()->money($order['amount']), 'url' => (string) $order['payment_url']]]]]];
+        }
+        $this->say($chatId, $intro . "\n\n" . $this->orderText($order, false), $extra);
+    }
+
+    private function sendOrdersForUsername(string $chatId, string $username): void
+    {
+        if ($username === '') {
+            $this->say($chatId, 'Usage: <code>/find 100234</code>');
+            return;
+        }
+        $orders = $this->payments()->ordersForUsername($username, 10);
+        if ($orders === []) {
+            $this->say($chatId, 'No orders for <code>' . self::e($username) . '</code>.');
+            return;
+        }
+        $lines = ['<b>Orders for</b> <code>' . self::e($username) . '</code>'];
+        foreach ($orders as $order) {
+            $lines[] = $this->orderLine($order) . ' · ' . self::e((string) $order['source']) . "\n   <code>" . self::e((string) $order['id']) . '</code>';
+        }
+        $this->say($chatId, implode("\n", $lines));
+    }
+
+    private function orderLine(array $order): string
+    {
+        $status = (string) $order['status'];
+
+        return (self::STATUS_ICONS[$status] ?? '•') . ' ' . date('d M H:i', (int) $order['created_at'])
+            . ' · <code>' . self::e((string) $order['username']) . '</code> · <b>' . self::e($this->payments()->money($order['amount']))
+            . '</b> · ' . self::e(Payments::statusLabel($status));
     }
 
     private function sendOrderStatus(string $chatId, string $orderId, bool $admin): void
@@ -326,9 +503,7 @@ final class TelegramBot
         }
         $lines = ['<b>Latest orders</b>'];
         foreach ($orders as $order) {
-            $lines[] = date('m-d H:i', (int) $order['created_at']) . ' · <code>' . self::e((string) $order['username']) . '</code> · '
-                . self::e($this->payments()->money($order['amount'])) . ' · ' . self::e((string) $order['status'])
-                . ' · ' . self::e((string) $order['source']) . "\n   <code>" . self::e((string) $order['id']) . '</code>';
+            $lines[] = $this->orderLine($order) . ' · ' . self::e((string) $order['source']) . "\n   <code>" . self::e((string) $order['id']) . '</code>';
         }
         $this->say($chatId, implode("\n", $lines));
     }
@@ -394,6 +569,209 @@ final class TelegramBot
         }
 
         return $parts === [] ? '' : "\n🎁 Bonus: " . self::e(implode(', ', $parts));
+    }
+
+    // ---------------------------------------------------------- admin tools
+
+    private function sendSipAccounts(string $chatId, string $query): void
+    {
+        if ($query === '') {
+            $this->say($chatId, 'Usage: <code>/sip 100234</code> (SIP username or account username)');
+            return;
+        }
+        $accounts = $this->app->adminTools()->findSipAccounts($query);
+        if ($accounts === []) {
+            $this->say($chatId, 'No SIP account found for <code>' . self::e($query) . '</code>.');
+            return;
+        }
+        $lines = ['<b>SIP accounts</b>'];
+        foreach ($accounts as $sip) {
+            $lines[] = self::sipLine($sip);
+        }
+        $this->say($chatId, implode("\n", $lines));
+    }
+
+    private function askCallerIdChange(string $chatId, string $query, string $number): void
+    {
+        if ($query === '' || $number === '') {
+            $this->say($chatId, 'Usage: <code>/callerid 100234 +15551234567</code>');
+            return;
+        }
+        $tools = $this->app->adminTools();
+        $callerId = $tools->normalizeCallerId($number);
+        $accounts = $tools->findSipAccounts($query);
+        if ($accounts === []) {
+            $this->say($chatId, 'No SIP account found for <code>' . self::e($query) . '</code>.');
+            return;
+        }
+        if (count($accounts) > 1) {
+            $lines = ['<code>' . self::e($query) . '</code> has ' . count($accounts) . ' SIP accounts. Use the SIP username:'];
+            foreach ($accounts as $sip) {
+                $lines[] = self::sipLine($sip);
+            }
+            $this->say($chatId, implode("\n", $lines));
+            return;
+        }
+        $sip = $accounts[0];
+        $this->askConfirm(
+            $chatId,
+            '📞 Change caller ID of SIP <code>' . self::e((string) $sip['name']) . "</code>?\n"
+            . 'From <code>' . self::e((string) ($sip['callerid'] ?? '')) . '</code> to <code>' . self::e($callerId) . '</code>',
+            ['type' => 'callerid', 'sip' => (string) $sip['name'], 'callerid' => $callerId]
+        );
+    }
+
+    private function askCreditChange(string $chatId, string $username, string $amount, string $note): void
+    {
+        if ($username === '' || $amount === '') {
+            $this->say($chatId, "Usage: <code>/addcredit 100234 25 bank transfer</code>\nor <code>/removecredit 100234 5 correction</code>");
+            return;
+        }
+        $payments = $this->payments();
+        $amount = $this->app->adminTools()->parseCreditAmount($amount);
+        $user = $payments->lookupUser($payments->normalizeUsername($username));
+        if ($user === null) {
+            $this->say($chatId, 'No account found with username <code>' . self::e($username) . '</code>.');
+            return;
+        }
+        $adding = (float) $amount > 0;
+        $this->askConfirm(
+            $chatId,
+            ($adding ? '➕ Add <b>' : '➖ Remove <b>') . self::e(ltrim($amount, '-')) . '</b> credit '
+            . ($adding ? 'to' : 'from') . ' <code>' . self::e((string) $user['username']) . "</code>?\n"
+            . 'Current balance: ' . self::e(number_format((float) ($user['credit'] ?? 0), 2))
+            . ($note !== '' ? "\nNote: " . self::e($note) : ''),
+            ['type' => 'credit', 'username' => (string) $user['username'], 'amount' => $amount, 'note' => $note]
+        );
+    }
+
+    private function askMarkPaid(string $chatId, string $orderId): void
+    {
+        $order = $orderId === '' ? null : $this->payments()->getOrder(strtolower($orderId));
+        if ($order === null) {
+            $this->say($chatId, 'Usage: <code>/markpaid &lt;order id&gt;</code> (see /recent)');
+            return;
+        }
+        if ($order['status'] === 'credited') {
+            $this->say($chatId, 'That order is already credited.');
+            return;
+        }
+        $this->askConfirm(
+            $chatId,
+            "✅ Mark this order as paid and add the credit?\n\n" . $this->orderText($order, true),
+            ['type' => 'markpaid', 'order' => (string) $order['id']]
+        );
+    }
+
+    /**
+     * @param array<string,mixed> $action
+     */
+    private function askConfirm(string $chatId, string $html, array $action): void
+    {
+        $token = bin2hex(random_bytes(8));
+        $this->setSession($chatId, 'confirm', ['token' => $token, 'action' => $action, 'expires' => time() + self::CONFIRM_TTL]);
+        $this->say($chatId, $html, ['reply_markup' => ['inline_keyboard' => [[
+            ['text' => '✅ Confirm', 'callback_data' => 'cf:' . $token],
+            ['text' => 'Cancel', 'callback_data' => 'cancel'],
+        ]]]]);
+    }
+
+    private function runConfirmed(string $chatId, string $token): void
+    {
+        if (!$this->app->isAdminChat($chatId) || !preg_match('/^[a-f0-9]{16}$/', $token)) {
+            return;
+        }
+        $session = $this->getSession($chatId);
+        $data = $session['data'];
+        $valid = $session['state'] === 'confirm'
+            && isset($data['token'], $data['action'], $data['expires'])
+            && hash_equals((string) $data['token'], $token)
+            && (int) $data['expires'] >= time();
+        // Delete first so a double tap cannot run the action twice.
+        $claimed = $valid && $this->app->db()->run(
+            'DELETE FROM ' . $this->app->db()->table('tg_sessions') . " WHERE chat_id = ? AND state = 'confirm' AND data LIKE ?",
+            [$chatId, '%"token":"' . $token . '"%']
+        ) > 0;
+        if (!$claimed) {
+            $this->say($chatId, 'That confirmation has expired or was already used. Send the command again.');
+            return;
+        }
+
+        $action = (array) $data['action'];
+        $tools = $this->app->adminTools();
+        switch ($action['type'] ?? '') {
+            case 'callerid':
+                $sip = $this->app->magnus()->findSip((string) $action['sip']);
+                if ($sip === null) {
+                    throw new UserError('not_found', 'SIP account not found any more.');
+                }
+                $old = (string) ($sip['callerid'] ?? '');
+                $updated = $tools->setCallerId($sip, (string) $action['callerid'], $this->actor);
+                $this->say($chatId, "✅ Caller ID updated\n" . self::sipLine($updated));
+                $this->notifyOtherAdmins($chatId, '📞 ' . self::e($this->actor) . ' changed caller ID of SIP <code>'
+                    . self::e((string) $sip['name']) . '</code>: <code>' . self::e($old) . '</code> → <code>'
+                    . self::e((string) ($updated['callerid'] ?? $action['callerid'])) . '</code>');
+                return;
+
+            case 'credit':
+                $user = $this->payments()->lookupUser((string) $action['username']);
+                if ($user === null) {
+                    throw new UserError('unknown_user', 'Account not found any more.');
+                }
+                $after = $tools->adjustCredit($user, (string) $action['amount'], (string) $action['note'], $this->actor);
+                $change = ((float) $action['amount'] > 0 ? '+' : '') . $action['amount'];
+                $balance = number_format((float) ($after['credit'] ?? 0), 2);
+                $this->say($chatId, '✅ ' . self::e($change) . ' credit for <code>' . self::e((string) $user['username'])
+                    . '</code>. New balance: <b>' . self::e($balance) . '</b>');
+                $this->notifyOtherAdmins($chatId, '💳 ' . self::e($this->actor) . ' changed credit of <code>'
+                    . self::e((string) $user['username']) . '</code> by ' . self::e($change) . ' (balance ' . self::e($balance) . ')'
+                    . ((string) $action['note'] !== '' ? "\nNote: " . self::e((string) $action['note']) : ''));
+                return;
+
+            case 'markpaid':
+                $order = $this->payments()->markPaid((string) $action['order'], $this->actor);
+                $this->say($chatId, $this->orderText($order, true));
+                $this->notifyOtherAdmins($chatId, '✅ ' . self::e($this->actor) . ' marked order <code>' . self::e((string) $order['id'])
+                    . '</code> as paid (' . self::e($this->payments()->money($order['amount'])) . ' for <code>'
+                    . self::e((string) $order['username']) . '</code>)');
+                return;
+        }
+    }
+
+    private function notifyOtherAdmins(string $exceptChat, string $html): void
+    {
+        foreach ((array) $this->app->config['telegram']['admin_chat_ids'] as $adminChat) {
+            if ((string) $adminChat === $exceptChat) {
+                continue;
+            }
+            try {
+                $this->say((string) $adminChat, $html);
+            } catch (\Throwable $e) {
+                $this->app->log('warning', 'Admin notification failed', ['chat' => $adminChat, 'error' => $e->getMessage()]);
+            }
+        }
+    }
+
+    private static function sipLine(array $sip): string
+    {
+        $owner = (string) ($sip['idUserusername'] ?? ($sip['accountcode'] ?? ''));
+
+        return 'SIP <code>' . self::e((string) ($sip['name'] ?? '')) . '</code>'
+            . ($owner !== '' ? ' · account <code>' . self::e($owner) . '</code>' : '')
+            . ' · caller ID <code>' . self::e((string) ($sip['callerid'] ?? '-')) . '</code>';
+    }
+
+    /**
+     * @param array<string,mixed> $from Telegram "from" object
+     */
+    private static function actorName(array $from): string
+    {
+        if (!empty($from['username'])) {
+            return '@' . preg_replace('/[^A-Za-z0-9_]/', '', (string) $from['username']);
+        }
+        $name = trim((string) preg_replace('/[^\p{L}\p{N} ]/u', '', (string) ($from['first_name'] ?? '')));
+
+        return ($name !== '' ? $name : 'admin') . (isset($from['id']) ? ' (' . (int) $from['id'] . ')' : '');
     }
 
     // ---------------------------------------------------------- notifications

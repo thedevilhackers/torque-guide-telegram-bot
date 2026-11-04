@@ -15,7 +15,9 @@ return [
         'base_url' => 'https://www.unitycarrier.com/pay',
         'support_url' => 'https://www.unitycarrier.com',
         'logo_url' => '',            // optional, e.g. https://www.unitycarrier.com/logo.png
-        'accent' => '#4f46e5',       // button / highlight colour
+        'theme' => 'luxury',         // 'luxury' (black & gold) or 'classic' (light, uses accent)
+        'accent' => '#4f46e5',       // button colour for the classic theme
+        'announcement' => '',        // optional banner, e.g. '5% bonus on top-ups over $100 this week'
         'timezone' => 'UTC',
     ],
 
@@ -34,6 +36,8 @@ return [
             // ['min' => 250, 'percent' => 10],
         ],
         'ask_email' => false,         // show an optional email field (OxaPay emails the receipt)
+        // Coin badges shown on the payment page (the checkout itself lists everything OxaPay supports)
+        'coins' => ['USDT', 'BTC', 'ETH', 'TRX', 'LTC', 'BNB', 'TON', 'DOGE'],
         // Text stored on the MagnusBilling refill. Must contain {order} (used to prevent double credit).
         'refill_description' => 'OxaPay top-up #{order} (track {track})',
     ],

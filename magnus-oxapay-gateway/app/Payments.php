@@ -106,11 +106,15 @@ final class Payments
         ];
     }
 
-    public function money($amount): string
+    /**
+     * @param bool $compact drop ".00" on whole amounts (for buttons: "$100" instead of "$100.00")
+     */
+    public function money($amount, bool $compact = false): string
     {
         $pay = $this->app->config['payments'];
         $symbol = (string) $pay['currency_symbol'];
-        $formatted = number_format((float) $amount, 2, '.', ',');
+        $value = (float) $amount;
+        $formatted = number_format($value, $compact && floor($value) == $value ? 0 : 2, '.', ',');
 
         return $symbol !== '' ? $symbol . $formatted : $formatted . ' ' . $pay['currency'];
     }
@@ -272,6 +276,70 @@ final class Payments
         $limit = max(1, min(100, $limit));
 
         return $this->app->db()->all('SELECT * FROM ' . $this->app->db()->table('orders') . ' ORDER BY created_at DESC LIMIT ' . $limit);
+    }
+
+    /**
+     * Orders created from (or linked to) a Telegram chat, newest first.
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    public function ordersForChat(string $chatId, int $limit = 5): array
+    {
+        $limit = max(1, min(50, $limit));
+
+        return $this->app->db()->all(
+            'SELECT * FROM ' . $this->app->db()->table('orders') . ' WHERE tg_chat_id = ? ORDER BY created_at DESC LIMIT ' . $limit,
+            [$chatId]
+        );
+    }
+
+    /**
+     * @return array<int,array<string,mixed>>
+     */
+    public function ordersForUsername(string $username, int $limit = 10): array
+    {
+        $limit = max(1, min(50, $limit));
+
+        return $this->app->db()->all(
+            'SELECT * FROM ' . $this->app->db()->table('orders') . ' WHERE LOWER(username) = LOWER(?) ORDER BY created_at DESC LIMIT ' . $limit,
+            [$username]
+        );
+    }
+
+    /**
+     * Account usernames this Telegram chat paid for before (for one-tap repeat top-ups).
+     *
+     * @return string[]
+     */
+    public function recentUsernamesForChat(string $chatId, int $limit = 3): array
+    {
+        $names = [];
+        foreach ($this->ordersForChat($chatId, 20) as $order) {
+            $name = (string) $order['username'];
+            if (!in_array($name, $names, true)) {
+                $names[] = $name;
+            }
+            if (count($names) >= $limit) {
+                break;
+            }
+        }
+
+        return $names;
+    }
+
+    /**
+     * Sends this order's payment updates to a Telegram chat (website "Notify me on Telegram" button).
+     * Only links orders that are not linked to another chat yet.
+     */
+    public function linkTelegram(string $orderId, string $chatId): bool
+    {
+        $this->app->db()->run(
+            'UPDATE ' . $this->app->db()->table('orders') . " SET tg_chat_id = ? WHERE id = ? AND (tg_chat_id IS NULL OR tg_chat_id = '')",
+            [$chatId, $orderId]
+        );
+        $order = $this->getOrder($orderId);
+
+        return $order !== null && (string) $order['tg_chat_id'] === $chatId;
     }
 
     /**
@@ -550,6 +618,33 @@ final class Payments
 
             return $order;
         }
+    }
+
+    /**
+     * Admin override: treat an order as paid (e.g. settled outside OxaPay) and credit it once.
+     *
+     * @return array<string,mixed>
+     */
+    public function markPaid(string $id, string $actor): array
+    {
+        $order = $this->getOrder($id);
+        if ($order === null) {
+            throw new UserError('not_found', 'Order not found.', 404);
+        }
+        if ($order['status'] === 'credited') {
+            throw new UserError('already_credited', 'This order is already credited.', 409);
+        }
+        if (in_array($order['status'], ['failed', 'refunded'], true)) {
+            throw new UserError('cannot_mark_paid', 'A ' . $order['status'] . ' order cannot be marked paid. Use /addcredit instead.', 409);
+        }
+
+        $this->app->db()->run(
+            'UPDATE ' . $this->app->db()->table('orders') . " SET provider_status = 'admin_paid' WHERE id = ?",
+            [$id]
+        );
+        $this->app->log('info', 'Admin marked order paid', ['order' => $id, 'from_status' => $order['status'], 'admin' => $actor]);
+
+        return $this->credit($id, true);
     }
 
     /**

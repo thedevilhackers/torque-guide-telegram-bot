@@ -63,9 +63,10 @@ function magnusDb(): \PDO
 }
 
 /**
- * Makes sure config.php holds a working MagnusBilling API key (create + read, localhost only).
+ * Makes sure config.php holds a working MagnusBilling API key (create + read + update, localhost only).
+ * Update is used only by the Telegram admin caller-ID command.
  *
- * @return array{created:bool, admin:string, note:string}
+ * @return array{created:bool, admin:string, note:string, upgraded:bool}
  */
 function ensureMagnusKey(array &$config): array
 {
@@ -79,12 +80,13 @@ function ensureMagnusKey(array &$config): array
         $row = $statement->fetch();
         if ($row && hash_equals((string) $row['api_secret'], $secret)) {
             $note = '';
+            $upgraded = strpos($key, KEY_PREFIX) === 0 && (string) $row['action'] !== 'cru';
             if (strpos($key, KEY_PREFIX) === 0) {
-                $pdo->prepare("UPDATE pkg_api SET status = 1, action = 'cr' WHERE id = ?")->execute([$row['id']]);
-            } elseif ((int) $row['status'] !== 1 || strpos((string) $row['action'], 'c') === false || strpos((string) $row['action'], 'r') === false) {
-                $note = 'Your MagnusBilling API key must be active with create + read permission.';
+                $pdo->prepare("UPDATE pkg_api SET status = 1, action = 'cru', api_restriction_ips = '127.0.0.1' WHERE id = ?")->execute([$row['id']]);
+            } elseif ((int) $row['status'] !== 1 || preg_match('/^(?=.*c)(?=.*r)(?=.*u)/', (string) $row['action']) !== 1) {
+                $note = 'Your MagnusBilling API key must be active with create + read + update permission.';
             }
-            return ['created' => false, 'admin' => '', 'note' => $note];
+            return ['created' => false, 'admin' => '', 'note' => $note, 'upgraded' => $upgraded];
         }
     }
 
@@ -100,13 +102,13 @@ function ensureMagnusKey(array &$config): array
     $secret = bin2hex(random_bytes(24));
     $pdo->prepare(
         "INSERT INTO pkg_api (id_user, status, api_key, api_secret, api_restriction_ips, action)
-         VALUES (?, 1, ?, ?, '127.0.0.1', 'cr')"
+         VALUES (?, 1, ?, ?, '127.0.0.1', 'cru')"
     )->execute([(int) $admin['id'], $key, $secret]);
 
     $config['magnus']['api_key'] = $key;
     $config['magnus']['api_secret'] = $secret;
 
-    return ['created' => true, 'admin' => (string) $admin['username'], 'note' => ''];
+    return ['created' => true, 'admin' => (string) $admin['username'], 'note' => '', 'upgraded' => false];
 }
 
 /**
@@ -275,6 +277,7 @@ try {
             $summary['magnus_key_created'] = $result['created'];
             $summary['magnus_admin'] = $result['admin'];
             $summary['magnus_note'] = $result['note'];
+            $summary['magnus_key_upgraded'] = $result['upgraded'];
         } catch (\Throwable $e) {
             $summary['magnus_note'] = 'Could not create the API key automatically: ' . $e->getMessage();
         }

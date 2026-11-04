@@ -20,6 +20,14 @@ final class FakeServices
     ];
     /** @var array<int,array<string,mixed>> */
     public $refills = [];
+    /** @var array<int,array<string,mixed>> */
+    public $sips = [
+        21 => ['id' => 21, 'id_user' => 7, 'name' => 'alice', 'callerid' => '15550001', 'cid_number' => '15550001', 'idUserusername' => 'alice'],
+        22 => ['id' => 22, 'id_user' => 7, 'name' => 'alice2', 'callerid' => '15550002', 'cid_number' => '15550002', 'idUserusername' => 'alice'],
+        23 => ['id' => 23, 'id_user' => 8, 'name' => '100234', 'callerid' => '100234', 'cid_number' => '100234', 'idUserusername' => '100234'],
+    ];
+    /** Permissions of the API key, like pkg_api.action. */
+    public $apiActions = 'cru';
     /** @var array<string,array<string,mixed>> */
     public $invoices = [];
     /** @var array<int,array<string,mixed>> */
@@ -133,6 +141,36 @@ final class FakeServices
         }
 
         $filters = isset($post['filter']) ? json_decode((string) $post['filter'], true) : [];
+
+        $needed = $post['action'] === 'read' ? 'r' : ((string) ($post['id'] ?? '0') === '0' ? 'c' : 'u');
+        if (strpos($this->apiActions, $needed) === false) {
+            return ['status' => 200, 'body' => 'invalid API action'];
+        }
+
+        if ($post['module'] === 'sip' && $post['action'] === 'read') {
+            $rows = array_values(array_filter($this->sips, static function ($sip) use ($filters) {
+                foreach ((array) $filters as $f) {
+                    if ($f['field'] === 'name' && strcasecmp((string) $sip['name'], (string) $f['value']) !== 0) {
+                        return false;
+                    }
+                    if ($f['field'] === 'id_user' && $f['type'] === 'numeric' && (int) $sip['id_user'] !== (int) $f['value']) {
+                        return false;
+                    }
+                }
+                return true;
+            }));
+            return self::json(['rows' => $rows, 'count' => count($rows)]);
+        }
+
+        if ($post['module'] === 'sip' && $post['action'] === 'save' && (int) $post['id'] > 0) {
+            if (!isset($this->sips[(int) $post['id']])) {
+                return self::json(['success' => false, 'msg' => 'Record not found.']);
+            }
+            // SipController::beforeSave copies callerid to cid_number.
+            $this->sips[(int) $post['id']]['callerid'] = $post['callerid'];
+            $this->sips[(int) $post['id']]['cid_number'] = $post['callerid'];
+            return self::json(['success' => true, 'rows' => [$this->sips[(int) $post['id']]], 'msg' => 'Operation was successful.']);
+        }
 
         if ($post['module'] === 'user' && $post['action'] === 'read') {
             $rows = array_values(array_filter($this->users, static function ($user) use ($filters) {

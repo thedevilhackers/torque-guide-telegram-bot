@@ -7,6 +7,16 @@
     var USERNAME_RE = /^[A-Za-z0-9_.@+\-]{1,64}$/;
     var AMOUNT_RE = /^\d{1,9}(\.\d{1,2})?$/;
 
+    var STORAGE_KEY = 'gateway.username';
+
+    function remember(value) {
+        try { window.localStorage.setItem(STORAGE_KEY, value); } catch (e) { /* storage unavailable */ }
+    }
+
+    function recall() {
+        try { return window.localStorage.getItem(STORAGE_KEY) || ''; } catch (e) { return ''; }
+    }
+
     function api(action, params, body) {
         var url = 'api.php?action=' + encodeURIComponent(action);
         Object.keys(params || {}).forEach(function (key) {
@@ -184,7 +194,8 @@
 
             submit.disabled = true;
             submit.classList.add('loading');
-            submit.querySelector('.btn-label').textContent = 'Creating payment…';
+            submit.querySelector('.btn-label').textContent = 'Creating secure payment…';
+            remember(user);
 
             api('create_payment', null, {
                 username: user,
@@ -198,7 +209,7 @@
                 }
                 submit.disabled = false;
                 submit.classList.remove('loading');
-                submit.querySelector('.btn-label').textContent = 'Continue to payment';
+                submit.querySelector('.btn-label').textContent = 'Continue to secure payment';
                 showError(res.error ? res.error.message : 'Something went wrong. Please try again.');
             });
         });
@@ -208,10 +219,13 @@
             if (event.persisted) {
                 submit.disabled = false;
                 submit.classList.remove('loading');
-                submit.querySelector('.btn-label').textContent = 'Continue to payment';
+                submit.querySelector('.btn-label').textContent = 'Continue to secure payment';
             }
         });
 
+        if (!username.value) {
+            username.value = recall();
+        }
         if (username.value) {
             checkUser();
         }
@@ -233,6 +247,22 @@
         failed: 'The payment could not be started. Please try again.'
     };
 
+    function initTrack(form) {
+        var input = document.getElementById('track-id');
+        var error = document.getElementById('track-error');
+        form.addEventListener('submit', function (event) {
+            event.preventDefault();
+            var id = input.value.trim().toLowerCase();
+            if (!/^[a-f0-9]{24}$/.test(id)) {
+                error.className = 'hint bad';
+                error.textContent = 'An order ID is 24 letters and numbers, for example 1c8243d0f76d7786e4b9e72c.';
+                error.hidden = false;
+                return;
+            }
+            window.location.href = 'status.php?order=' + encodeURIComponent(id);
+        });
+    }
+
     function initStatus(view) {
         var dataEl = document.getElementById('order-data');
         var order = dataEl ? JSON.parse(dataEl.textContent || '{}') : null;
@@ -240,6 +270,54 @@
             return;
         }
         var started = Date.now();
+
+        var countdown = document.getElementById('st-countdown');
+        var timer = null;
+
+        function tick() {
+            var left = order.expires_at ? order.expires_at * 1000 - Date.now() : 0;
+            var open = order.status === 'pending' || order.status === 'new';
+            if (!open || !order.expires_at) {
+                countdown.hidden = true;
+                return;
+            }
+            if (left <= 0) {
+                countdown.innerHTML = 'The payment link has expired';
+                countdown.hidden = false;
+                return;
+            }
+            var minutes = Math.floor(left / 60000);
+            var seconds = Math.floor((left % 60000) / 1000);
+            countdown.innerHTML = 'Link valid for <strong>' + minutes + ':' + (seconds < 10 ? '0' : '') + seconds + '</strong>';
+            countdown.hidden = false;
+        }
+
+        var copyButton = document.getElementById('copy-order');
+        if (copyButton) {
+            copyButton.addEventListener('click', function () {
+                var text = order.order_id;
+                var done = function () {
+                    copyButton.classList.add('done');
+                    copyButton.setAttribute('title', 'Copied');
+                    setTimeout(function () { copyButton.classList.remove('done'); }, 1500);
+                };
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(text).then(done, function () {});
+                } else {
+                    var area = document.createElement('textarea');
+                    area.value = text;
+                    document.body.appendChild(area);
+                    area.select();
+                    try { document.execCommand('copy'); done(); } catch (e) { /* ignore */ }
+                    document.body.removeChild(area);
+                }
+            });
+        }
+
+        var printButton = document.getElementById('st-print');
+        if (printButton) {
+            printButton.addEventListener('click', function () { window.print(); });
+        }
 
         function render(o) {
             view.setAttribute('data-status', o.status);
@@ -254,6 +332,23 @@
             } else {
                 payButton.hidden = true;
             }
+            var telegram = document.getElementById('st-telegram');
+            if (telegram) {
+                telegram.hidden = !!o.is_final;
+            }
+            if (printButton) {
+                printButton.hidden = o.status !== 'credited';
+            }
+            var date = document.getElementById('st-date');
+            if (date && o.credited_at && String(o.credited_at) !== date.getAttribute('data-ts')) {
+                // Same format the server uses: "04 Nov 2026, 03:38"
+                var d = new Date(o.credited_at * 1000);
+                var months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                var pad = function (n) { return (n < 10 ? '0' : '') + n; };
+                date.textContent = pad(d.getDate()) + ' ' + months[d.getMonth()] + ' ' + d.getFullYear() + ', ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+                date.setAttribute('data-ts', String(o.credited_at));
+            }
+            tick();
         }
 
         function poll() {
@@ -273,12 +368,17 @@
         }
 
         render(order);
+        timer = setInterval(tick, 1000);
         poll();
     }
 
     var form = document.getElementById('topup-form');
     if (form) {
         initForm(form);
+    }
+    var trackForm = document.getElementById('track-form');
+    if (trackForm) {
+        initTrack(trackForm);
     }
     var statusView = document.getElementById('status-view');
     if (statusView) {

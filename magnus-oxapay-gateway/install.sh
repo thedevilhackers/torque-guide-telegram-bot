@@ -15,7 +15,7 @@
 # What it changes on the server:
 #   - copies the gateway to /var/www/unitycarrier-pay  (only public/ is reachable from the web)
 #   - links /var/www/html/pay -> /var/www/unitycarrier-pay/public
-#   - adds one row to MagnusBilling's API keys (create + read only, usable from 127.0.0.1 only)
+#   - adds one row to MagnusBilling's API keys (create + read + update, usable from 127.0.0.1 only)
 #   - optional: an Apache site + Let's Encrypt certificate for your domain
 #   - optional: a systemd service for the Telegram bot when there is no HTTPS domain
 # It does not touch MagnusBilling's files, Asterisk, the firewall or existing Apache sites.
@@ -321,7 +321,10 @@ chown "root:$WEB_USER" "$APP_DIR/config.php"
 chmod 640 "$APP_DIR/config.php"
 
 if [[ "$(json_field magnus_key_created <<<"$summary")" == 1 ]]; then
-    ok "Created a MagnusBilling API key for admin '$(json_field magnus_admin <<<"$summary")' (create + read, 127.0.0.1 only)"
+    ok "Created a MagnusBilling API key for admin '$(json_field magnus_admin <<<"$summary")' (create + read + update, 127.0.0.1 only)"
+fi
+if [[ "$(json_field magnus_key_upgraded <<<"$summary")" == 1 ]]; then
+    ok "MagnusBilling API key can now also update records (needed for Telegram caller-ID changes)"
 fi
 note=$(json_field magnus_note <<<"$summary"); [[ -n $note ]] && warn "$note"
 if [[ "$(json_field magnus_ok <<<"$summary")" == 1 ]]; then

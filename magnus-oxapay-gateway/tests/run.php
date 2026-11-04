@@ -428,6 +428,203 @@ test('telegram: one-line /topup and admin commands', function () {
     check(strpos(end($last)['text'], 'minimum') !== false, 'amount validation message');
 });
 
+/**
+ * Sends a Telegram message as $chatId and returns the bot's last reply to that chat.
+ */
+function tgSay(\Gateway\App $app, FakeServices $fake, $chatId, string $text, string $username = 'boss'): array
+{
+    $app->bot()->handleUpdate(['message' => [
+        'chat' => ['id' => $chatId, 'type' => 'private'], 'from' => ['id' => $chatId, 'username' => $username], 'text' => $text,
+    ]]);
+    $replies = messagesTo($fake, (string) $chatId);
+
+    return end($replies) ?: [];
+}
+
+function tgTap(\Gateway\App $app, FakeServices $fake, $chatId, string $data): array
+{
+    $app->bot()->handleUpdate(['callback_query' => [
+        'id' => 'cb' . mt_rand(), 'data' => $data, 'from' => ['id' => $chatId, 'username' => 'boss'], 'message' => ['chat' => ['id' => $chatId]],
+    ]]);
+    $replies = messagesTo($fake, (string) $chatId);
+
+    return end($replies) ?: [];
+}
+
+function confirmButton(array $reply): string
+{
+    return (string) ($reply['reply_markup']['inline_keyboard'][0][0]['callback_data'] ?? '');
+}
+
+test('admin: /sip lists SIP accounts by SIP name or account username', function () {
+    [$app, $fake] = makeApp();
+    $reply = tgSay($app, $fake, 999, '/sip alice');
+    check(strpos($reply['text'], 'alice') !== false && strpos($reply['text'], '15550001') !== false, 'sip by name');
+    check(strpos($reply['text'], 'alice2') === false, 'exact SIP name match wins');
+
+    [$app, $fake] = makeApp();
+    $fake->sips[21]['name'] = 'alice-desk';
+    $reply = tgSay($app, $fake, 999, '/sip alice');
+    check(strpos($reply['text'], 'alice-desk') !== false && strpos($reply['text'], 'alice2') !== false, 'all SIP accounts of the user');
+
+    $reply = tgSay($app, $fake, 999, '/sip nobody');
+    check(strpos($reply['text'], 'No SIP account') !== false, 'not found');
+});
+
+test('admin: /callerid asks for confirmation, then updates MagnusBilling once', function () {
+    [$app, $fake] = makeApp(['telegram' => ['admin_chat_ids' => [999, 1000]]]);
+    $reply = tgSay($app, $fake, 999, '/callerid 100234 +1 (555) 777-8888');
+    check(strpos($reply['text'], 'Change caller ID') !== false, 'asks to confirm');
+    same('100234', $fake->sips[23]['callerid'], 'nothing changed before confirming');
+
+    $button = confirmButton($reply);
+    check(strpos($button, 'cf:') === 0, 'confirm button');
+    $done = tgTap($app, $fake, 999, $button);
+    check(strpos($done['text'], 'Caller ID updated') !== false, 'success reply');
+    same('+15557778888', $fake->sips[23]['callerid']);
+    same('+15557778888', $fake->sips[23]['cid_number']);
+
+    $other = messagesTo($fake, '1000');
+    check(strpos(end($other)['text'], '@boss changed caller ID') !== false, 'other admins informed');
+
+    $again = tgTap($app, $fake, 999, $button);
+    check(strpos($again['text'], 'expired or was already used') !== false, 'button works only once');
+    same(1, count(array_filter($fake->magnusCalls, function ($c) { return $c['module'] === 'sip' && $c['action'] === 'save'; })));
+});
+
+test('admin: caller ID validation, ambiguity and cancel', function () {
+    [$app, $fake] = makeApp();
+    $reply = tgSay($app, $fake, 999, '/callerid 100234 12ab');
+    check(strpos($reply['text'], 'Caller ID must be') !== false, 'invalid number');
+
+    $fake->sips[21]['name'] = 'alice-desk';
+    $reply = tgSay($app, $fake, 999, '/callerid alice 15551234');
+    check(strpos($reply['text'], 'has 2 SIP accounts') !== false, 'asks which SIP account');
+
+    $reply = tgSay($app, $fake, 999, '/callerid alice2 15551234');
+    $cancel = tgTap($app, $fake, 999, 'cancel');
+    check(strpos($cancel['text'], 'Nothing was changed') !== false, 'cancel');
+    $late = tgTap($app, $fake, 999, confirmButton($reply));
+    check(strpos($late['text'], 'expired') !== false, 'confirm after cancel is refused');
+    same('15550002', $fake->sips[22]['callerid']);
+});
+
+test('admin: commands are refused for non-admins, even with a forged button', function () {
+    [$app, $fake] = makeApp();
+    $reply = tgSay($app, $fake, 4242, '/callerid 100234 15559999');
+    check(strpos($reply['text'], 'Unknown command') !== false, 'not offered to customers');
+    $admin = tgSay($app, $fake, 999, '/addcredit alice 50');
+    tgTap($app, $fake, 4242, confirmButton($admin));
+    same(1.5, $fake->users[7]['credit'], 'button from another chat does nothing');
+    same('100234', $fake->sips[23]['callerid']);
+});
+
+test('admin: /addcredit and /removecredit change the balance through a refill', function () {
+    [$app, $fake] = makeApp();
+    $reply = tgSay($app, $fake, 999, '/addcredit alice 25 bank transfer 123');
+    check(strpos($reply['text'], 'Add <b>25.00</b> credit to') !== false, 'confirm text');
+    same(1.5, $fake->users[7]['credit'], 'unchanged before confirming');
+    $done = tgTap($app, $fake, 999, confirmButton($reply));
+    check(strpos($done['text'], 'New balance: <b>26.50</b>') !== false, 'new balance shown');
+    same(26.5, $fake->users[7]['credit']);
+    check(strpos($fake->refills[0]['description'], 'Telegram admin @boss: bank transfer 123') === 0, 'audit description');
+
+    $reply = tgSay($app, $fake, 999, '/removecredit alice 6.5 correction');
+    check(strpos($reply['text'], 'Remove <b>6.50</b> credit from') !== false, 'remove confirm text');
+    tgTap($app, $fake, 999, confirmButton($reply));
+    same(20.0, $fake->users[7]['credit']);
+    same(-6.5, $fake->refills[1]['credit']);
+
+    $reply = tgSay($app, $fake, 999, '/addcredit alice 0');
+    check(strpos($reply['text'], 'non-zero amount') !== false, 'zero rejected');
+    $reply = tgSay($app, $fake, 999, '/addcredit ghost 5');
+    check(strpos($reply['text'], 'No account found') !== false, 'unknown user');
+
+    // A note MagnusBilling would flag as an attack is replaced, never sent.
+    $reply = tgSay($app, $fake, 999, '/addcredit alice 1 copy of invoice');
+    tgTap($app, $fake, 999, confirmButton($reply));
+    same('Manual credit via Telegram admin, Old credit 20', $fake->refills[2]['description']);
+    same(0, $fake->sqlInjectStrikes);
+});
+
+test('admin: /markpaid credits an open order once and tells the customer', function () {
+    [$app, $fake] = makeApp();
+    $order = $app->payments()->createOrder(['username' => 'alice', 'amount' => '10'], 'telegram', ['tg_chat_id' => '555']);
+    $reply = tgSay($app, $fake, 999, '/markpaid ' . $order['id']);
+    check(strpos($reply['text'], 'Mark this order as paid') !== false, 'confirm text');
+    tgTap($app, $fake, 999, confirmButton($reply));
+    $stored = $app->payments()->getOrder($order['id']);
+    same('credited', $stored['status']);
+    same('admin_paid', $stored['provider_status']);
+    same(11.5, $fake->users[7]['credit']);
+    $customer = messagesTo($fake, '555');
+    check(strpos(end($customer)['text'], 'Payment confirmed') !== false, 'customer notified');
+
+    $reply = tgSay($app, $fake, 999, '/markpaid ' . $order['id']);
+    check(strpos($reply['text'], 'already credited') !== false, 'second time refused');
+    same(1, count($fake->refills));
+});
+
+test('admin: missing update permission gives a clear fix', function () {
+    [$app, $fake] = makeApp();
+    $fake->apiActions = 'cr';
+    $reply = tgSay($app, $fake, 999, '/callerid 100234 15559999');
+    $done = tgTap($app, $fake, 999, confirmButton($reply));
+    check(strpos($done['text'], 'Run install.sh again') !== false, 'tells the admin how to fix it');
+    same('100234', $fake->sips[23]['callerid']);
+});
+
+test('bot: menu buttons, My payments and one-tap repeat top-up', function () {
+    [$app, $fake] = makeApp();
+    $welcome = tgSay($app, $fake, 4242, '/start', 'customer');
+    same('💳 Top up', $welcome['reply_markup']['keyboard'][0][0]['text'], 'menu keyboard');
+
+    $reply = tgSay($app, $fake, 4242, '🧾 My payments', 'customer');
+    check(strpos($reply['text'], 'No payments from this chat yet') !== false, 'empty history');
+
+    tgSay($app, $fake, 4242, '/topup alice 10', 'customer');
+    $reply = tgSay($app, $fake, 4242, '🧾 My payments', 'customer');
+    check(strpos($reply['text'], 'alice') !== false && strpos($reply['text'], '$10.00') !== false, 'history lists the order');
+    check(strpos($reply['reply_markup']['inline_keyboard'][0][0]['url'], 'https://pay.oxapay.com/') === 0, 'pay button for open order');
+
+    $reply = tgSay($app, $fake, 4242, '💳 Top up', 'customer');
+    same('usr:alice', $reply['reply_markup']['inline_keyboard'][0][0]['callback_data'], 'previous username offered');
+    $reply = tgTap($app, $fake, 4242, 'usr:alice');
+    check(strpos($reply['text'], 'Choose an amount') !== false, 'tap goes straight to the amount');
+});
+
+test('bot: website deep links (top up for a username, follow an order)', function () {
+    [$app, $fake] = makeApp();
+    $reply = tgSay($app, $fake, 600, '/start u_alice', 'customer');
+    check(strpos($reply['text'], 'Account: <code>alice</code>') !== false, 'u_ link starts top-up');
+
+    $order = $app->payments()->createOrder(['username' => 'alice', 'amount' => '15'], 'web');
+    $reply = tgSay($app, $fake, 600, '/start o_' . $order['id'], 'customer');
+    check(strpos($reply['text'], 'Notifications are on') !== false, 'o_ link subscribes');
+    same('600', $app->payments()->getOrder($order['id'])['tg_chat_id']);
+    $reply = tgSay($app, $fake, 600, '/start o_' . $order['id'], 'customer');
+    check(strpos($reply['text'], 'Notifications are on') !== false, 'second tap is fine');
+
+    $reply = tgSay($app, $fake, 601, '/start o_' . $order['id'], 'someone');
+    check(strpos($reply['text'], 'another Telegram chat') !== false, 'cannot take over another chat\'s order');
+    same('600', $app->payments()->getOrder($order['id'])['tg_chat_id']);
+
+    $fake->oxapayStatus($order['track_id'], 'Paid');
+    [$body, $hmac] = $fake->webhook($order['track_id'], 'Paid');
+    $app->payments()->handleWebhook($body, $hmac);
+    $last = messagesTo($fake, '600');
+    check(strpos(end($last)['text'], 'Payment confirmed') !== false, 'web order notified on Telegram');
+});
+
+test('admin: /find lists orders of an account', function () {
+    [$app, $fake] = makeApp();
+    $app->payments()->createOrder(['username' => 'alice', 'amount' => '12'], 'web');
+    $reply = tgSay($app, $fake, 999, '/find ALICE');
+    check(strpos($reply['text'], '$12.00') !== false, 'finds case-insensitively');
+    $reply = tgSay($app, $fake, 4242, '/find alice', 'customer');
+    check(strpos($reply['text'], 'Unknown command') !== false, 'admin only');
+});
+
 test('telegram: unexpected errors reply politely instead of crashing', function () {
     [$app, $fake] = makeApp();
     $fake->magnusDown = true;

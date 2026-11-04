@@ -197,6 +197,71 @@ final class MagnusBilling
     }
 
     /**
+     * SIP account by its SIP username (pkg_sip.name).
+     *
+     * @return array<string,mixed>|null
+     */
+    public function findSip(string $name): ?array
+    {
+        if (!self::isSafeValue($name)) {
+            return null;
+        }
+        $rows = $this->read('sip', [[
+            'type' => 'string',
+            'field' => 'name',
+            'value' => $name,
+            'comparison' => 'eq',
+        ]], 5);
+        foreach ($rows as $row) {
+            if (strcasecmp((string) ($row['name'] ?? ''), $name) === 0) {
+                return $row;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * All SIP accounts that belong to a MagnusBilling user.
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    public function sipAccountsForUser(int $userId): array
+    {
+        return array_values(array_filter($this->read('sip', [[
+            'type' => 'numeric',
+            'field' => 'id_user',
+            'value' => $userId,
+            'comparison' => 'eq',
+        ]], 50), static function ($row) use ($userId): bool {
+            return (int) ($row['id_user'] ?? 0) === $userId;
+        }));
+    }
+
+    /**
+     * Updates fields of one record (needs the "u" permission on the API key).
+     *
+     * @param array<string,scalar> $fields
+     * @return array<string,mixed> the saved record
+     */
+    public function updateRecord(string $module, int $id, array $fields): array
+    {
+        if ($id <= 0) {
+            throw new \RuntimeException('Invalid record id.');
+        }
+        $result = $this->call($module, 'save', ['id' => $id] + $fields);
+        if (empty($result['success'])) {
+            throw new \RuntimeException('MagnusBilling refused the update: ' . self::message($result, 'unknown error'));
+        }
+        $rows = $result['rows'] ?? [];
+        if (is_array($rows) && isset($rows[0]) && is_array($rows[0])) {
+            return $rows[0];
+        }
+
+        return is_array($rows) ? $rows : [];
+    }
+
+    /**
      * True if MagnusBilling's SqlInject filter would accept $value (see MAGNUS_BLOCKED).
      */
     public static function isSafeValue(string $value): bool
