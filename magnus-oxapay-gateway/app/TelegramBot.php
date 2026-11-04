@@ -466,7 +466,7 @@ final class TelegramBot
             $order = $this->payments()->refreshIfStale($order);
             $lines[] = $this->orderLine($order);
             if (in_array($order['status'], ['new', 'pending'], true) && !empty($order['payment_url']) && count($buttons) < 3) {
-                $buttons[] = [['text' => 'Pay ' . $this->payments()->money($order['amount']) . ' for ' . $order['username'], 'url' => (string) $order['payment_url']]];
+                $buttons[] = [['text' => 'Pay ' . $this->payments()->orderMoney($order) . ' for ' . $order['username'], 'url' => (string) $order['payment_url']]];
             }
         }
         $this->say($chatId, implode("\n", $lines), $buttons === [] ? [] : ['reply_markup' => ['inline_keyboard' => $buttons]]);
@@ -486,7 +486,7 @@ final class TelegramBot
             : 'This payment already sends its updates to another Telegram chat.';
         $extra = [];
         if (in_array($order['status'], ['new', 'pending'], true) && !empty($order['payment_url'])) {
-            $extra = ['reply_markup' => ['inline_keyboard' => [[['text' => 'Pay ' . $this->payments()->money($order['amount']), 'url' => (string) $order['payment_url']]]]]];
+            $extra = ['reply_markup' => ['inline_keyboard' => [[['text' => 'Pay ' . $this->payments()->orderMoney($order), 'url' => (string) $order['payment_url']]]]]];
         }
         $this->say($chatId, $intro . "\n\n" . $this->orderText($order, false), $extra);
     }
@@ -514,7 +514,7 @@ final class TelegramBot
         $status = (string) $order['status'];
 
         return (self::STATUS_ICONS[$status] ?? '•') . ' ' . date('d M H:i', (int) $order['created_at'])
-            . ' · <code>' . self::e((string) $order['username']) . '</code> · <b>' . self::e($this->payments()->money($order['amount']))
+            . ' · <code>' . self::e((string) $order['username']) . '</code> · <b>' . self::e($this->payments()->orderMoney($order))
             . '</b> · ' . self::e(Payments::statusLabel($status));
     }
 
@@ -542,7 +542,7 @@ final class TelegramBot
             $lines[] = $this->orderLine($order) . ' · ' . self::e((string) $order['source']) . "\n   <code>" . self::e((string) $order['id']) . '</code>';
             if (count($buttons) < 6) {
                 $buttons[] = [['text' => (self::STATUS_ICONS[$order['status']] ?? '•') . ' ' . $order['username'] . ' · '
-                    . $this->payments()->money($order['amount']) . ' · ' . date('d M H:i', (int) $order['created_at']),
+                    . $this->payments()->orderMoney($order) . ' · ' . date('d M H:i', (int) $order['created_at']),
                     'callback_data' => 'adm:order:' . $order['id']]];
             }
         }
@@ -625,7 +625,7 @@ final class TelegramBot
         $lines = [
             '<b>Order</b> <code>' . self::e((string) $order['id']) . '</code>',
             'Account: <code>' . self::e((string) $order['username']) . '</code>',
-            'Amount: ' . self::e($payments->money($order['amount'])) . ' → credit ' . self::e(Payments::formatCredit($order['credit'])),
+            'Amount: ' . self::e($payments->orderMoney($order)) . ' → credit ' . self::e(Payments::formatCredit($order['credit'])),
             'Status: <b>' . self::e(Payments::statusLabel((string) $order['status'])) . '</b>',
         ];
         if ($admin) {
@@ -817,11 +817,28 @@ final class TelegramBot
                     . ((string) $action['note'] !== '' ? "\nNote: " . self::e((string) $action['note']) : ''));
                 return;
 
+            case 'setting':
+                $this->app->settings()->set((string) $action['name'], (string) $action['value'], $this->actor);
+                $this->say($chatId, '✅ Saved.');
+                $this->sendSettings($chatId);
+                $pay = $this->app->config['payments'];
+                $this->notifyOtherAdmins($chatId, '⚙️ ' . self::e($this->actor) . ' changed settings: currency '
+                    . self::e((string) $pay['currency']) . ', minimum ' . self::e($this->payments()->money($pay['min_amount']))
+                    . ', maximum ' . self::e($this->payments()->money($pay['max_amount'])));
+                return;
+
+            case 'settings_reset':
+                $this->app->settings()->reset($this->actor);
+                $this->say($chatId, '✅ Settings reset to config.php.');
+                $this->sendSettings($chatId);
+                $this->notifyOtherAdmins($chatId, '⚙️ ' . self::e($this->actor) . ' reset the settings to config.php.');
+                return;
+
             case 'markpaid':
                 $order = $this->payments()->markPaid((string) $action['order'], $this->actor);
                 $this->say($chatId, $this->orderText($order, true));
                 $this->notifyOtherAdmins($chatId, '✅ ' . self::e($this->actor) . ' marked order <code>' . self::e((string) $order['id'])
-                    . '</code> as paid (' . self::e($this->payments()->money($order['amount'])) . ' for <code>'
+                    . '</code> as paid (' . self::e($this->payments()->orderMoney($order)) . ' for <code>'
                     . self::e((string) $order['username']) . '</code>)');
                 return;
         }
@@ -843,6 +860,7 @@ final class TelegramBot
                 [['text' => '➕ Add credit', 'callback_data' => 'adm:add'], ['text' => '➖ Remove credit', 'callback_data' => 'adm:remove']],
                 [['text' => '☎️ SIP accounts', 'callback_data' => 'adm:sip'], ['text' => '📞 Caller ID', 'callback_data' => 'adm:cid']],
                 [['text' => '✅ Mark an order paid', 'callback_data' => 'adm:markpaid']],
+                [['text' => '⚙️ Settings (minimum, currency)', 'callback_data' => 'adm:settings']],
             ]]]
         );
     }
@@ -919,7 +937,7 @@ final class TelegramBot
                 foreach ($this->payments()->recent(30) as $order) {
                     if (!in_array($order['status'], ['credited', 'failed', 'refunded'], true) && count($buttons) < 6) {
                         $buttons[] = [['text' => (self::STATUS_ICONS[$order['status']] ?? '•') . ' ' . $order['username'] . ' · '
-                            . $this->payments()->money($order['amount']) . ' · ' . date('d M H:i', (int) $order['created_at']),
+                            . $this->payments()->orderMoney($order) . ' · ' . date('d M H:i', (int) $order['created_at']),
                             'callback_data' => 'adm:mp:' . $order['id']]];
                     }
                 }
@@ -934,7 +952,99 @@ final class TelegramBot
                 $order = $this->payments()->retry($arg);
                 $this->say($chatId, $this->orderText($order, true), $this->orderButtons($order));
                 return;
+            case 'settings':
+                $this->clearSession($chatId);
+                $this->sendSettings($chatId);
+                return;
+            case 'set':
+                $name = $arg === 'max' ? 'max_amount' : 'min_amount';
+                $quick = $name === 'min_amount' ? [1, 2, 5, 10, 20] : [100, 250, 500, 1000, 5000];
+                $this->setSession($chatId, 'adm_setting', ['name' => $name]);
+                $buttons = [];
+                foreach ($quick as $value) {
+                    $buttons[] = ['text' => $this->payments()->money($value, true), 'callback_data' => 'adm:setv:' . $value];
+                }
+                $current = $this->payments()->money($this->app->config['payments'][$name]);
+                $this->say(
+                    $chatId,
+                    '✏️ New ' . ($name === 'min_amount' ? '<b>minimum</b>' : '<b>maximum</b>') . ' top-up amount? (now ' . self::e($current) . ")\nTap one, or send an amount such as <code>2.50</code>.",
+                    ['reply_markup' => ['inline_keyboard' => [$buttons, [['text' => 'Cancel', 'callback_data' => 'cancel']]]]]
+                );
+                return;
+            case 'setv':
+                $session = $this->getSession($chatId);
+                if ($session['state'] !== 'adm_setting') {
+                    $this->say($chatId, 'That button has expired. Open ⚙️ Settings again.');
+                    return;
+                }
+                $this->clearSession($chatId);
+                $this->askSettingChange($chatId, (string) $session['data']['name'], $arg);
+                return;
+            case 'cur':
+                $buttons = [];
+                foreach (Settings::CURRENCIES as $code => $symbol) {
+                    $buttons[] = ['text' => $symbol . ' ' . $code, 'callback_data' => 'adm:setc:' . $code];
+                }
+                $this->say($chatId, '💱 Which currency should customers pay in?', ['reply_markup' => ['inline_keyboard' => [$buttons, [['text' => 'Cancel', 'callback_data' => 'cancel']]]]]);
+                return;
+            case 'setc':
+                $this->askSettingChange($chatId, 'currency', $arg);
+                return;
+            case 'reset':
+                $this->askConfirm($chatId, '↩️ Reset minimum, maximum and currency to the values in config.php?', ['type' => 'settings_reset']);
+                return;
         }
+    }
+
+    private function sendSettings(string $chatId): void
+    {
+        $pay = $this->app->config['payments'];
+        $payments = $this->payments();
+        $overrides = $this->app->settings()->overrides();
+        $changed = array_map(static function (string $name): string {
+            return ['min_amount' => 'minimum', 'max_amount' => 'maximum', 'currency' => 'currency'][$name] ?? $name;
+        }, array_keys($overrides));
+        $lines = [
+            '⚙️ <b>Settings</b>',
+            'Currency: <b>' . self::e((string) $pay['currency']) . '</b> (' . self::e((string) $pay['currency_symbol']) . ')',
+            'Minimum top-up: <b>' . self::e($payments->money($pay['min_amount'])) . '</b>',
+            'Maximum top-up: <b>' . self::e($payments->money($pay['max_amount'])) . '</b>',
+            'MagnusBilling credit per 1 ' . self::e((string) $pay['currency']) . ': ' . self::e((string) $pay['credit_rate']) . ' <i>(config.php)</i>',
+            '',
+            $changed === [] ? 'All values come from config.php.' : 'Changed here: ' . self::e(implode(', ', $changed)) . '. Applies to the website and bot right away.',
+        ];
+        $keyboard = [
+            [['text' => '✏️ Minimum', 'callback_data' => 'adm:set:min'], ['text' => '✏️ Maximum', 'callback_data' => 'adm:set:max']],
+            [['text' => '💱 Currency', 'callback_data' => 'adm:cur']],
+        ];
+        if ($overrides !== []) {
+            $keyboard[] = [['text' => '↩️ Reset to config.php', 'callback_data' => 'adm:reset']];
+        }
+        $keyboard[] = [['text' => '« Admin panel', 'callback_data' => 'adm:panel']];
+        $this->say($chatId, implode("\n", $lines), ['reply_markup' => ['inline_keyboard' => $keyboard]]);
+    }
+
+    private function askSettingChange(string $chatId, string $name, string $value): void
+    {
+        $settings = $this->app->settings();
+        $value = $settings->validate($name, $value);
+        $pay = $this->app->config['payments'];
+        $payments = $this->payments();
+        if ($name === 'currency') {
+            if ($value === strtoupper((string) $pay['currency'])) {
+                $this->say($chatId, 'Payments are already in ' . self::e($value) . '.');
+                return;
+            }
+            $text = '💱 Switch payments from <b>' . self::e((string) $pay['currency']) . '</b> to <b>' . self::e($value) . "</b>?\n"
+                . 'New invoices, the website and the bot will use ' . self::e(Settings::symbolFor($value)) . '. '
+                . 'Each ' . self::e($value) . ' paid adds ' . self::e((string) $pay['credit_rate']) . ' MagnusBilling credit, so check that your '
+                . 'MagnusBilling currency is ' . self::e($value) . ' (otherwise adjust credit_rate in config.php). Existing orders keep their currency.';
+        } else {
+            $label = $name === 'min_amount' ? 'minimum' : 'maximum';
+            $text = '✏️ Change the ' . $label . ' top-up from <b>' . self::e($payments->money($pay[$name])) . '</b> to <b>'
+                . self::e($payments->money($value)) . '</b>?';
+        }
+        $this->askConfirm($chatId, $text, ['type' => 'setting', 'name' => $name, 'value' => $value]);
     }
 
     /**
@@ -987,6 +1097,9 @@ final class TelegramBot
             case 'adm_markpaid':
                 $this->clearSession($chatId);
                 $this->askMarkPaid($chatId, trim($text));
+                return;
+            case 'adm_setting':
+                $this->askSettingChange($chatId, (string) $data['name'], $text);
                 return;
         }
     }
@@ -1080,7 +1193,7 @@ final class TelegramBot
     public function notify(string $event, array $order): void
     {
         $payments = $this->payments();
-        $amount = $payments->money($order['amount']);
+        $amount = $payments->orderMoney($order);
         $user = self::e((string) $order['username']);
         $id = self::e((string) $order['id']);
 

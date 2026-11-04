@@ -107,16 +107,26 @@ final class Payments
     }
 
     /**
-     * @param bool $compact drop ".00" on whole amounts (for buttons: "$100" instead of "$100.00")
+     * @param bool        $compact  drop ".00" on whole amounts (for buttons: "€100" instead of "€100.00")
+     * @param string|null $currency the amount's currency; defaults to the current payment currency
      */
-    public function money($amount, bool $compact = false): string
+    public function money($amount, bool $compact = false, ?string $currency = null): string
     {
         $pay = $this->app->config['payments'];
-        $symbol = (string) $pay['currency_symbol'];
+        $currency = $currency === null || $currency === '' ? (string) $pay['currency'] : strtoupper($currency);
+        $symbol = $currency === strtoupper((string) $pay['currency']) ? (string) $pay['currency_symbol'] : Settings::symbolFor($currency);
         $value = (float) $amount;
         $formatted = number_format($value, $compact && floor($value) == $value ? 0 : 2, '.', ',');
 
-        return $symbol !== '' ? $symbol . $formatted : $formatted . ' ' . $pay['currency'];
+        return $symbol !== '' ? $symbol . $formatted : $formatted . ' ' . $currency;
+    }
+
+    /**
+     * An order's amount in the currency it was paid in.
+     */
+    public function orderMoney(array $order): string
+    {
+        return $this->money($order['amount'], false, (string) ($order['currency'] ?? ''));
     }
 
     public static function formatCredit($credit): string
@@ -343,13 +353,16 @@ final class Payments
     }
 
     /**
+     * Credited payments since $since, in the current payment currency.
+     *
      * @return array{count:int, amount:float}
      */
     public function totalsSince(int $since): array
     {
         $row = $this->app->db()->one(
-            'SELECT COUNT(*) AS c, COALESCE(SUM(amount), 0) AS s FROM ' . $this->app->db()->table('orders') . " WHERE status = 'credited' AND credited_at >= ?",
-            [$since]
+            'SELECT COUNT(*) AS c, COALESCE(SUM(amount), 0) AS s FROM ' . $this->app->db()->table('orders')
+            . " WHERE status = 'credited' AND credited_at >= ? AND currency = ?",
+            [$since, (string) $this->app->config['payments']['currency']]
         );
 
         return ['count' => (int) ($row['c'] ?? 0), 'amount' => (float) ($row['s'] ?? 0)];
@@ -369,7 +382,7 @@ final class Payments
             'order_id' => (string) $order['id'],
             'username' => (string) $order['username'],
             'amount' => number_format((float) $order['amount'], 2, '.', ''),
-            'amount_display' => $this->money($order['amount']),
+            'amount_display' => $this->orderMoney($order),
             'currency' => (string) $order['currency'],
             'credit' => self::formatCredit($order['credit']),
             'bonus_percent' => (float) $order['bonus_percent'],

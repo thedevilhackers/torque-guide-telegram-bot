@@ -228,6 +228,13 @@ try {
     if (($oxapay = env('UC_OXAPAY_KEY')) !== '') {
         $config['oxapay']['merchant_api_key'] = $oxapay;
     }
+    if (($currency = strtoupper(env('UC_CURRENCY'))) !== '') {
+        if (!isset(\Gateway\Settings::CURRENCIES[$currency])) {
+            throw new \RuntimeException('Unsupported currency ' . $currency . ' (use ' . implode(', ', array_keys(\Gateway\Settings::CURRENCIES)) . ').');
+        }
+        $config['payments']['currency'] = $currency;
+        $config['payments']['currency_symbol'] = \Gateway\Settings::CURRENCIES[$currency];
+    }
     if (env('UC_SANDBOX') !== '') {
         $config['oxapay']['sandbox'] = env('UC_SANDBOX') === '1';
     }
@@ -294,6 +301,7 @@ try {
     $summary['base_url'] = (string) $config['site']['base_url'];
     $summary['oxapay_key_set'] = (string) $config['oxapay']['merchant_api_key'] !== '';
     $summary['sandbox'] = (bool) $config['oxapay']['sandbox'];
+    $summary['currency'] = (string) $config['payments']['currency'];
     echo json_encode($summary, JSON_UNESCAPED_SLASHES), "\n";
 } catch (\Throwable $e) {
     fwrite(STDERR, 'ERROR: ' . $e->getMessage() . "\n");

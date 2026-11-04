@@ -723,6 +723,90 @@ test('admin panel: mark paid from the unpaid list, and alert buttons', function 
     check(strpos($after['text'], 'Paid, credit added') !== false, 'Re-check button credits it');
 });
 
+test('settings: admin changes the minimum top-up with buttons', function () {
+    [$app, $fake] = makeApp();
+    $panel = tgSay($app, $fake, 999, '/admin');
+    $settings = tgTap($app, $fake, 999, findButton($panel, 'Settings'));
+    check(strpos($settings['text'], 'Minimum top-up: <b>$5.00</b>') !== false, 'shows current minimum');
+    $ask = tgTap($app, $fake, 999, findButton($settings, 'Minimum'));
+    $confirm = tgTap($app, $fake, 999, findButton($ask, '$2'));
+    check(strpos($confirm['text'], 'from <b>$5.00</b> to <b>$2.00</b>') !== false, 'confirm text');
+    same(5.0, (float) $app->config['payments']['min_amount'], 'unchanged before confirming');
+    tgTap($app, $fake, 999, findButton($confirm, 'Confirm'));
+    same(2.0, (float) $app->config['payments']['min_amount']);
+    same('2.00', $app->payments()->parseAmount('2'), 'customers can now pay 2');
+    same(2.0, $app->publicConfig()['payments']['min_amount'], 'website config updated');
+
+    $reply = tgSay($app, $fake, 4242, '/topup alice', 'customer');
+    check(strpos($reply['text'], 'between $2.00 and') !== false, 'bot uses new minimum');
+});
+
+test('settings: stored in the database, so every request and restart sees them', function () {
+    $file = sys_get_temp_dir() . '/gw-settings-' . bin2hex(random_bytes(4)) . '.sqlite';
+    try {
+        [$first] = makeApp(['database' => ['dsn' => 'sqlite:' . $file]]);
+        $first->db();
+        $first->settings()->set('currency', 'eur', 'test');
+        $first->settings()->set('min_amount', '3', 'test');
+        [$second] = makeApp(['database' => ['dsn' => 'sqlite:' . $file]]);
+        $second->db();
+        same('EUR', $second->config['payments']['currency']);
+        same('€', $second->config['payments']['currency_symbol']);
+        same(3.0, (float) $second->config['payments']['min_amount']);
+        same(5, $second->baseSetting('min_amount'), 'config.php value kept underneath');
+    } finally {
+        foreach (glob($file . '*') ?: [] as $leftover) {
+            @unlink($leftover);
+        }
+    }
+});
+
+test('settings: typed values are validated and customers cannot change them', function () {
+    [$app, $fake] = makeApp();
+    tgTap($app, $fake, 999, 'adm:set:min');
+    $reply = tgSay($app, $fake, 999, 'abc');
+    check(strpos($reply['text'], 'greater than 0') !== false, 'bad number');
+    $reply = tgSay($app, $fake, 999, '5000');
+    check(strpos($reply['text'], 'lower than the maximum') !== false, 'min must be below max');
+    $confirm = tgSay($app, $fake, 999, '€1,50');
+    check(strpos($confirm['text'], 'to <b>$1.50</b>') !== false, 'accepts symbol and comma');
+
+    tgTap($app, $fake, 4242, 'adm:set:min');
+    $reply = tgSay($app, $fake, 4242, '1', 'customer');
+    tgTap($app, $fake, 4242, confirmButton($confirm));
+    same(5.0, (float) $app->config['payments']['min_amount'], 'customer cannot change settings');
+});
+
+test('settings: switch billing to euros; old orders keep dollars; reset', function () {
+    [$app, $fake] = makeApp();
+    $usd = $app->payments()->createOrder(['username' => 'alice', 'amount' => '10'], 'web');
+    $fake->oxapayStatus($usd['track_id'], 'Paid');
+    [$body, $hmac] = $fake->webhook($usd['track_id'], 'Paid');
+    $app->payments()->handleWebhook($body, $hmac);
+
+    $choose = tgTap($app, $fake, 999, 'adm:cur');
+    $confirm = tgTap($app, $fake, 999, findButton($choose, 'EUR'));
+    check(strpos($confirm['text'], 'from <b>USD</b> to <b>EUR</b>') !== false, 'confirm currency');
+    $saved = tgTap($app, $fake, 999, findButton($confirm, 'Confirm'));
+    check(strpos($saved['text'], 'Currency: <b>EUR</b> (€)') !== false, 'settings show EUR');
+
+    same('€5.00', $app->payments()->money(5));
+    $eur = $app->payments()->createOrder(['username' => 'alice', 'amount' => '20'], 'web');
+    same('EUR', $eur['currency']);
+    same('EUR', $fake->invoices[$eur['track_id']]['currency'], 'OxaPay invoice in EUR');
+    same('€20.00', $app->payments()->publicView($eur)['amount_display']);
+    same('$10.00', $app->payments()->publicView($usd)['amount_display'], 'old order keeps $');
+
+    $recent = tgSay($app, $fake, 999, '/recent');
+    check(strpos($recent['text'], '€20.00') !== false && strpos($recent['text'], '$10.00') !== false, 'recent shows both currencies');
+    same(0, $app->payments()->totalsSince(0)['count'], 'stats count only EUR (none credited yet)');
+
+    $reply = tgTap($app, $fake, 999, 'adm:reset');
+    tgTap($app, $fake, 999, findButton($reply, 'Confirm'));
+    same('USD', $app->config['payments']['currency'], 'reset to config.php');
+    same(1, $app->payments()->totalsSince(0)['count']);
+});
+
 test('telegram: unexpected errors reply politely instead of crashing', function () {
     [$app, $fake] = makeApp();
     $fake->magnusDown = true;

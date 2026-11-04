@@ -111,6 +111,13 @@ try {
                 $app->db();
                 return explode(':', (string) $app->config['database']['dsn'])[0];
             });
+            $step('Payments', static function () use ($app) {
+                $pay = $app->config['payments'];
+                $changed = array_keys($app->settings()->overrides());
+                return $pay['currency'] . ', minimum ' . $app->payments()->money($pay['min_amount'])
+                    . ', maximum ' . $app->payments()->money($pay['max_amount'])
+                    . ($changed === [] ? '' : ' (changed in Telegram: ' . implode(', ', $changed) . ')');
+            });
             $step('Public URL', static function () use ($app) {
                 $url = $app->baseUrl();
                 if ($url === '') {
@@ -147,7 +154,7 @@ try {
                     date('Y-m-d H:i', (int) $order['created_at']),
                     $order['id'],
                     $order['username'],
-                    $app->payments()->money($order['amount']),
+                    $app->payments()->orderMoney($order),
                     $order['status'],
                     $order['source'],
                     $order['last_error'] ? '(' . $order['last_error'] . ')' : ''

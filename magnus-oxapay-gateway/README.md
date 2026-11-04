@@ -222,6 +222,9 @@ Open `https://www.unitycarrier.com/pay/`, enter a username and an amount, and pa
 | ➕ Add credit / ➖ Remove credit | Asks for the username, then offers amount buttons (5, 10, 25, 50, 100). You can also type an amount with a note, e.g. `25 bank transfer`. |
 | ☎️ SIP accounts / 📞 Caller ID | Asks for a SIP or account username, then for the new caller ID |
 | ✅ Mark an order paid | Lists unpaid orders to tap, or accepts an order ID |
+| ⚙️ Settings | Change the **minimum** and **maximum** top-up and the **currency** (EUR, USD or GBP), or reset to `config.php`. Changes apply to the website and bot immediately. |
+
+Settings changed in Telegram are stored in the gateway's database and take priority over `config.php`. Tap **↩️ Reset to config.php** to go back to the file's values. `php bin/cli.php check` shows the values in use.
 
 Payment alerts carry buttons too:
 
@@ -342,6 +345,14 @@ Everything is logged as JSON lines to `data/gateway.log`.
 
 ## Configuration notes
 
+- **Billing in euros**: set it in Telegram under **Admin panel → ⚙️ Settings → 💱 Currency → € EUR**, or on the server with:
+
+  ```bash
+  bash install.sh --currency EUR --yes
+  ```
+
+  New invoices, the website and the bot then use €. Orders already created keep their own currency.
+- **Credit amount**: MagnusBilling receives `amount × payments.credit_rate` credit. Keep `credit_rate` at `1` when MagnusBilling's own currency is the same as the one customers pay in.
 - `site.theme`: `luxury` (default, black and gold) or `classic` (light, follows dark mode, uses `site.accent`).
 - `site.announcement`: a banner above the form, for example `'Get 5% bonus credit on top-ups from $100'`. Leave it empty to hide it.
 - `site.logo_url`: your logo (square works best). It's also used as the browser tab icon.

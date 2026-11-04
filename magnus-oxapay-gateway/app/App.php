@@ -9,8 +9,11 @@ namespace Gateway;
  */
 final class App
 {
-    /** @var array<string,mixed> */
+    /** @var array<string,mixed> effective settings (config.php + admin overrides from the database) */
     public $config;
+
+    /** @var array<string,mixed> config.php merged with defaults, before admin overrides */
+    private $baseConfig;
 
     /** @var Database|null */
     private $db;
@@ -27,7 +30,7 @@ final class App
 
     public function __construct(array $config)
     {
-        $this->config = self::withDefaults($config);
+        $this->config = $this->baseConfig = self::withDefaults($config);
         date_default_timezone_set((string) $this->config['site']['timezone']);
     }
 
@@ -139,7 +142,35 @@ final class App
 
     public function db(): Database
     {
-        return $this->db ?? ($this->db = new Database($this->config['database']));
+        if ($this->db === null) {
+            $this->db = new Database($this->baseConfig['database']);
+            $this->refreshSettings();
+        }
+
+        return $this->db;
+    }
+
+    public function settings(): Settings
+    {
+        return new Settings($this);
+    }
+
+    /**
+     * Re-applies the admin overrides stored in the database (called after a change).
+     */
+    public function refreshSettings(): void
+    {
+        $this->config = Settings::apply($this->baseConfig, $this->settings()->overrides());
+    }
+
+    /**
+     * The value config.php gives a payments setting, ignoring admin overrides.
+     *
+     * @return mixed
+     */
+    public function baseSetting(string $key)
+    {
+        return $this->baseConfig['payments'][$key] ?? null;
     }
 
     public function magnus(): MagnusBilling

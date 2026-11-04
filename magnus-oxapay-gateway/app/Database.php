@@ -158,6 +158,13 @@ final class Database
             updated_at BIGINT NOT NULL
         )' . $suffix);
 
+        $this->pdo->exec('CREATE TABLE IF NOT EXISTS ' . $this->table('settings') . ' (
+            skey VARCHAR(100) NOT NULL PRIMARY KEY,
+            svalue VARCHAR(500) NOT NULL,
+            updated_at BIGINT NOT NULL,
+            updated_by VARCHAR(100) NULL
+        )' . $suffix);
+
         $this->pdo->exec('CREATE TABLE IF NOT EXISTS ' . $this->table('rate_limits') . ' (
             rkey VARCHAR(150) NOT NULL PRIMARY KEY,
             window_start BIGINT NOT NULL,

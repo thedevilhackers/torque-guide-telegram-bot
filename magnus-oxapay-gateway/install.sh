@@ -10,6 +10,7 @@
 # Options (all optional, you are asked for anything missing):
 #   --company "Unity Carrier"   --ip 212.113.119.248   --domain pay.unitycarrier.com
 #   --oxapay-key KEY   --sandbox | --live   --telegram-token TOKEN   --telegram-admins 123,456
+#   --currency EUR|USD|GBP (what customers pay in; Telegram admins can also change it under Settings)
 #   --email you@example.com (Let's Encrypt)   --path pay   --yes (accept defaults, no questions)
 #
 # What it changes on the server:
@@ -38,6 +39,7 @@ OXAPAY_KEY=""
 SANDBOX=""
 TG_TOKEN=""
 TG_ADMINS=""
+CURRENCY=""
 LE_EMAIL=""
 ASSUME_YES=0
 ACTION="install"
@@ -102,6 +104,7 @@ while [[ $# -gt 0 ]]; do
         --live) SANDBOX=0; shift ;;
         --telegram-token) TG_TOKEN=$2; shift 2 ;;
         --telegram-admins) TG_ADMINS=$2; shift 2 ;;
+        --currency) CURRENCY=$(echo "$2" | tr '[:lower:]' '[:upper:]'); shift 2 ;;
         --email) LE_EMAIL=$2; shift 2 ;;
         --path) URL_PATH=${2#/}; URL_PATH=${URL_PATH%/}; shift 2 ;;
         --yes|-y) ASSUME_YES=1; shift ;;
@@ -314,7 +317,7 @@ if [[ ${RELOAD_APACHE:-0} -eq 1 ]]; then reload_apache || true; fi
 # ---------------------------------------------------------------- config
 
 step "Configuring (MagnusBilling API key, OxaPay, Telegram)"
-summary=$(UC_COMPANY="$COMPANY" UC_BASE_URL="$BASE_URL" UC_OXAPAY_KEY="$OXAPAY_KEY" UC_SANDBOX="$SANDBOX" \
+summary=$(UC_COMPANY="$COMPANY" UC_CURRENCY="$CURRENCY" UC_BASE_URL="$BASE_URL" UC_OXAPAY_KEY="$OXAPAY_KEY" UC_SANDBOX="$SANDBOX" \
     UC_TG_TOKEN="$TG_TOKEN" UC_TG_ADMINS="$TG_ADMINS" \
     php "$APP_DIR/bin/setup.php" configure) || die "Configuration failed (see the message above)."
 chown "root:$WEB_USER" "$APP_DIR/config.php"
@@ -332,6 +335,7 @@ if [[ "$(json_field magnus_ok <<<"$summary")" == 1 ]]; then
 else
     warn "MagnusBilling API check failed: $(json_field magnus_error <<<"$summary")"
 fi
+[[ -n $CURRENCY ]] && ok "Currency set to $CURRENCY in config.php"
 [[ "$(json_field oxapay_key_set <<<"$summary")" == 1 ]] && ok "OxaPay key saved$( [[ "$(json_field sandbox <<<"$summary")" == 1 ]] && echo ' (TEST MODE)')" \
     || warn "No OxaPay key yet: payments cannot start until you run install.sh again with it."
 
