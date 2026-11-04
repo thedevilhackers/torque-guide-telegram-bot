@@ -211,6 +211,23 @@ Open `https://www.unitycarrier.com/pay/`, enter a username and an amount, and pa
 | Admin | `/callerid <sip> <number>` | Changes a SIP account's caller ID (digits, optional +). MagnusBilling regenerates its SIP config right away. |
 | Admin | `/stats` | Credited totals for today, 7 days and 30 days |
 
+**Admin panel (buttons, no typing):** admins see a **🛠 Admin panel** button in the bot menu (or send `/admin`). It opens these buttons:
+
+| Button | What it does |
+| --- | --- |
+| 📋 Recent orders | Latest orders. Tap one to open it with **Re-check**, **Mark paid** and **Account** buttons. |
+| 📊 Stats | Credited totals |
+| 👤 Account | Asks for a username, then shows balance, SIP accounts, caller IDs and latest top-ups, with **Add credit**, **Remove credit**, **Caller ID** and **All orders** buttons |
+| 🔍 Find orders | All orders of an account |
+| ➕ Add credit / ➖ Remove credit | Asks for the username, then offers amount buttons (5, 10, 25, 50, 100). You can also type an amount with a note, e.g. `25 bank transfer`. |
+| ☎️ SIP accounts / 📞 Caller ID | Asks for a SIP or account username, then for the new caller ID |
+| ✅ Mark an order paid | Lists unpaid orders to tap, or accepts an order ID |
+
+Payment alerts carry buttons too:
+
+- **New top-up**: **Account**
+- **Credit failed** and **Held for review**: **Re-check** and **Mark paid**
+
 Admin safety:
 
 - Every change (`/addcredit`, `/removecredit`, `/markpaid`, `/callerid`) first shows a summary with **Confirm** and **Cancel** buttons. The button works once and expires after 5 minutes.

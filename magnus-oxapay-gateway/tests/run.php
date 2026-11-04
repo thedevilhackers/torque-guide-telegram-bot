@@ -625,6 +625,104 @@ test('admin: /find lists orders of an account', function () {
     check(strpos($reply['text'], 'Unknown command') !== false, 'admin only');
 });
 
+function findButton(array $reply, string $label): string
+{
+    foreach ($reply['reply_markup']['inline_keyboard'] ?? [] as $row) {
+        foreach ($row as $button) {
+            if (strpos($button['text'], $label) !== false && isset($button['callback_data'])) {
+                return $button['callback_data'];
+            }
+        }
+    }
+    throw new RuntimeException("No button '{$label}'");
+}
+
+test('admin panel: menu button only for admins', function () {
+    [$app, $fake] = makeApp();
+    $welcome = tgSay($app, $fake, 999, '/start');
+    same('🛠 Admin panel', $welcome['reply_markup']['keyboard'][1][1]['text'], 'admin menu button');
+    $customer = tgSay($app, $fake, 4242, '/start', 'customer');
+    same(1, count($customer['reply_markup']['keyboard'][1]), 'customers do not get it');
+
+    $panel = tgSay($app, $fake, 999, '🛠 Admin panel');
+    check(strpos($panel['text'], 'Admin panel') !== false, 'panel opens');
+    findButton($panel, 'Add credit');
+
+    $reply = tgSay($app, $fake, 4242, '🛠 Admin panel', 'customer');
+    check(strpos($reply['text'], 'Admin panel') === false, 'typing the label does nothing for customers');
+    $reply = tgTap($app, $fake, 4242, 'adm:add');
+    check(strpos($reply['text'] ?? '', 'send the account') === false, 'forged admin button ignored');
+});
+
+test('admin panel: add credit with buttons only', function () {
+    [$app, $fake] = makeApp();
+    $panel = tgSay($app, $fake, 999, '/admin');
+    $ask = tgTap($app, $fake, 999, findButton($panel, 'Add credit'));
+    check(strpos($ask['text'], 'send the account <b>username</b>') !== false, 'asks for username');
+    $amounts = tgSay($app, $fake, 999, 'ghost');
+    check(strpos($amounts['text'], 'No account found') !== false, 'unknown user, asks again');
+    $amounts = tgSay($app, $fake, 999, 'alice');
+    check(strpos($amounts['text'], 'balance 1.50') !== false, 'shows balance');
+    $confirm = tgTap($app, $fake, 999, findButton($amounts, '+25'));
+    check(strpos($confirm['text'], 'Add <b>25.00</b> credit to') !== false, 'confirm step');
+    $done = tgTap($app, $fake, 999, findButton($confirm, 'Confirm'));
+    check(strpos($done['text'], 'New balance: <b>26.50</b>') !== false, 'credited');
+});
+
+test('admin panel: remove credit with a typed amount and note', function () {
+    [$app, $fake] = makeApp();
+    tgTap($app, $fake, 999, 'adm:remove');
+    tgSay($app, $fake, 999, 'alice');
+    $confirm = tgSay($app, $fake, 999, '1.25 refund for test call');
+    check(strpos($confirm['text'], 'Remove <b>1.25</b> credit from') !== false && strpos($confirm['text'], 'refund for test call') !== false, 'confirm with note');
+    tgTap($app, $fake, 999, findButton($confirm, 'Confirm'));
+    same(0.25, $fake->users[7]['credit']);
+    same('Telegram admin @boss: refund for test call, Old credit 1.5', $fake->refills[0]['description']);
+});
+
+test('admin panel: account card -> change caller ID with buttons', function () {
+    [$app, $fake] = makeApp();
+    $card = tgTap($app, $fake, 999, 'adm:account:100234');
+    check(strpos($card['text'], 'Balance: <b>0.00</b>') !== false && strpos($card['text'], 'caller ID') !== false, 'account card');
+    $ask = tgTap($app, $fake, 999, findButton($card, 'Caller ID of 100234'));
+    check(strpos($ask['text'], 'new caller ID') !== false, 'asks for number');
+    $confirm = tgSay($app, $fake, 999, '+44 20 7946 0000');
+    $done = tgTap($app, $fake, 999, findButton($confirm, 'Confirm'));
+    check(strpos($done['text'], 'Caller ID updated') !== false, 'updated');
+    same('+442079460000', $fake->sips[23]['callerid']);
+
+    // Via the panel's "Change caller ID" when the user has several SIP accounts
+    $fake->sips[21]['name'] = 'alice-desk';
+    tgTap($app, $fake, 999, 'adm:cid');
+    $list = tgSay($app, $fake, 999, 'alice');
+    $ask = tgTap($app, $fake, 999, findButton($list, 'alice2'));
+    check(strpos($ask['text'], 'SIP <code>alice2</code>') !== false, 'picked from list');
+});
+
+test('admin panel: mark paid from the unpaid list, and alert buttons', function () {
+    [$app, $fake] = makeApp();
+    $order = $app->payments()->createOrder(['username' => 'alice', 'amount' => '10'], 'web');
+    $list = tgTap($app, $fake, 999, 'adm:markpaid');
+    $confirm = tgTap($app, $fake, 999, findButton($list, 'alice · $10.00'));
+    check(strpos($confirm['text'], 'Mark this order as paid') !== false, 'confirm');
+    tgTap($app, $fake, 999, findButton($confirm, 'Confirm'));
+    same('credited', $app->payments()->getOrder($order['id'])['status']);
+
+    // A failed credit alert carries Re-check / Mark paid buttons.
+    $other = $app->payments()->createOrder(['username' => 'alice', 'amount' => '20'], 'web');
+    $fake->oxapayStatus($other['track_id'], 'Paid');
+    $fake->magnusDown = true;
+    [$body, $hmac] = $fake->webhook($other['track_id'], 'Paid');
+    $app->payments()->handleWebhook($body, $hmac);
+    $alerts = messagesTo($fake, '999');
+    $alert = end($alerts);
+    check(strpos($alert['text'], 'credit failed') !== false, 'alert');
+    same('adm:retry:' . $other['id'], findButton($alert, 'Re-check'));
+    $fake->magnusDown = false;
+    $after = tgTap($app, $fake, 999, 'adm:retry:' . $other['id']);
+    check(strpos($after['text'], 'Paid, credit added') !== false, 'Re-check button credits it');
+});
+
 test('telegram: unexpected errors reply politely instead of crashing', function () {
     [$app, $fake] = makeApp();
     $fake->magnusDown = true;

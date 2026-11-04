@@ -12,6 +12,7 @@ namespace Gateway;
  * Admin:     /recent  /find <username>  /order <id>  /retry <id>  /balance <username>  /stats
  *            /sip <sip|username>  /callerid <sip> <number>  /addcredit <username> <amount> [note]
  *            /removecredit <username> <amount> [note]  /markpaid <order>
+ * Admins also get a "🛠 Admin panel" button that does all of the above with buttons and guided questions.
  * Every admin change asks for confirmation, is logged, and is announced to the other admins.
  */
 final class TelegramBot
@@ -22,6 +23,10 @@ final class TelegramBot
     private const MENU_TOPUP = '💳 Top up';
     private const MENU_ORDERS = '🧾 My payments';
     private const MENU_HELP = '❓ Help';
+    private const MENU_ADMIN = '🛠 Admin panel';
+
+    /** Quick amounts on the admin add/remove credit buttons. */
+    private const ADMIN_AMOUNTS = [5, 10, 25, 50, 100];
 
     private const STATUS_ICONS = [
         'new' => '⏳', 'pending' => '⏳', 'paying' => '🔄', 'crediting' => '🔄', 'credited' => '✅',
@@ -164,10 +169,15 @@ final class TelegramBot
                     return;
                 case '/retry':
                     $order = $this->payments()->retry((string) ($args[0] ?? ''));
-                    $this->say($chatId, $this->orderText($order, true));
+                    $this->say($chatId, $this->orderText($order, true), $this->orderButtons($order));
+                    return;
+                case '/admin':
+                    $this->clearSession($chatId);
+                    $this->sendAdminPanel($chatId);
                     return;
                 case '/balance':
-                    $this->sendBalance($chatId, (string) ($args[0] ?? ''));
+                case '/account':
+                    $this->sendAccount($chatId, (string) ($args[0] ?? ''));
                     return;
                 case '/stats':
                     $this->sendStats($chatId);
@@ -208,9 +218,22 @@ final class TelegramBot
                 $this->clearSession($chatId);
                 $this->sendWelcome($chatId, $this->app->isAdminChat($chatId));
                 return;
+            case self::MENU_ADMIN:
+                if ($this->app->isAdminChat($chatId)) {
+                    $this->clearSession($chatId);
+                    $this->sendAdminPanel($chatId);
+                    return;
+                }
+                break;
         }
 
         $session = $this->getSession($chatId);
+        if (strpos($session['state'], 'adm_') === 0) {
+            if ($this->app->isAdminChat($chatId)) {
+                $this->onAdminText($chatId, $session, $text);
+            }
+            return;
+        }
         switch ($session['state']) {
             case 'await_username':
                 $this->acceptUsername($chatId, $text);
@@ -250,12 +273,20 @@ final class TelegramBot
 
         $this->tg()->answerCallback($callbackId);
 
+        if (strpos($data, 'adm:') === 0) {
+            if ($this->app->isAdminChat($chatId)) {
+                $this->onAdminButton($chatId, substr($data, 4));
+            }
+            return;
+        }
+
         if ($data === 'topup') {
             $this->startTopup($chatId, null, null);
         } elseif (strpos($data, 'usr:') === 0) {
             $this->startTopup($chatId, substr($data, 4), null);
         } elseif ($data === 'cancel') {
-            $wasConfirm = $this->getSession($chatId)['state'] === 'confirm';
+            $state = $this->getSession($chatId)['state'];
+            $wasConfirm = $state === 'confirm' || strpos($state, 'adm_') === 0;
             $this->clearSession($chatId);
             $this->say($chatId, $wasConfirm ? 'Cancelled. Nothing was changed.' : 'Cancelled. Send /topup to start again.');
         } elseif (strpos($data, 'amt:') === 0) {
@@ -400,7 +431,7 @@ final class TelegramBot
         }
         if ($admin) {
             $lines[] = '';
-            $lines[] = '<b>Admin</b>';
+            $lines[] = '<b>Admin</b>: tap <b>' . self::e(self::MENU_ADMIN) . '</b>, or use commands:';
             $lines[] = '/recent · /stats · /find &lt;username&gt; · /order &lt;id&gt;';
             $lines[] = '/retry &lt;id&gt; · /markpaid &lt;id&gt;: re-check or credit an order by hand';
             $lines[] = '/balance &lt;username&gt;';
@@ -408,11 +439,15 @@ final class TelegramBot
             $lines[] = '/sip &lt;sip or username&gt; · /callerid &lt;sip&gt; &lt;number&gt;';
         }
 
+        $keyboard = [
+            [['text' => self::MENU_TOPUP], ['text' => self::MENU_ORDERS]],
+            [['text' => self::MENU_HELP]],
+        ];
+        if ($admin) {
+            $keyboard[1][] = ['text' => self::MENU_ADMIN];
+        }
         $this->say($chatId, implode("\n", $lines), ['reply_markup' => [
-            'keyboard' => [
-                [['text' => self::MENU_TOPUP], ['text' => self::MENU_ORDERS]],
-                [['text' => self::MENU_HELP]],
-            ],
+            'keyboard' => $keyboard,
             'resize_keyboard' => true,
             'is_persistent' => true,
         ]]);
@@ -491,7 +526,7 @@ final class TelegramBot
             return;
         }
         $order = $this->payments()->refreshIfStale($order);
-        $this->say($chatId, $this->orderText($order, $admin));
+        $this->say($chatId, $this->orderText($order, $admin), $admin ? $this->orderButtons($order) : []);
     }
 
     private function sendRecent(string $chatId): void
@@ -502,22 +537,72 @@ final class TelegramBot
             return;
         }
         $lines = ['<b>Latest orders</b>'];
+        $buttons = [];
         foreach ($orders as $order) {
             $lines[] = $this->orderLine($order) . ' · ' . self::e((string) $order['source']) . "\n   <code>" . self::e((string) $order['id']) . '</code>';
+            if (count($buttons) < 6) {
+                $buttons[] = [['text' => (self::STATUS_ICONS[$order['status']] ?? '•') . ' ' . $order['username'] . ' · '
+                    . $this->payments()->money($order['amount']) . ' · ' . date('d M H:i', (int) $order['created_at']),
+                    'callback_data' => 'adm:order:' . $order['id']]];
+            }
         }
-        $this->say($chatId, implode("\n", $lines));
+        $buttons[] = [['text' => '« Admin panel', 'callback_data' => 'adm:panel']];
+        $this->say($chatId, implode("\n", $lines), ['reply_markup' => ['inline_keyboard' => $buttons]]);
     }
 
-    private function sendBalance(string $chatId, string $username): void
+    /**
+     * Account card: balance, SIP accounts, latest orders, and action buttons.
+     */
+    private function sendAccount(string $chatId, string $username): void
     {
+        if ($username === '') {
+            $this->say($chatId, 'Usage: <code>/account 100234</code>');
+            return;
+        }
         $payments = $this->payments();
         $user = $payments->lookupUser($payments->normalizeUsername($username));
         if ($user === null) {
-            $this->say($chatId, 'No account found with that username.');
+            $this->say($chatId, 'No account found with username <code>' . self::e($username) . '</code>.');
             return;
         }
-        $this->say($chatId, 'Account <code>' . self::e((string) $user['username']) . '</code> balance: <b>'
-            . self::e(number_format((float) ($user['credit'] ?? 0), 2)) . '</b>');
+        $name = (string) $user['username'];
+        $lines = [
+            '👤 <b>Account</b> <code>' . self::e($name) . '</code>',
+            'Balance: <b>' . self::e(number_format((float) ($user['credit'] ?? 0), 2)) . '</b>',
+        ];
+        try {
+            $sips = $this->app->magnus()->sipAccountsForUser((int) $user['id']);
+        } catch (\Throwable $e) {
+            $sips = [];
+        }
+        foreach (array_slice($sips, 0, 5) as $sip) {
+            $lines[] = self::sipLine($sip);
+        }
+        $orders = $payments->ordersForUsername($name, 3);
+        if ($orders !== []) {
+            $lines[] = '';
+            $lines[] = '<b>Latest top-ups</b>';
+            foreach ($orders as $order) {
+                $lines[] = $this->orderLine($order);
+            }
+        }
+
+        $keyboard = [];
+        if (strlen($name) <= 50) {
+            $keyboard[] = [
+                ['text' => '➕ Add credit', 'callback_data' => 'adm:add:' . $name],
+                ['text' => '➖ Remove credit', 'callback_data' => 'adm:remove:' . $name],
+            ];
+        }
+        foreach (array_slice($sips, 0, 3) as $sip) {
+            if (strlen((string) $sip['name']) <= 50) {
+                $keyboard[] = [['text' => '📞 Caller ID of ' . $sip['name'], 'callback_data' => 'adm:cid:' . $sip['name']]];
+            }
+        }
+        if (strlen($name) <= 50) {
+            $keyboard[] = [['text' => '🔍 All orders', 'callback_data' => 'adm:findu:' . $name], ['text' => '« Admin panel', 'callback_data' => 'adm:panel']];
+        }
+        $this->say($chatId, implode("\n", $lines), ['reply_markup' => ['inline_keyboard' => $keyboard]]);
     }
 
     private function sendStats(string $chatId): void
@@ -585,10 +670,14 @@ final class TelegramBot
             return;
         }
         $lines = ['<b>SIP accounts</b>'];
+        $buttons = [];
         foreach ($accounts as $sip) {
             $lines[] = self::sipLine($sip);
+            if (count($buttons) < 8 && strlen((string) $sip['name']) <= 50) {
+                $buttons[] = [['text' => '📞 Change caller ID of ' . $sip['name'], 'callback_data' => 'adm:cid:' . $sip['name']]];
+            }
         }
-        $this->say($chatId, implode("\n", $lines));
+        $this->say($chatId, implode("\n", $lines), $buttons === [] ? [] : ['reply_markup' => ['inline_keyboard' => $buttons]]);
     }
 
     private function askCallerIdChange(string $chatId, string $query, string $number): void
@@ -738,6 +827,215 @@ final class TelegramBot
         }
     }
 
+    // ------------------------------------------------------------ admin panel
+
+    private function sendAdminPanel(string $chatId): void
+    {
+        $payments = $this->payments();
+        $today = $payments->totalsSince((int) strtotime('today'));
+        $this->say(
+            $chatId,
+            "🛠 <b>Admin panel</b>\nToday: " . $today['count'] . ' payment' . ($today['count'] === 1 ? '' : 's')
+            . ' · ' . self::e($payments->money($today['amount'])) . "\nChoose an action:",
+            ['reply_markup' => ['inline_keyboard' => [
+                [['text' => '📋 Recent orders', 'callback_data' => 'adm:recent'], ['text' => '📊 Stats', 'callback_data' => 'adm:stats']],
+                [['text' => '👤 Account', 'callback_data' => 'adm:account'], ['text' => '🔍 Find orders', 'callback_data' => 'adm:find']],
+                [['text' => '➕ Add credit', 'callback_data' => 'adm:add'], ['text' => '➖ Remove credit', 'callback_data' => 'adm:remove']],
+                [['text' => '☎️ SIP accounts', 'callback_data' => 'adm:sip'], ['text' => '📞 Caller ID', 'callback_data' => 'adm:cid']],
+                [['text' => '✅ Mark an order paid', 'callback_data' => 'adm:markpaid']],
+            ]]]
+        );
+    }
+
+    /**
+     * Handles a tap on an "adm:" button. The caller has already checked that this is an admin chat.
+     */
+    private function onAdminButton(string $chatId, string $action): void
+    {
+        [$command, $arg] = array_pad(explode(':', $action, 2), 2, '');
+        $ask = function (string $state, array $data, string $question) use ($chatId): void {
+            $this->setSession($chatId, $state, $data);
+            $this->say($chatId, $question, $this->cancelKeyboard());
+        };
+
+        switch ($command) {
+            case 'panel':
+                $this->clearSession($chatId);
+                $this->sendAdminPanel($chatId);
+                return;
+            case 'recent':
+                $this->sendRecent($chatId);
+                return;
+            case 'stats':
+                $this->sendStats($chatId);
+                return;
+            case 'order':
+                $this->sendOrderStatus($chatId, $arg, true);
+                return;
+            case 'account':
+                if ($arg !== '') {
+                    $this->sendAccount($chatId, $arg);
+                    return;
+                }
+                $ask('adm_account', [], '👤 Send the account <b>username</b>.');
+                return;
+            case 'find':
+                $ask('adm_find', [], '🔍 Send the account <b>username</b> to list its orders.');
+                return;
+            case 'findu':
+                $this->sendOrdersForUsername($chatId, $arg);
+                return;
+            case 'add':
+            case 'remove':
+                $sign = $command === 'add' ? '+' : '-';
+                if ($arg !== '') {
+                    $this->askAdminAmount($chatId, $arg, $sign);
+                    return;
+                }
+                $ask('adm_credit_user', ['sign' => $sign], ($sign === '+' ? '➕ Add' : '➖ Remove') . ' credit: send the account <b>username</b>.');
+                return;
+            case 'amt':
+                $session = $this->getSession($chatId);
+                if ($session['state'] !== 'adm_credit_amount') {
+                    $this->say($chatId, 'That button has expired. Open the admin panel again.');
+                    return;
+                }
+                $this->clearSession($chatId);
+                $this->askCreditChange($chatId, (string) $session['data']['username'], ($session['data']['sign'] === '-' ? '-' : '') . $arg, '');
+                return;
+            case 'sip':
+                $ask('adm_sip', [], '☎️ Send a <b>SIP username</b> or account username.');
+                return;
+            case 'cid':
+                if ($arg !== '') {
+                    $ask('adm_cid_number', ['sip' => $arg], '📞 Send the new caller ID for SIP <code>' . self::e($arg) . '</code> (digits, optional +).');
+                    return;
+                }
+                $ask('adm_cid_target', [], '📞 Send the <b>SIP username</b> (or account username) whose caller ID you want to change.');
+                return;
+            case 'markpaid':
+                $this->setSession($chatId, 'adm_markpaid', []);
+                $buttons = [];
+                foreach ($this->payments()->recent(30) as $order) {
+                    if (!in_array($order['status'], ['credited', 'failed', 'refunded'], true) && count($buttons) < 6) {
+                        $buttons[] = [['text' => (self::STATUS_ICONS[$order['status']] ?? '•') . ' ' . $order['username'] . ' · '
+                            . $this->payments()->money($order['amount']) . ' · ' . date('d M H:i', (int) $order['created_at']),
+                            'callback_data' => 'adm:mp:' . $order['id']]];
+                    }
+                }
+                $buttons[] = [['text' => 'Cancel', 'callback_data' => 'cancel']];
+                $this->say($chatId, '✅ Tap an unpaid order, or send its <b>order ID</b>.', ['reply_markup' => ['inline_keyboard' => $buttons]]);
+                return;
+            case 'mp':
+                $this->clearSession($chatId);
+                $this->askMarkPaid($chatId, $arg);
+                return;
+            case 'retry':
+                $order = $this->payments()->retry($arg);
+                $this->say($chatId, $this->orderText($order, true), $this->orderButtons($order));
+                return;
+        }
+    }
+
+    /**
+     * Text sent while an admin flow waits for input.
+     *
+     * @param array{state:string, data:array<string,mixed>} $session
+     */
+    private function onAdminText(string $chatId, array $session, string $text): void
+    {
+        $data = $session['data'];
+        switch ($session['state']) {
+            case 'adm_account':
+                $this->clearSession($chatId);
+                $this->sendAccount($chatId, $text);
+                return;
+            case 'adm_find':
+                $this->clearSession($chatId);
+                $this->sendOrdersForUsername($chatId, $text);
+                return;
+            case 'adm_credit_user':
+                $this->askAdminAmount($chatId, $text, (string) ($data['sign'] ?? '+'));
+                return;
+            case 'adm_credit_amount':
+                $parts = preg_split('/\s+/', trim($text), 2) ?: [''];
+                $amount = ltrim((string) $parts[0], '+-');
+                $this->clearSession($chatId);
+                $this->askCreditChange($chatId, (string) $data['username'], ($data['sign'] === '-' ? '-' : '') . $amount, (string) ($parts[1] ?? ''));
+                return;
+            case 'adm_sip':
+                $this->clearSession($chatId);
+                $this->sendSipAccounts($chatId, $text);
+                return;
+            case 'adm_cid_target':
+                $accounts = $this->app->adminTools()->findSipAccounts($text);
+                if ($accounts === []) {
+                    $this->say($chatId, 'No SIP account found for <code>' . self::e($text) . '</code>. Send another name, or Cancel.', $this->cancelKeyboard());
+                    return;
+                }
+                if (count($accounts) === 1) {
+                    $this->onAdminButton($chatId, 'cid:' . $accounts[0]['name']);
+                    return;
+                }
+                $this->clearSession($chatId);
+                $this->sendSipAccounts($chatId, $text);
+                return;
+            case 'adm_cid_number':
+                $this->clearSession($chatId);
+                $this->askCallerIdChange($chatId, (string) $data['sip'], $text);
+                return;
+            case 'adm_markpaid':
+                $this->clearSession($chatId);
+                $this->askMarkPaid($chatId, trim($text));
+                return;
+        }
+    }
+
+    private function askAdminAmount(string $chatId, string $username, string $sign): void
+    {
+        $payments = $this->payments();
+        $user = $payments->lookupUser($payments->normalizeUsername($username));
+        if ($user === null) {
+            $this->setSession($chatId, 'adm_credit_user', ['sign' => $sign]);
+            $this->say($chatId, 'No account found with username <code>' . self::e($username) . '</code>. Send another username, or Cancel.', $this->cancelKeyboard());
+            return;
+        }
+        $name = (string) $user['username'];
+        $this->setSession($chatId, 'adm_credit_amount', ['username' => $name, 'sign' => $sign]);
+        $buttons = [];
+        foreach (self::ADMIN_AMOUNTS as $amount) {
+            $buttons[] = ['text' => ($sign === '-' ? '−' : '+') . $amount, 'callback_data' => 'adm:amt:' . $amount];
+        }
+        $this->say(
+            $chatId,
+            ($sign === '-' ? '➖ Remove credit from' : '➕ Add credit to') . ' <code>' . self::e($name) . '</code>'
+            . ' (balance ' . self::e(number_format((float) ($user['credit'] ?? 0), 2)) . ")\n"
+            . 'Tap an amount, or send one with an optional note, e.g. <code>25 bank transfer</code>',
+            ['reply_markup' => ['inline_keyboard' => [$buttons, [['text' => 'Cancel', 'callback_data' => 'cancel']]]]]
+        );
+    }
+
+    /**
+     * Retry / Mark paid / Account buttons under an order (admins only).
+     */
+    private function orderButtons(array $order): array
+    {
+        $id = (string) $order['id'];
+        $row = [];
+        if (in_array($order['status'], ['crediting', 'credit_failed', 'review', 'pending', 'new', 'paying'], true)) {
+            $row[] = ['text' => '🔁 Re-check', 'callback_data' => 'adm:retry:' . $id];
+        }
+        if (!in_array($order['status'], ['credited', 'failed', 'refunded'], true)) {
+            $row[] = ['text' => '✅ Mark paid', 'callback_data' => 'adm:mp:' . $id];
+        }
+        $keyboard = $row === [] ? [] : [$row];
+        if (strlen((string) $order['username']) <= 50) {
+            $keyboard[] = [['text' => '👤 Account ' . $order['username'], 'callback_data' => 'adm:account:' . $order['username']]];
+        }
+
+        return $keyboard === [] ? [] : ['reply_markup' => ['inline_keyboard' => $keyboard]];
+    }
+
     private function notifyOtherAdmins(string $exceptChat, string $html): void
     {
         foreach ((array) $this->app->config['telegram']['admin_chat_ids'] as $adminChat) {
@@ -788,6 +1086,7 @@ final class TelegramBot
 
         $customer = null;
         $admin = null;
+        $adminButtons = $this->orderButtons($order);
         switch ($event) {
             case 'credited':
                 $customer = "✅ <b>Payment confirmed</b>\n" . self::e(Payments::formatCredit($order['credit']))
@@ -805,11 +1104,11 @@ final class TelegramBot
                 break;
             case 'credit_failed':
                 $admin = "🚨 <b>Paid but credit failed</b> {$amount} for <code>{$user}</code>\nOrder <code>{$id}</code>\n"
-                    . self::e((string) $order['last_error']) . "\nIt is retried automatically; use /retry {$id} to force it.";
+                    . self::e((string) $order['last_error']) . "\nIt is retried automatically, or tap Re-check.";
                 break;
             case 'review':
                 $admin = "🔎 <b>Held for review</b> {$amount} for <code>{$user}</code>\nOrder <code>{$id}</code>\n"
-                    . self::e((string) $order['last_error']) . "\nUse /retry {$id} to credit it anyway.";
+                    . self::e((string) $order['last_error']) . "\nTap Mark paid to credit it anyway.";
                 break;
         }
 
@@ -822,7 +1121,7 @@ final class TelegramBot
                     continue;
                 }
                 try {
-                    $this->say((string) $adminChat, $admin);
+                    $this->say((string) $adminChat, $admin, $adminButtons);
                 } catch (\Throwable $e) {
                     $this->app->log('warning', 'Admin notification failed', ['chat' => $adminChat, 'error' => $e->getMessage()]);
                 }
