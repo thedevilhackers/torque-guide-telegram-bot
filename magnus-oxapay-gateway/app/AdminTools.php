@@ -57,25 +57,39 @@ final class AdminTools
 
     /**
      * @param array<string,mixed> $sip
-     * @return array<string,mixed> the SIP account after the change
+     * @return array{sip:array<string,mixed>, slow:bool} the SIP account after the change
      */
     public function setCallerId(array $sip, string $callerId, string $actor): array
     {
         $callerId = $this->normalizeCallerId($callerId);
         $magnus = $this->app->magnus();
+        $slow = false;
 
         try {
             $magnus->updateRecord('sip', (int) $sip['id'], ['callerid' => $callerId]);
-            $updated = $magnus->findSip((string) $sip['name']) ?? array_merge($sip, ['callerid' => $callerId]);
         } catch (\Throwable $e) {
-            throw $this->billingError($e);
+            // The reply may be lost or late although the change was saved: check before reporting an error.
+            $check = null;
+            try {
+                $check = $magnus->findSip((string) $sip['name']);
+            } catch (\Throwable $ignored) {
+            }
+            if ($check === null || (string) ($check['callerid'] ?? '') !== $callerId) {
+                throw $this->billingError($e);
+            }
+            $slow = true;
         }
 
+        try {
+            $updated = $magnus->findSip((string) $sip['name']) ?? array_merge($sip, ['callerid' => $callerId]);
+        } catch (\Throwable $e) {
+            $updated = array_merge($sip, ['callerid' => $callerId]);
+        }
         $this->app->log('info', 'Admin changed caller ID', [
-            'sip' => $sip['name'], 'old' => $sip['callerid'] ?? null, 'new' => $callerId, 'admin' => $actor,
+            'sip' => $sip['name'], 'old' => $sip['callerid'] ?? null, 'new' => $callerId, 'admin' => $actor, 'slow_reply' => $slow,
         ]);
 
-        return $updated;
+        return ['sip' => $updated, 'slow' => $slow];
     }
 
     /**
@@ -95,31 +109,53 @@ final class AdminTools
      * Adds (positive) or removes (negative) credit through a MagnusBilling refill.
      *
      * @param array<string,mixed> $user MagnusBilling user row
-     * @return array<string,mixed> the user row after the change (with the new credit)
+     * @return array{user:array<string,mixed>, slow:bool} the user row after the change (with the new credit)
      */
     public function adjustCredit(array $user, string $amount, string $note, string $actor): array
     {
         $amount = $this->parseCreditAmount($amount);
         $note = trim((string) preg_replace('/[^\p{L}\p{N} .,:#_\-\/]/u', '', $note));
-        $description = substr('Telegram admin ' . $actor . ': ' . ($note !== '' ? $note : 'manual credit'), 0, 200);
+        // A unique reference lets us find this refill again if MagnusBilling answers late.
+        $ref = 'adm-' . bin2hex(random_bytes(4));
+        $description = substr('Telegram admin ' . $actor . ': ' . ($note !== '' ? $note : 'manual credit'), 0, 180) . ' #' . $ref;
         if (!MagnusBilling::isSafeValue($description)) {
-            $description = 'Manual credit via Telegram admin';
+            $description = 'Manual credit via Telegram admin #' . $ref;
         }
         $magnus = $this->app->magnus();
+        $slow = false;
 
         try {
             $refill = $magnus->addCredit((int) $user['id'], $amount, $description);
-            $after = $magnus->findUser((string) $user['username']) ?? $user;
         } catch (\Throwable $e) {
-            throw $this->billingError($e);
+            // MagnusBilling saves the refill and balance, then emails the customer before replying.
+            // A slow mail server makes the reply time out although the change is done: check first.
+            $refill = null;
+            try {
+                $refill = $magnus->findRefillContaining($ref);
+            } catch (\Throwable $ignored) {
+            }
+            if ($refill === null) {
+                $this->app->log('error', 'Admin credit change not confirmed', ['user' => $user['username'], 'amount' => $amount, 'ref' => $ref, 'error' => $e->getMessage()]);
+                throw new UserError(
+                    'not_confirmed',
+                    'MagnusBilling did not confirm the change (' . $e->getMessage() . '). Check the balance with 👤 Account before trying again, so it is not applied twice.',
+                    504
+                );
+            }
+            $slow = true;
         }
 
+        try {
+            $after = $magnus->findUser((string) $user['username']) ?? $user;
+        } catch (\Throwable $e) {
+            $after = $user;
+        }
         $this->app->log('info', 'Admin adjusted credit', [
             'user' => $user['username'], 'amount' => $amount, 'note' => $note, 'admin' => $actor,
-            'refill' => $refill['id'] ?? null, 'balance' => $after['credit'] ?? null,
+            'refill' => $refill['id'] ?? null, 'ref' => $ref, 'balance' => $after['credit'] ?? null, 'slow_reply' => $slow,
         ]);
 
-        return $after;
+        return ['user' => $after, 'slow' => $slow];
     }
 
     private function billingError(\Throwable $e): \Throwable

@@ -50,6 +50,9 @@ return [
         'api_key' => '',
         'api_secret' => '',
         'verify_ssl' => true,                    // set false only for a self-signed certificate
+        // Seconds to wait when saving. MagnusBilling emails the customer before it answers a refill,
+        // so a slow mail server makes saves slow. Late answers are still detected and not repeated.
+        'write_timeout' => 120,
     ],
 
     // ----------------------------------------------------------------- OxaPay

@@ -35,6 +35,8 @@ final class MagnusBilling
     private $secret;
     /** @var bool */
     private $verifySsl;
+    /** @var int seconds to wait for saves (MagnusBilling emails the customer before it answers a refill) */
+    private $writeTimeout;
 
     public function __construct(array $config)
     {
@@ -42,6 +44,7 @@ final class MagnusBilling
         $this->key = (string) ($config['api_key'] ?? '');
         $this->secret = (string) ($config['api_secret'] ?? '');
         $this->verifySsl = (bool) ($config['verify_ssl'] ?? true);
+        $this->writeTimeout = max(25, (int) ($config['write_timeout'] ?? 120));
     }
 
     /**
@@ -78,7 +81,7 @@ final class MagnusBilling
                 'Accept: application/json',
             ],
             $body,
-            25,
+            $action === 'save' ? $this->writeTimeout : 25,
             $this->verifySsl
         );
 

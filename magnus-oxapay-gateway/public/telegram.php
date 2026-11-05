@@ -21,10 +21,28 @@ if (!$app->telegramEnabled() || $secret === '' || !hash_equals($secret, $given))
 }
 
 $update = json_decode((string) file_get_contents('php://input'), true);
+
+// Answer Telegram right away, then do the work. Saving in MagnusBilling can take a while (it emails the
+// customer first), and Telegram re-sends updates it thinks went unanswered.
+ignore_user_abort(true);
+@set_time_limit(300);
+if (function_exists('apache_setenv')) {
+    @apache_setenv('no-gzip', '1');
+}
+http_response_code(200);
+header('Content-Type: text/plain');
+header('Content-Length: 2');
+header('Connection: close');
+echo 'ok';
+if (function_exists('fastcgi_finish_request')) {
+    fastcgi_finish_request();
+} else {
+    while (ob_get_level() > 0) {
+        @ob_end_flush();
+    }
+    flush();
+}
+
 if (is_array($update)) {
     $app->bot()->handleUpdate($update);
 }
-
-// Always 200, otherwise Telegram keeps re-sending the same update.
-http_response_code(200);
-echo 'ok';

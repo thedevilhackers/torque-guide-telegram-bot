@@ -280,8 +280,9 @@ test('lost Magnus reply does not lead to a double credit', function () {
     [$body, $hmac] = $fake->webhook($order['track_id'], 'Paid');
 
     $fake->loseNextRefillReply = true;
-    same([500, 'retry'], $app->payments()->handleWebhook($body, $hmac));
+    same([200, 'ok'], $app->payments()->handleWebhook($body, $hmac), 'late reply is recognised as saved');
     same(1, count($fake->refills), 'refill was actually saved');
+    same(0, count(array_filter(messagesTo($fake, '999'), function ($m) { return strpos($m['text'], 'credit failed') !== false; })), 'no false alarm');
 
     same([200, 'ok'], $app->payments()->handleWebhook($body, $hmac));
     same(1, count($fake->refills), 'retry found the existing refill');
@@ -543,7 +544,7 @@ test('admin: /addcredit and /removecredit change the balance through a refill', 
     // A note MagnusBilling would flag as an attack is replaced, never sent.
     $reply = tgSay($app, $fake, 999, '/addcredit alice 1 copy of invoice');
     tgTap($app, $fake, 999, confirmButton($reply));
-    same('Manual credit via Telegram admin, Old credit 20', $fake->refills[2]['description']);
+    check((bool) preg_match('/^Manual credit via Telegram admin #adm-[a-f0-9]{8}, Old credit 20$/', $fake->refills[2]['description']), 'safe fallback description');
     same(0, $fake->sqlInjectStrikes);
 });
 
@@ -677,7 +678,7 @@ test('admin panel: remove credit with a typed amount and note', function () {
     check(strpos($confirm['text'], 'Remove <b>1.25</b> credit from') !== false && strpos($confirm['text'], 'refund for test call') !== false, 'confirm with note');
     tgTap($app, $fake, 999, findButton($confirm, 'Confirm'));
     same(0.25, $fake->users[7]['credit']);
-    same('Telegram admin @boss: refund for test call, Old credit 1.5', $fake->refills[0]['description']);
+    check((bool) preg_match('/^Telegram admin @boss: refund for test call #adm-[a-f0-9]{8}, Old credit 1\.5$/', $fake->refills[0]['description']), 'description with note and reference');
 });
 
 test('admin panel: account card -> change caller ID with buttons', function () {
@@ -805,6 +806,43 @@ test('settings: switch billing to euros; old orders keep dollars; reset', functi
     tgTap($app, $fake, 999, findButton($reply, 'Confirm'));
     same('USD', $app->config['payments']['currency'], 'reset to config.php');
     same(1, $app->payments()->totalsSince(0)['count']);
+});
+
+test('admin: slow MagnusBilling reply (email step) is confirmed, not reported as an error', function () {
+    [$app, $fake] = makeApp();
+    $fake->users[8]['credit'] = 117.32;
+    $fake->loseNextRefillReply = true;
+    $reply = tgSay($app, $fake, 999, '/removecredit 100234 10');
+    $done = tgTap($app, $fake, 999, confirmButton($reply));
+    check(strpos($done['text'], 'New balance: <b>107.32</b>') !== false, 'reports the saved change');
+    check(strpos($done['text'], 'Settings → SMTP') !== false, 'explains the slow reply');
+    same(1, count($fake->refills), 'applied once');
+    $progress = messagesTo($fake, '999');
+    check(strpos($progress[count($progress) - 2]['text'], 'Saving in MagnusBilling') !== false, 'progress message first');
+
+    $fake->loseNextSipReply = true;
+    $reply = tgSay($app, $fake, 999, '/callerid 100234 15550009');
+    $done = tgTap($app, $fake, 999, confirmButton($reply));
+    check(strpos($done['text'], 'Caller ID updated') !== false, 'caller ID confirmed after lost reply');
+});
+
+test('admin: an unconfirmed change is reported as such, and nothing is applied', function () {
+    [$app, $fake] = makeApp();
+    $reply = tgSay($app, $fake, 999, '/addcredit alice 5');
+    $fake->timeoutBeforeRefill = true;
+    $done = tgTap($app, $fake, 999, confirmButton($reply));
+    check(strpos($done['text'], 'did not confirm the change') !== false, 'clear message');
+    check(strpos($done['text'], 'before trying again') !== false, 'warns against repeating');
+    same(0, count($fake->refills));
+    same(1.5, $fake->users[7]['credit']);
+
+    // MagnusBilling completely unreachable: stops at the account lookup, nothing attempted.
+    $reply = tgSay($app, $fake, 999, '/addcredit alice 5');
+    $fake->magnusDown = true;
+    $done = tgTap($app, $fake, 999, confirmButton($reply));
+    $fake->magnusDown = false;
+    check(strpos($done['text'], 'unavailable') !== false, 'lookup failure message');
+    same(0, count($fake->refills));
 });
 
 test('telegram: unexpected errors reply politely instead of crashing', function () {

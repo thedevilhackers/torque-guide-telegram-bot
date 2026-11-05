@@ -397,6 +397,7 @@ The gateway can run on any PHP 7.4+ host. It does not have to run on the Magnus 
 | `MagnusBilling API error: invalid API action` | The API key lacks the create or read permission |
 | `OxaPay error (HTTP 401)` | Wrong merchant API key |
 | Payment made but status stays "Waiting" | Make sure `https://.../pay/webhook.php` is reachable from the internet. Check `data/gateway.log`. Opening the status page also re-checks OxaPay. |
+| Bot says "MagnusBilling: Request to 127.0.0.1 failed: Operation timed out" or "took a while to answer" | MagnusBilling saves the change, then emails the customer before it replies. If its mail server is slow or blocked, the reply is late. The gateway now checks whether the change was saved and never applies it twice. Fix the cause in MagnusBilling under **Settings → SMTP**: correct the host, port and password, or clear them if you don't send emails. Many VPS providers block outgoing ports 25, 465 and 587. |
 | `credit_failed` | Paid, but MagnusBilling refused or was unreachable. See `last_error` with `php bin/cli.php order <id>`, fix the cause, then `retry <id>`. |
 
 ## Tests

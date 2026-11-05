@@ -622,6 +622,26 @@ final class Payments
 
             return $order;
         } catch (\Throwable $e) {
+            // MagnusBilling saves the refill before it emails the customer, so a slow mail server can make the
+            // reply time out after the credit was already added. Look for the refill before calling it a failure.
+            $saved = null;
+            try {
+                $saved = $magnus->findRefillContaining($id);
+            } catch (\Throwable $ignored) {
+            }
+            if ($saved !== null) {
+                $this->app->log('warning', 'MagnusBilling replied late, but the refill is saved', ['order' => $id, 'error' => $e->getMessage()]);
+                $this->transition($id, ['crediting'], 'credited', [
+                    'refill_id' => isset($saved['id']) ? (string) $saved['id'] : null,
+                    'credited_at' => time(),
+                    'last_error' => null,
+                ]);
+                $order = $this->getOrder($id) ?? $order;
+                $this->notify('credited', $order);
+
+                return $order;
+            }
+
             $this->transition($id, ['crediting'], 'credit_failed', ['last_error' => substr($e->getMessage(), 0, 1000)]);
             $this->app->log('error', 'Adding credit failed', ['order' => $id, 'error' => $e->getMessage()]);
             $order = $this->getOrder($id) ?? $order;

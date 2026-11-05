@@ -42,6 +42,10 @@ final class FakeServices
     public $oxapayDown = false;
     /** Simulates a refill that is saved by MagnusBilling but whose reply is lost. */
     public $loseNextRefillReply = false;
+    /** Simulates a refill request that times out before MagnusBilling saved anything. */
+    public $timeoutBeforeRefill = false;
+    /** Simulates a SIP update that is saved but whose reply is lost. */
+    public $loseNextSipReply = false;
 
     private $nextTrack = 100000;
 
@@ -169,6 +173,10 @@ final class FakeServices
             // SipController::beforeSave copies callerid to cid_number.
             $this->sips[(int) $post['id']]['callerid'] = $post['callerid'];
             $this->sips[(int) $post['id']]['cid_number'] = $post['callerid'];
+            if ($this->loseNextSipReply) {
+                $this->loseNextSipReply = false;
+                throw new RuntimeException('Request to magnus.test failed: Operation timed out after 120000 milliseconds with 0 bytes received');
+            }
             return self::json(['success' => true, 'rows' => [$this->sips[(int) $post['id']]], 'msg' => 'Operation was successful.']);
         }
 
@@ -197,6 +205,10 @@ final class FakeServices
         }
 
         if ($post['module'] === 'refill' && $post['action'] === 'save' && (string) $post['id'] === '0') {
+            if ($this->timeoutBeforeRefill) {
+                $this->timeoutBeforeRefill = false;
+                throw new RuntimeException('Request to magnus.test failed: Operation timed out after 120000 milliseconds with 0 bytes received');
+            }
             $userId = (int) $post['id_user'];
             if (!isset($this->users[$userId])) {
                 return self::json(['success' => false, 'rows' => [], 'errors' => 'id_user invalid']);

@@ -788,6 +788,10 @@ final class TelegramBot
 
         $action = (array) $data['action'];
         $tools = $this->app->adminTools();
+        if (in_array($action['type'] ?? '', ['callerid', 'credit', 'markpaid'], true)) {
+            $this->say($chatId, '⏳ Saving in MagnusBilling…');
+        }
+        $slowNote = "\n<i>MagnusBilling took a while to answer. That is usually its customer email step: check Settings → SMTP in MagnusBilling.</i>";
         switch ($action['type'] ?? '') {
             case 'callerid':
                 $sip = $this->app->magnus()->findSip((string) $action['sip']);
@@ -795,8 +799,9 @@ final class TelegramBot
                     throw new UserError('not_found', 'SIP account not found any more.');
                 }
                 $old = (string) ($sip['callerid'] ?? '');
-                $updated = $tools->setCallerId($sip, (string) $action['callerid'], $this->actor);
-                $this->say($chatId, "✅ Caller ID updated\n" . self::sipLine($updated));
+                $result = $tools->setCallerId($sip, (string) $action['callerid'], $this->actor);
+                $updated = $result['sip'];
+                $this->say($chatId, "✅ Caller ID updated\n" . self::sipLine($updated) . ($result['slow'] ? $slowNote : ''));
                 $this->notifyOtherAdmins($chatId, '📞 ' . self::e($this->actor) . ' changed caller ID of SIP <code>'
                     . self::e((string) $sip['name']) . '</code>: <code>' . self::e($old) . '</code> → <code>'
                     . self::e((string) ($updated['callerid'] ?? $action['callerid'])) . '</code>');
@@ -807,11 +812,12 @@ final class TelegramBot
                 if ($user === null) {
                     throw new UserError('unknown_user', 'Account not found any more.');
                 }
-                $after = $tools->adjustCredit($user, (string) $action['amount'], (string) $action['note'], $this->actor);
+                $result = $tools->adjustCredit($user, (string) $action['amount'], (string) $action['note'], $this->actor);
+                $after = $result['user'];
                 $change = ((float) $action['amount'] > 0 ? '+' : '') . $action['amount'];
                 $balance = number_format((float) ($after['credit'] ?? 0), 2);
                 $this->say($chatId, '✅ ' . self::e($change) . ' credit for <code>' . self::e((string) $user['username'])
-                    . '</code>. New balance: <b>' . self::e($balance) . '</b>');
+                    . '</code>. New balance: <b>' . self::e($balance) . '</b>' . ($result['slow'] ? $slowNote : ''));
                 $this->notifyOtherAdmins($chatId, '💳 ' . self::e($this->actor) . ' changed credit of <code>'
                     . self::e((string) $user['username']) . '</code> by ' . self::e($change) . ' (balance ' . self::e($balance) . ')'
                     . ((string) $action['note'] !== '' ? "\nNote: " . self::e((string) $action['note']) : ''));
