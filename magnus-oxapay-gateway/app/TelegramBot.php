@@ -555,6 +555,9 @@ final class TelegramBot
         if ((string) $site['support_url'] !== '') {
             $lines[] = '🆘 <a href="' . self::e((string) $site['support_url']) . '">Support</a>';
         }
+        if (preg_match('#^https?://#', $this->app->termsUrl())) {
+            $lines[] = '📄 <a href="' . self::e($this->app->termsUrl()) . '">Terms &amp; Conditions</a>';
+        }
         if ($admin) {
             $lines[] = '';
             $lines[] = '<b>Admin</b>: tap <b>' . self::e(self::MENU_ADMIN) . '</b>, or use commands:';

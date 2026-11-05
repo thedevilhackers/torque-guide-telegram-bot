@@ -59,11 +59,20 @@ final class App
                 'tagline' => 'Add balance to your account with crypto',
                 'base_url' => '',
                 'support_url' => '',
+                'terms_url' => '',
                 'logo_url' => '',
                 'accent' => '#4f46e5',
                 'theme' => 'voip',
                 'announcement' => '',
                 'timezone' => 'UTC',
+            ],
+            'terms' => [
+                'email' => '',
+                'address' => '',
+                'jurisdiction' => '',
+                'refund_days' => 14,
+                'updated' => '',
+                'file' => '',
             ],
             'payments' => [
                 'currency' => 'USD',
@@ -281,6 +290,20 @@ final class App
             ],
             'telegram_bot' => $this->telegramEnabled() ? ltrim((string) $tg['bot_username'], '@') : '',
         ];
+    }
+
+    /**
+     * Public address of the Terms & Conditions page (site.terms_url, or {base_url}/terms/).
+     */
+    public function termsUrl(): string
+    {
+        $configured = trim((string) ($this->config['site']['terms_url'] ?? ''));
+        if ($configured !== '') {
+            return $configured;
+        }
+        $base = $this->baseUrl();
+
+        return $base !== '' ? $base . '/terms/' : 'terms/';
     }
 
     public function isAdminChat($chatId): bool

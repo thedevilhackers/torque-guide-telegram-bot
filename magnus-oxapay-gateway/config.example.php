@@ -14,6 +14,8 @@ return [
         // Public URL of the public/ folder, no trailing slash. OxaPay sends payment callbacks to {base_url}/webhook.php.
         'base_url' => 'https://www.unitycarrier.com/pay',
         'support_url' => 'https://www.unitycarrier.com',
+        // Terms & Conditions address. Empty = {base_url}/terms/. install.sh --terms-domain sets it.
+        'terms_url' => '',
         'logo_url' => '',            // optional, e.g. https://www.unitycarrier.com/logo.png
         // Website look: 'voip' (midnight blue), 'emerald', 'violet', 'luxury' (gold) or 'light'.
         // Telegram admins can switch it under Admin panel > Settings > Website theme.
@@ -21,6 +23,17 @@ return [
         'accent' => '#4f46e5',       // button colour for the classic theme
         'announcement' => '',        // optional banner, e.g. '5% bonus on top-ups over $100 this week'
         'timezone' => 'UTC',
+    ],
+
+    // ------------------------------------------------------- terms & conditions
+    // Details used in the Terms & Conditions page (public/terms/). Review the text with a lawyer.
+    'terms' => [
+        'email' => '',          // contact email shown in the terms, e.g. support@unitycarrier.com
+        'address' => '',        // registered company address
+        'jurisdiction' => '',   // governing law, e.g. 'the State of Wyoming, USA'
+        'refund_days' => 14,    // days to report a wrong or duplicate payment
+        'updated' => '',        // "last updated" date, e.g. '2026-11-05' (empty = today)
+        'file' => '',           // path to your own HTML terms, to replace the built-in text
     ],
 
     // --------------------------------------------------------------- payments

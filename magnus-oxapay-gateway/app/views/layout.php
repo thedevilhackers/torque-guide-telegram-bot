@@ -21,6 +21,13 @@ $bot = $public['telegram_bot'];
 $announcement = trim((string) ($site['announcement'] ?? ''));
 $after = $after ?? null;
 $hero = $hero ?? null;
+$assetBase = $assetBase ?? '';       // e.g. '../' for pages in a sub-folder (terms/)
+$homeUrl = $homeUrl ?? './';
+$wide = !empty($wide);
+$termsUrl = $app->termsUrl();
+if ($wide) {
+    $announcement = ''; // no promo banner on legal pages
+}
 $themeColor = ['voip' => '#050a14', 'emerald' => '#03100b', 'violet' => '#0b0614', 'luxury' => '#07070a', 'light' => '#f5f7fb'][$theme];
 
 // Live status pill: based on the gateway's own health checks (cron), not a guess.
@@ -54,14 +61,14 @@ $logo = static function () use ($site, $theme): void {
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=<?= Settings::THEME_FONTS[$theme] ?>&display=swap">
-    <link rel="stylesheet" href="assets/style.css?v=4">
+    <link rel="stylesheet" href="<?= Web::e($assetBase) ?>assets/style.css?v=5">
 </head>
 <body>
 <div class="backdrop" aria-hidden="true"></div>
 
     <header class="topbar">
         <div class="topbar-inner">
-            <a class="topbar-brand" href="./">
+            <a class="topbar-brand" href="<?= Web::e($homeUrl) ?>">
                 <?php $logo(); ?>
                 <span class="topbar-name"><?= Web::e($site['name']) ?></span>
             </a>
@@ -84,7 +91,7 @@ $logo = static function () use ($site, $theme): void {
             </nav>
         </div>
     </header>
-    <main class="page<?= $hero !== null ? ' with-hero' : '' ?>">
+    <main class="page<?= $hero !== null ? ' with-hero' : '' ?><?= $wide ? ' wide' : '' ?>">
         <?php if ($announcement !== ''): ?>
             <p class="announcement"><span aria-hidden="true">⚡</span> <?= Web::e($announcement) ?></p>
         <?php endif; ?>
@@ -98,12 +105,13 @@ $logo = static function () use ($site, $theme): void {
         <footer class="foot">
             <span>© <?= date('Y') ?> <?= Web::e($site['name']) ?></span>
             <span>Crypto checkout by OxaPay</span>
+            <a href="<?= Web::e($termsUrl) ?>">Terms</a>
             <?php if ((string) $site['support_url'] !== ''): ?>
                 <a href="<?= Web::e($site['support_url']) ?>" rel="noopener">Support</a>
             <?php endif; ?>
         </footer>
     </main>
 <script type="application/json" id="gateway-config"><?= json_encode($public, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>
-<script src="assets/app.js?v=4" defer></script>
+<script src="<?= Web::e($assetBase) ?>assets/app.js?v=5" defer></script>
 </body>
 </html>

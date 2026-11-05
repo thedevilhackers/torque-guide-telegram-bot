@@ -26,7 +26,7 @@ $coinColors = [
     'XMR' => '#ff6600', 'BCH' => '#8dc351', 'DAI' => '#f5ac37', 'SHIB' => '#e42d04', 'POL' => '#8247e5',
 ];
 
-$body = static function () use ($pay, $payments, $prefillUser, $prefillAmount, $prefillPromo): void {
+$body = static function () use ($app, $pay, $payments, $prefillUser, $prefillAmount, $prefillPromo): void {
     ?>
         <div class="card-head">
             <div>
@@ -118,7 +118,8 @@ $body = static function () use ($pay, $payments, $prefillUser, $prefillAmount, $
             <span class="btn-label">Continue to secure payment</span>
             <span class="spinner" aria-hidden="true"></span>
         </button>
-        <p class="fine-print">You'll choose a coin on OxaPay's checkout. Your balance is updated automatically once the payment confirms.</p>
+        <p class="fine-print">You'll choose a coin on OxaPay's checkout. Your balance is updated automatically once the payment confirms.
+            By continuing you agree to our <a href="<?= Web::e($app->termsUrl()) ?>">Terms &amp; Conditions</a>.</p>
     </form>
 
     <details class="track">

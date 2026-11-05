@@ -229,6 +229,9 @@ try {
         }
         $config['site']['theme'] = $known;
     }
+    if (($termsUrl = env('UC_TERMS_URL')) !== '') {
+        $config['site']['terms_url'] = $termsUrl;
+    }
     if (($support = env('UC_SUPPORT_URL')) !== '') {
         $config['site']['support_url'] = $support;
     }

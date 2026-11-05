@@ -419,6 +419,34 @@ Everything is logged as JSON lines to `data/gateway.log`.
 4. Each refill's description contains the order ID. Before adding credit, the gateway searches MagnusBilling for that ID. If an earlier attempt succeeded but its reply was lost, nothing is added a second time.
 5. If MagnusBilling is down, the order becomes `credit_failed` and the webhook answers HTTP 500. OxaPay then retries, and the status page retries too. Admins get one Telegram alert.
 
+## Terms & Conditions page
+
+The gateway includes a Terms & Conditions page at `{payment page}/terms/`, for example `https://pay.unitycarrier.com/pay/terms/`.
+- It uses the current theme and is filled in from your settings: company name, currency, minimum and maximum, invoice lifetime, bank transfer, Telegram bot.
+- The payment page links to it under the pay button and in the footer, and the bot links to it in its welcome message.
+- **It is a starting template, not legal advice.** Have it checked for your country.
+
+To serve it at **`https://terms.unitycarrier.com/terms`**:
+
+1. Add a DNS A record `terms.unitycarrier.com → 212.113.119.248`.
+2. Run:
+
+   ```bash
+   bash install.sh --terms-domain terms.unitycarrier.com --yes
+   ```
+
+The installer creates an Apache site for that hostname. It serves only `/terms` and its styles; `/` redirects to the terms, and everything else returns 403. It also gets a free HTTPS certificate and points all Terms links to the new address.
+
+Set these under `terms` in `config.php`:
+
+- `email`: contact address, e.g. `support@unitycarrier.com`
+- `address`: company address
+- `jurisdiction`: governing law, e.g. `the State of Wyoming, USA`
+- `refund_days`: window to report payment problems (default 14)
+- `updated`: date shown at the top
+
+To use your own text instead, save it as an HTML file on the server and set `terms.file` to its path.
+
 ## Configuration notes
 
 - **Billing in euros**: set it in Telegram under **Admin panel → ⚙️ Settings → 💱 Currency → € EUR**, or on the server with:

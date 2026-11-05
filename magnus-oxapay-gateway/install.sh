@@ -10,7 +10,8 @@
 # Options (all optional, you are asked for anything missing):
 #   --company "Unity Carrier"   --ip 212.113.119.248   --domain pay.unitycarrier.com
 #   --oxapay-key KEY   --sandbox | --live   --telegram-token TOKEN   --telegram-admins 123,456
-#   --telegram-viewers 789 (view-only admins; "none" to remove)   --theme voip|emerald|violet|luxury|light (website look)
+#   --telegram-viewers 789 (view-only admins; "none" to remove)
+#   --terms-domain terms.unitycarrier.com (Terms & Conditions at https://terms.../terms)   --theme voip|emerald|violet|luxury|light (website look)
 #   --currency EUR|USD|GBP (what customers pay in; Telegram admins can also change it under Settings)
 #   --email you@example.com (Let's Encrypt)   --path pay   --yes (accept defaults, no questions)
 #
@@ -31,6 +32,8 @@ URL_PATH="pay"
 SERVICE="unitycarrier-pay-bot"
 DEFAULT_PUBLIC_IP="212.113.119.248"   # Unity Carrier's MagnusBilling server, used if detection fails
 SITE_CONF="unitycarrier-pay"
+TERMS_CONF="unitycarrier-terms"
+TERMS_DOMAIN=""
 WEB_USER="www-data"
 
 COMPANY=""
@@ -103,6 +106,7 @@ while [[ $# -gt 0 ]]; do
         --company) COMPANY=$2; shift 2 ;;
         --ip) SERVER_IP=$2; shift 2 ;;
         --domain) DOMAIN=$2; shift 2 ;;
+        --terms-domain) TERMS_DOMAIN=$2; shift 2 ;;
         --oxapay-key) OXAPAY_KEY=$2; shift 2 ;;
         --sandbox) SANDBOX=1; shift ;;
         --live) SANDBOX=0; shift ;;
@@ -144,6 +148,12 @@ if [[ $ACTION == uninstall ]]; then
     link="$WEB_ROOT/$URL_PATH"
     if [[ -L $link && "$(readlink -f "$link")" == "$APP_DIR/public" ]]; then
         rm -f "$link"; ok "Removed $link"
+    fi
+    if [[ -f /etc/apache2/sites-available/$TERMS_CONF.conf ]]; then
+        a2dissite -q "$TERMS_CONF" "$TERMS_CONF-le-ssl" >/dev/null 2>&1 || true
+        rm -f "/etc/apache2/sites-available/$TERMS_CONF.conf" "/etc/apache2/sites-available/$TERMS_CONF-le-ssl.conf"
+        reload_apache || true
+        ok "Terms page site removed"
     fi
     if [[ -f /etc/apache2/sites-available/$SITE_CONF.conf ]]; then
         warn "Kept the Apache site $SITE_CONF (it also serves your domain for MagnusBilling). Remove it with: a2dissite $SITE_CONF $SITE_CONF-le-ssl"
@@ -220,6 +230,12 @@ if [[ -z $DOMAIN ]] && interactive; then
 fi
 ask DOMAIN "Domain for the payment page (leave empty to use the IP)" "$current_domain"
 DOMAIN=${DOMAIN#http://}; DOMAIN=${DOMAIN#https://}; DOMAIN=${DOMAIN%%/*}
+current_terms=$(php_conf site.terms_url)
+current_terms_domain=""
+[[ $current_terms =~ ^https?://([^/:]+) ]] && current_terms_domain=${BASH_REMATCH[1]}
+[[ $current_terms_domain == "$DOMAIN" ]] && current_terms_domain=""
+ask TERMS_DOMAIN "Domain for the Terms & Conditions page, e.g. terms.unitycarrier.com (optional)" "$current_terms_domain"
+TERMS_DOMAIN=${TERMS_DOMAIN#http://}; TERMS_DOMAIN=${TERMS_DOMAIN#https://}; TERMS_DOMAIN=${TERMS_DOMAIN%%/*}
 
 if [[ -z $OXAPAY_KEY && -z "$(php_conf "oxapay.merchant_api_key")" ]] && interactive; then
     echo "  OxaPay merchant API key: OxaPay dashboard > Merchant Service > Generate API key."
@@ -324,11 +340,70 @@ fi
 
 if [[ ${RELOAD_APACHE:-0} -eq 1 ]]; then reload_apache || true; fi
 
+# ---------------------------------------------------------------- terms page
+
+# Separate Apache site for the Terms & Conditions subdomain. It serves only /terms and /assets from
+# the gateway's public/ folder; everything else on that hostname is refused.
+TERMS_URL=""
+if [[ -n $TERMS_DOMAIN ]]; then
+    step "Terms page on $TERMS_DOMAIN"
+    resolved=$(getent ahostsv4 "$TERMS_DOMAIN" 2>/dev/null | awk '{print $1}' | sort -u | xargs || true)
+    local_ips=" $SERVER_IP $(hostname -I 2>/dev/null || true) "
+    points_here=0
+    for addr in $resolved; do [[ $local_ips == *" $addr "* ]] && points_here=1; done
+    if [[ $points_here -eq 0 && ! -f /etc/letsencrypt/live/$TERMS_DOMAIN/fullchain.pem ]]; then
+        warn "$TERMS_DOMAIN points to '${resolved:-nothing}', not $SERVER_IP. Add a DNS A record $TERMS_DOMAIN -> $SERVER_IP and run install.sh again."
+        warn "Until then the terms are at $BASE_URL/terms/"
+    else
+        conf="/etc/apache2/sites-available/$TERMS_CONF.conf"
+        cat > "$conf" <<EOF
+# Added by the Unity Carrier top-up gateway installer: Terms & Conditions only.
+<VirtualHost *:80>
+    ServerName $TERMS_DOMAIN
+    DocumentRoot $APP_DIR/public
+    <Directory $APP_DIR/public>
+        Options -Indexes +FollowSymLinks
+        AllowOverride All
+        Require all granted
+    </Directory>
+    RedirectMatch 302 ^/$ /terms/
+    <If "%{REQUEST_URI} !~ m#^/(terms|assets)(/|\$)#">
+        Require all denied
+    </If>
+    ErrorLog \${APACHE_LOG_DIR}/error.log
+    CustomLog \${APACHE_LOG_DIR}/access.log combined
+</VirtualHost>
+EOF
+        a2ensite -q "$TERMS_CONF" >/dev/null
+        if ! apache2ctl configtest >/dev/null 2>&1; then
+            a2dissite -q "$TERMS_CONF" >/dev/null; rm -f "$conf"
+            die "Apache rejected the terms site; nothing was changed."
+        fi
+        reload_apache
+        ok "Apache site for $TERMS_DOMAIN (serves only /terms)"
+        TERMS_URL="http://$TERMS_DOMAIN/terms"
+        if [[ -f /etc/letsencrypt/live/$TERMS_DOMAIN/fullchain.pem ]]; then
+            TERMS_URL="https://$TERMS_DOMAIN/terms"
+            ok "HTTPS certificate already present"
+        elif confirm "Get a free HTTPS certificate for $TERMS_DOMAIN from Let's Encrypt now?" y; then
+            command -v certbot >/dev/null || DEBIAN_FRONTEND=noninteractive apt-get install -y -q certbot python3-certbot-apache >/dev/null </dev/null
+            email_args=(--register-unsafely-without-email)
+            [[ -n $LE_EMAIL ]] && email_args=(-m "$LE_EMAIL")
+            if timeout 300 certbot --apache -d "$TERMS_DOMAIN" --non-interactive --agree-tos --no-redirect "${email_args[@]}" </dev/null; then
+                TERMS_URL="https://$TERMS_DOMAIN/terms"
+                ok "HTTPS enabled for $TERMS_DOMAIN"
+            else
+                warn "Let's Encrypt failed for $TERMS_DOMAIN. The page works over http for now."
+            fi
+        fi
+    fi
+fi
+
 # ---------------------------------------------------------------- config
 
 step "Configuring (MagnusBilling API key, OxaPay, Telegram)"
 summary=$(UC_COMPANY="$COMPANY" UC_CURRENCY="$CURRENCY" UC_THEME="$THEME" UC_BASE_URL="$BASE_URL" UC_OXAPAY_KEY="$OXAPAY_KEY" UC_SANDBOX="$SANDBOX" \
-    UC_TG_TOKEN="$TG_TOKEN" UC_TG_ADMINS="$TG_ADMINS" UC_TG_VIEWERS="$TG_VIEWERS" \
+    UC_TG_TOKEN="$TG_TOKEN" UC_TG_ADMINS="$TG_ADMINS" UC_TG_VIEWERS="$TG_VIEWERS" UC_TERMS_URL="$TERMS_URL" \
     php "$APP_DIR/bin/setup.php" configure) || die "Configuration failed (see the message above)."
 chown "root:$WEB_USER" "$APP_DIR/config.php"
 chmod 640 "$APP_DIR/config.php"
@@ -405,6 +480,7 @@ as_web php "$APP_DIR/bin/cli.php" check | sed 's/^/  /' || true
 new_api_key=$(json_field new_api_key <<<"$summary")
 printf '\n%s%s top-up gateway is installed.%s\n\n' "$c_green" "$COMPANY" "$c_off"
 echo "  Payment page:     $BASE_URL/"
+echo "  Terms page:       ${TERMS_URL:-$(php_conf site.terms_url | grep . || echo "$BASE_URL/terms/")}"
 echo "  OxaPay webhook:   $BASE_URL/webhook.php   (sent automatically with every invoice)"
 echo "  JSON API:         $BASE_URL/api.php"
 [[ -n $new_api_key ]] && echo "  API key for your other systems (save it): $new_api_key"
