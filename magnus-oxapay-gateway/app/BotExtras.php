@@ -384,12 +384,22 @@ trait BotExtras
                 $this->say($chatId, $questions[$command], $this->cancelKeyboard());
                 return true;
             case 'theme':
+                $current = Settings::normalizeTheme((string) ($this->app->config['site']['theme'] ?? 'voip'));
+                $base = $this->app->baseUrl();
                 $buttons = [];
                 foreach (Settings::THEMES as $key => $label) {
-                    $buttons[] = [['text' => '🎨 ' . $label, 'callback_data' => 'adm:settheme:' . $key]];
+                    $row = [['text' => $label . ($key === $current ? ' ✓' : ''), 'callback_data' => 'adm:settheme:' . $key]];
+                    if (preg_match('#^https?://#', $base)) {
+                        $row[] = ['text' => '👀 Preview', 'url' => $base . '/?preview=' . $key];
+                    }
+                    $buttons[] = $row;
                 }
-                $buttons[] = [['text' => 'Cancel', 'callback_data' => 'cancel']];
-                $this->say($chatId, '🎨 Which look should the payment website use?', ['reply_markup' => ['inline_keyboard' => $buttons]]);
+                $buttons[] = [['text' => '« Settings', 'callback_data' => 'adm:settings']];
+                $this->say(
+                    $chatId,
+                    "🎨 <b>Website theme</b>\nTap a theme to switch to it, or 👀 Preview to look first. Previews don't change anything for customers.",
+                    ['reply_markup' => ['inline_keyboard' => $buttons]]
+                );
                 return true;
             case 'settheme':
                 $this->askSettingChange($chatId, 'theme', $arg);

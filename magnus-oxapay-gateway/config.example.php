@@ -15,7 +15,9 @@ return [
         'base_url' => 'https://www.unitycarrier.com/pay',
         'support_url' => 'https://www.unitycarrier.com',
         'logo_url' => '',            // optional, e.g. https://www.unitycarrier.com/logo.png
-        'theme' => 'voip',           // 'voip' (navy & blue), 'luxury' (black & gold) or 'classic' (light, uses accent)
+        // Website look: 'voip' (midnight blue), 'emerald', 'violet', 'luxury' (gold) or 'light'.
+        // Telegram admins can switch it under Admin panel > Settings > Website theme.
+        'theme' => 'voip',
         'accent' => '#4f46e5',       // button colour for the classic theme
         'announcement' => '',        // optional banner, e.g. '5% bonus on top-ups over $100 this week'
         'timezone' => 'UTC',

@@ -1290,7 +1290,7 @@ final class TelegramBot
             'Low-balance alert: <b>' . ($low > 0 ? 'below ' . self::e(number_format($low, 2)) : 'off') . '</b>',
             'Daily report: <b>' . ($hour >= 0 ? sprintf('%02d:00', $hour) : 'off') . '</b>',
             'Bank transfer: <b>' . ($this->bankEnabled() ? 'on' : 'off') . '</b>',
-            'Website theme: <b>' . self::e(Settings::THEMES[(string) ($this->app->config['site']['theme'] ?? 'voip')] ?? (string) $this->app->config['site']['theme']) . '</b>',
+            'Website theme: <b>' . self::e(Settings::THEMES[Settings::normalizeTheme((string) ($this->app->config['site']['theme'] ?? 'voip'))]) . '</b>',
             '',
             $changed === [] ? 'All values come from config.php.' : 'Changed here: ' . self::e(implode(', ', $changed)) . '. Applies to the website and bot right away.',
         ];

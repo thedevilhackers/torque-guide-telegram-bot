@@ -13,8 +13,35 @@ final class Settings
     /** Invoice currencies offered in the admin panel and their symbols. */
     public const CURRENCIES = ['EUR' => '€', 'USD' => '$', 'GBP' => '£'];
 
-    /** Website themes. */
-    public const THEMES = ['voip' => 'VoIP (navy & blue)', 'luxury' => 'Luxury (black & gold)', 'classic' => 'Classic (light)'];
+    /** Website themes (all share the same layout; colours and fonts differ). */
+    public const THEMES = [
+        'voip' => '🔵 Midnight Blue',
+        'emerald' => '🟢 Emerald Signal',
+        'violet' => '🟣 Violet Pulse',
+        'luxury' => '🟡 Gold Premium',
+        'light' => '⚪ Light Corporate',
+    ];
+
+    /** Theme fonts from Google Fonts (display font for headings). */
+    public const THEME_FONTS = [
+        'voip' => 'Space+Grotesk:wght@500;600;700',
+        'emerald' => 'Sora:wght@500;600;700',
+        'violet' => 'Outfit:wght@500;600;700',
+        'luxury' => 'Playfair+Display:wght@600;700',
+        'light' => 'Plus+Jakarta+Sans:wght@500;600;700;800',
+    ];
+
+    /**
+     * Known theme key for $value (older names are mapped), or 'voip'.
+     */
+    public static function normalizeTheme(string $value): string
+    {
+        $value = strtolower(trim($value));
+        $aliases = ['classic' => 'light', 'blue' => 'voip', 'gold' => 'luxury', 'green' => 'emerald', 'purple' => 'violet'];
+        $value = $aliases[$value] ?? $value;
+
+        return isset(self::THEMES[$value]) ? $value : 'voip';
+    }
 
     /** setting name => [config section, config key] */
     private const KEYS = [
@@ -111,8 +138,9 @@ final class Settings
             return $value;
         }
         if ($name === 'theme') {
-            $value = strtolower(trim($value));
-            if (!isset(self::THEMES[$value])) {
+            $raw = strtolower(trim($value));
+            $value = self::normalizeTheme($raw);
+            if ($value === 'voip' && !in_array($raw, ['voip', 'blue'], true)) {
                 throw new UserError('invalid_theme', 'Choose one of: ' . implode(', ', array_keys(self::THEMES)) . '.');
             }
             return $value;

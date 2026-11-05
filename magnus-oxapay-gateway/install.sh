@@ -10,7 +10,7 @@
 # Options (all optional, you are asked for anything missing):
 #   --company "Unity Carrier"   --ip 212.113.119.248   --domain pay.unitycarrier.com
 #   --oxapay-key KEY   --sandbox | --live   --telegram-token TOKEN   --telegram-admins 123,456
-#   --telegram-viewers 789 (view-only admins; "none" to remove)   --theme voip|luxury|classic (website look)
+#   --telegram-viewers 789 (view-only admins; "none" to remove)   --theme voip|emerald|violet|luxury|light (website look)
 #   --currency EUR|USD|GBP (what customers pay in; Telegram admins can also change it under Settings)
 #   --email you@example.com (Let's Encrypt)   --path pay   --yes (accept defaults, no questions)
 #

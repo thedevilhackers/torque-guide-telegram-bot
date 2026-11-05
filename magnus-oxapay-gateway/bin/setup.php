@@ -223,10 +223,11 @@ try {
         $config['site']['base_url'] = rtrim($baseUrl, '/');
     }
     if (($theme = strtolower(env('UC_THEME'))) !== '') {
-        if (!isset(\Gateway\Settings::THEMES[$theme])) {
+        $known = \Gateway\Settings::normalizeTheme($theme);
+        if ($known === 'voip' && !in_array($theme, ['voip', 'blue'], true)) {
             throw new \RuntimeException('Unknown theme ' . $theme . ' (use ' . implode(', ', array_keys(\Gateway\Settings::THEMES)) . ').');
         }
-        $config['site']['theme'] = $theme;
+        $config['site']['theme'] = $known;
     }
     if (($support = env('UC_SUPPORT_URL')) !== '') {
         $config['site']['support_url'] = $support;

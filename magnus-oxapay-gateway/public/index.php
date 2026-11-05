@@ -19,8 +19,6 @@ $prefillUser = substr(preg_replace('/[^A-Za-z0-9_.@+\-]/', '', (string) ($_GET['
 $prefillAmount = preg_match('/^\d{1,9}(\.\d{1,2})?$/', (string) ($_GET['amount'] ?? '')) ? (string) $_GET['amount'] : '';
 $prefillPromo = preg_match('/^[A-Za-z0-9]{3,20}$/', (string) ($_GET['promo'] ?? '')) ? strtoupper((string) $_GET['promo']) : '';
 $title = $app->config['site']['name'] . ' · Top up';
-$theme = (string) ($app->config['site']['theme'] ?? 'voip');
-$voip = $theme === 'voip';
 
 $coinColors = [
     'USDT' => '#26a17b', 'USDC' => '#2775ca', 'BTC' => '#f7931a', 'ETH' => '#627eea', 'TRX' => '#ef0027',
@@ -28,9 +26,8 @@ $coinColors = [
     'XMR' => '#ff6600', 'BCH' => '#8dc351', 'DAI' => '#f5ac37', 'SHIB' => '#e42d04', 'POL' => '#8247e5',
 ];
 
-$body = static function () use ($pay, $payments, $prefillUser, $prefillAmount, $prefillPromo, $voip): void {
-    if ($voip) {
-        ?>
+$body = static function () use ($pay, $payments, $prefillUser, $prefillAmount, $prefillPromo): void {
+    ?>
         <div class="card-head">
             <div>
                 <h2>Top up balance</h2>
@@ -43,16 +40,6 @@ $body = static function () use ($pay, $payments, $prefillUser, $prefillAmount, $
             <li><b>2</b>Amount</li>
             <li><b>3</b>Pay</li>
         </ol>
-        <?php
-    } else {
-        ?>
-        <div class="intro">
-            <h1>Add balance</h1>
-            <p>Instant VoIP credit, paid in crypto.</p>
-        </div>
-        <?php
-    }
-    ?>
 
     <form id="topup-form" class="form" novalidate>
         <div class="group">
@@ -159,7 +146,7 @@ $coinList = static function () use ($coins, $coinColors): void {
     echo '</div>';
 };
 
-$hero = !$voip ? null : static function () use ($app, $pay, $payments, $coins, $coinList): void {
+$hero = static function () use ($app, $pay, $payments, $coins, $coinList): void {
     ?>
     <span class="eyebrow"><i aria-hidden="true"></i>Instant VoIP recharge</span>
     <h1>Recharge your VoIP account <em>in seconds</em></h1>
@@ -187,33 +174,12 @@ $hero = !$voip ? null : static function () use ($app, $pay, $payments, $coins, $
     $coinList();
 };
 
-$after = static function () use ($app, $pay, $public, $coins, $coinList, $voip): void {
+$after = static function () use ($app, $pay, $public, $coins, $coinList): void {
     $bot = $public['telegram_bot'];
     $support = (string) $app->config['site']['support_url'];
-    if ($voip) {
-        echo '<div class="only-mobile">';
-        $coinList();
-        echo '</div>';
-    } else {
-    ?>
-    <ul class="perks" aria-label="Why pay here">
-        <li>
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
-            <strong>Instant credit</strong><span>Added automatically</span>
-        </li>
-        <li>
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 6v6c0 4.5 3.4 8.2 8 9 4.6-.8 8-4.5 8-9V6z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="m8.5 12 2.5 2.5 4.5-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            <strong>Secure checkout</strong><span>We never see your wallet</span>
-        </li>
-        <li>
-            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 7v5l3 2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-            <strong>24/7</strong><span>Top up any time</span>
-        </li>
-    </ul>
-
-    <?php
-        $coinList();
-    }
+    echo '<div class="only-mobile">';
+    $coinList();
+    echo '</div>';
     ?>
     <section class="faq" aria-label="Questions">
         <h2>Questions</h2>

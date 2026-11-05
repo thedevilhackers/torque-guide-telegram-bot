@@ -1175,6 +1175,23 @@ test('view-only admins can look but not change', function () {
     same(1.5, $fake->users[7]['credit']);
 });
 
+test('themes: five themes, switched from the bot with preview links', function () {
+    [$app, $fake] = makeApp();
+    $menu = tgTap($app, $fake, 999, 'adm:theme');
+    $rows = $menu['reply_markup']['inline_keyboard'];
+    same(6, count($rows), 'five themes and a back button');
+    same('https://pay.example.test/?preview=emerald', $rows[1][1]['url'], 'preview link');
+    check(strpos($rows[0][0]['text'], '✓') !== false, 'current theme marked');
+    $confirm = tgTap($app, $fake, 999, findButton($menu, 'Emerald Signal'));
+    tgTap($app, $fake, 999, findButton($confirm, 'Confirm'));
+    same('emerald', $app->config['site']['theme']);
+    same('light', \Gateway\Settings::normalizeTheme('classic'), 'old classic theme maps to light');
+    same('luxury', \Gateway\Settings::normalizeTheme('LUXURY'));
+    same('voip', \Gateway\Settings::normalizeTheme('unknown'));
+    $denied = tgTap($app, $fake, 4242, 'adm:settheme:violet');
+    same('emerald', $app->config['site']['theme'], 'customers cannot switch');
+});
+
 test('telegram: unexpected errors reply politely instead of crashing', function () {
     [$app, $fake] = makeApp();
     $fake->magnusDown = true;
