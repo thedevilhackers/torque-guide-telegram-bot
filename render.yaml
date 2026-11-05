@@ -14,3 +14,17 @@ services:
         sync: false
       - key: OPENAI_MODEL
         value: gpt-5.6-terra
+  - type: web
+    name: unity-carrier-terms
+    runtime: static
+    buildCommand: echo "Static terms page, no build step"
+    staticPublishPath: ./public
+    domains:
+      - terms.unitycarrier.com
+    routes:
+      - type: redirect
+        source: /
+        destination: /terms
+      - type: rewrite
+        source: /terms
+        destination: /terms/index.html

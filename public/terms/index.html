@@ -1,0 +1,424 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Terms and Conditions | Unity Carrier</title>
+  <meta name="description" content="Terms and Conditions for Unity Carrier VoIP, SIP trunking and phone number services.">
+  <link rel="canonical" href="https://terms.unitycarrier.com/terms">
+  <meta name="color-scheme" content="light dark">
+  <style>
+    :root {
+      --bg: #f7f7f5;
+      --surface: #ffffff;
+      --text: #1d2125;
+      --muted: #5b636b;
+      --border: #e2e4e6;
+      --accent: #0b5f7a;
+      --accent-soft: #e6f1f4;
+      --warn-soft: #fdf3e3;
+      --warn-border: #e9c88f;
+      --focus: #0b5f7a;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #121518;
+        --surface: #1a1e22;
+        --text: #e6e8ea;
+        --muted: #9aa3ab;
+        --border: #2c3238;
+        --accent: #6cc3dd;
+        --accent-soft: #17303a;
+        --warn-soft: #33291a;
+        --warn-border: #6b5428;
+        --focus: #6cc3dd;
+      }
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+    @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font: 16px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+    a { color: var(--accent); text-underline-offset: 2px; }
+    a:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 2px; }
+
+    .skip {
+      position: absolute; left: -9999px; top: 0;
+      background: var(--surface); padding: 8px 12px; z-index: 10;
+    }
+    .skip:focus { left: 16px; top: 16px; }
+
+    .masthead { border-bottom: 1px solid var(--border); background: var(--surface); }
+    .masthead-inner {
+      max-width: 1080px; margin: 0 auto; padding: 14px 16px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .mark {
+      width: 28px; height: 28px; border-radius: 7px; background: var(--accent);
+      color: var(--surface); display: grid; place-items: center;
+      font-weight: 700; font-size: 15px; flex: none;
+    }
+    .brand { font-weight: 650; letter-spacing: 0.01em; color: var(--text); text-decoration: none; }
+
+    .layout {
+      max-width: 1080px; margin: 0 auto; padding: 32px 16px 64px;
+      display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px;
+    }
+    @media (min-width: 900px) {
+      .layout { grid-template-columns: 250px minmax(0, 1fr); gap: 0 48px; padding-top: 48px; }
+      .page-head { grid-column: 2; grid-row: 1; }
+      .toc { grid-column: 1; grid-row: 1 / span 2; position: sticky; top: 24px; align-self: start; max-height: calc(100vh - 48px); overflow: auto; }
+      article { grid-column: 2; grid-row: 2; }
+    }
+
+    .toc { font-size: 14px; }
+    .toc summary {
+      cursor: pointer; font-weight: 600; padding: 10px 12px;
+      border: 1px solid var(--border); border-radius: 8px; background: var(--surface);
+    }
+    .toc ol { list-style: none; margin: 8px 0 0; padding: 0; counter-reset: toc; }
+    .toc li { counter-increment: toc; }
+    .toc li + li { margin-top: 0; }
+    .toc li a {
+      display: block; padding: 4px 12px; color: var(--muted); text-decoration: none; border-radius: 6px;
+      line-height: 1.45;
+    }
+    .toc li a::before { content: counter(toc) ". "; font-variant-numeric: tabular-nums; }
+    .toc li a:hover { color: var(--text); background: var(--accent-soft); }
+    @media (min-width: 900px) {
+      .toc summary { border: 0; background: none; padding: 0 12px 4px; pointer-events: none; list-style: none; }
+      .toc summary::-webkit-details-marker { display: none; }
+    }
+
+    .page-head, article { min-width: 0; max-width: 720px; }
+    h1 { font-size: clamp(1.9rem, 4vw, 2.5rem); line-height: 1.2; margin: 0 0 8px; letter-spacing: -0.01em; }
+    .meta { color: var(--muted); margin: 0; font-size: 15px; }
+    @media (min-width: 900px) { .page-head { margin-bottom: 28px; } }
+
+    .summary {
+      background: var(--accent-soft); border-radius: 12px; padding: 18px 20px; margin: 0 0 40px;
+    }
+    .summary h2 { font-size: 1rem; margin: 0 0 8px; padding: 0; }
+    .summary ul { margin: 0; padding-left: 20px; }
+    .summary li + li { margin-top: 4px; }
+    .summary p { margin: 10px 0 0; font-size: 14px; color: var(--muted); }
+
+    .notice {
+      background: var(--warn-soft); border: 1px solid var(--warn-border); border-radius: 10px;
+      padding: 14px 16px; margin: 0 0 12px;
+    }
+    .notice p:last-child { margin-bottom: 0; }
+
+    section { scroll-margin-top: 24px; }
+    section + section { margin-top: 36px; }
+    h2 { font-size: 1.25rem; line-height: 1.35; margin: 0 0 12px; padding-top: 4px; }
+    h2 .num { color: var(--accent); font-variant-numeric: tabular-nums; margin-right: 6px; }
+    p, ul { margin: 0 0 12px; }
+    ul { padding-left: 22px; }
+    li + li { margin-top: 6px; }
+    strong { font-weight: 650; }
+
+    .contact {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px;
+    }
+    .contact p:last-child { margin-bottom: 0; }
+
+    footer { border-top: 1px solid var(--border); color: var(--muted); font-size: 14px; }
+    footer .inner { max-width: 1080px; margin: 0 auto; padding: 20px 16px; }
+
+    @media print {
+      body { background: #fff; color: #000; font-size: 11pt; }
+      .masthead, .toc, .skip, footer { display: none; }
+      .layout { display: block; padding: 0; }
+      .summary, .contact, .notice { border: 1px solid #999; background: none; }
+      a { color: #000; }
+      section { break-inside: avoid-page; }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip" href="#content">Skip to content</a>
+
+  <header class="masthead">
+    <div class="masthead-inner">
+      <span class="mark" aria-hidden="true">U</span>
+      <a class="brand" href="https://unitycarrier.com">Unity Carrier</a>
+    </div>
+  </header>
+
+  <main class="layout" id="content">
+    <header class="page-head">
+      <h1>Terms and Conditions</h1>
+      <p class="meta">Last updated: <time datetime="2026-11-05">5 November 2026</time></p>
+    </header>
+
+    <nav class="toc" aria-label="Table of contents">
+      <details open>
+        <summary>Contents</summary>
+        <ol>
+          <li><a href="#about">About these terms</a></li>
+          <li><a href="#definitions">Definitions</a></li>
+          <li><a href="#account">Your account</a></li>
+          <li><a href="#services">The Services</a></li>
+          <li><a href="#emergency">Emergency calling</a></li>
+          <li><a href="#numbers">Phone numbers and porting</a></li>
+          <li><a href="#fees">Fees, billing and payment</a></li>
+          <li><a href="#acceptable-use">Acceptable use</a></li>
+          <li><a href="#caller-id">Caller ID</a></li>
+          <li><a href="#fraud">Security and fraud</a></li>
+          <li><a href="#equipment">Your equipment and network</a></li>
+          <li><a href="#quality">Service quality and availability</a></li>
+          <li><a href="#compliance">Legal and regulatory compliance</a></li>
+          <li><a href="#resale">Resale</a></li>
+          <li><a href="#data">Data and privacy</a></li>
+          <li><a href="#ip">Intellectual property</a></li>
+          <li><a href="#termination">Suspension and termination</a></li>
+          <li><a href="#disclaimers">Disclaimers</a></li>
+          <li><a href="#liability">Limitation of liability</a></li>
+          <li><a href="#indemnity">Indemnity</a></li>
+          <li><a href="#force-majeure">Events outside our control</a></li>
+          <li><a href="#changes">Changes to these terms</a></li>
+          <li><a href="#law">Governing law and disputes</a></li>
+          <li><a href="#general">General</a></li>
+          <li><a href="#contact">Contact us</a></li>
+        </ol>
+      </details>
+    </nav>
+    <script>
+      // Keep the contents list open on wide screens, collapsed on phones.
+      if (window.matchMedia("(max-width: 899px)").matches) document.querySelector(".toc details").removeAttribute("open");
+    </script>
+
+    <article>
+      <aside class="summary" aria-labelledby="summary-title">
+        <h2 id="summary-title">The short version</h2>
+        <ul>
+          <li>You pay for all calls and charges made through your account, including any fraudulent traffic caused by stolen credentials or an insecure PBX.</li>
+          <li>Emergency calling is limited or unavailable unless your order specifically includes it. Always keep another way to reach emergency services.</li>
+          <li>No spam, unlawful robocalls, caller ID spoofing, traffic pumping or other fraud. We will suspend accounts that do this.</li>
+          <li>Phone numbers are assigned to you for use, not owned by you, and may need identity or address documents.</li>
+        </ul>
+        <p>This summary is for convenience only. The full terms below apply.</p>
+      </aside>
+
+      <section id="about">
+        <h2><span class="num">1.</span>About these terms</h2>
+        <p>These Terms and Conditions (the “Terms”) are an agreement between you and Unity Carrier (“Unity Carrier”, “we”, “us” or “our”). They apply to all VoIP, SIP trunking, phone number, messaging and related services that we provide, and to our website, customer portal and APIs (together, the “Services”).</p>
+        <p>By creating an account, signing an order, or using any of the Services, you agree to these Terms. If you are accepting on behalf of a company or other organisation, you confirm that you have authority to bind it, and “you” means that organisation. If you do not agree, do not use the Services.</p>
+        <p>If an order form, quote or separate signed agreement with us conflicts with these Terms, that document applies to the extent of the conflict.</p>
+      </section>
+
+      <section id="definitions">
+        <h2><span class="num">2.</span>Definitions</h2>
+        <ul>
+          <li><strong>Account</strong> means your Unity Carrier customer account, including its portal logins, API keys and SIP credentials.</li>
+          <li><strong>Order</strong> means any order form, quote, sign-up, portal purchase or other request for Services that we accept.</li>
+          <li><strong>Number</strong> means any telephone number, DID, toll-free number or similar identifier that we assign to you.</li>
+          <li><strong>SIP Trunk</strong> means a connection that lets your phone system or application send and receive calls over the internet using the Session Initiation Protocol.</li>
+          <li><strong>Traffic</strong> means calls, messages and other communications sent or received through your Account.</li>
+          <li><strong>End Users</strong> means anyone who uses the Services through you, including your staff and, if you are a reseller, your customers.</li>
+        </ul>
+      </section>
+
+      <section id="account">
+        <h2><span class="num">3.</span>Your account</h2>
+        <p>The Services are intended for businesses and individuals who are at least 18 years old. When you open an Account, you must give us complete and accurate information and keep it up to date.</p>
+        <p>We may ask you to verify your identity, business registration, address or intended use before we activate an Account, assign Numbers or enable certain destinations. We may refuse or delay activation if verification is incomplete or if we are not satisfied that the Services will be used lawfully.</p>
+        <p>You are responsible for everything that happens under your Account. Keep your passwords, API keys and SIP credentials secret, and tell us straight away if you believe they have been compromised.</p>
+      </section>
+
+      <section id="services">
+        <h2><span class="num">4.</span>The Services</h2>
+        <p>Depending on your Order, the Services may include:</p>
+        <ul>
+          <li>SIP trunking for inbound and outbound calls;</li>
+          <li>hosted VoIP calling and related features;</li>
+          <li>local, national and toll-free Numbers;</li>
+          <li>wholesale voice termination and origination; and</li>
+          <li>access to our customer portal, call detail records and APIs.</li>
+        </ul>
+        <p>The features, coverage, destinations, capacity (such as concurrent call limits) and prices for your Services are set out in your Order, our current rate card or the customer portal. We may set or change limits on capacity, destinations or spending to protect our network and you.</p>
+      </section>
+
+      <section id="emergency">
+        <h2><span class="num">5.</span>Emergency calling</h2>
+        <div class="notice">
+          <p><strong>Important:</strong> VoIP emergency calling is different from emergency calling on a traditional phone line or mobile network. Please read this section carefully and share it with your End Users.</p>
+        </div>
+        <ul>
+          <li>Unless your Order expressly includes emergency calling for a specific Number and registered location, the Services do not support calls to emergency services such as 911, 112, 999 or 100.</li>
+          <li>Where we do provide emergency calling, you must give us the accurate physical address where each Number is used and update it whenever that location changes. Emergency services may be sent to the address we hold, not where the caller actually is.</li>
+          <li>Emergency calls may fail or be delayed during a power cut, an internet or network outage, if your equipment is misconfigured, or if your Account is suspended.</li>
+          <li>You must make sure your End Users know these limitations, and that they always have another way to contact emergency services, such as a mobile phone.</li>
+        </ul>
+        <p>To the extent permitted by law, we are not liable for any inability to reach emergency services, or for the misrouting of an emergency call, when using the Services.</p>
+      </section>
+
+      <section id="numbers">
+        <h2><span class="num">6.</span>Phone numbers and porting</h2>
+        <p>Numbers are allocated by telecommunications regulators and carriers. We assign Numbers to you for your use while your Account is active. You do not own them, and we may need to change or withdraw a Number if a regulator or upstream carrier requires it.</p>
+        <p>Many countries require proof of identity, a local address or other documents before a Number can be activated or kept active. You must provide these documents when asked and confirm that they are accurate. We may suspend or reclaim a Number if the required documents are not provided or are found to be invalid.</p>
+        <p>You can ask to port a Number into or out of our network where the law and the relevant carriers allow it. Porting depends on third parties and may take time. You must have authority to request any port and must pay any outstanding charges on the Number. If your Account is closed, we may release Numbers that have not been ported out after a reasonable period.</p>
+      </section>
+
+      <section id="fees">
+        <h2><span class="num">7.</span>Fees, billing and payment</h2>
+        <ul>
+          <li><strong>Charges.</strong> You agree to pay all charges for the Services, including recurring fees for Numbers and trunks, usage charges for calls, set-up fees, and any regulatory fees or surcharges that apply.</li>
+          <li><strong>Rates.</strong> Usage is charged at the rates and billing increments shown in your Order, our rate card or the customer portal at the time the Traffic is carried. We may change rates. Where reasonably possible we will give notice of changes, but some destination rates can change at short notice because of upstream carrier pricing.</li>
+          <li><strong>Prepaid accounts.</strong> If your Account is prepaid, Services stop when your balance runs out. Prepaid credit is not transferable and is not refundable, except where the law requires otherwise or we agree in writing.</li>
+          <li><strong>Invoiced accounts.</strong> If we invoice you, payment is due by the date shown on the invoice. We may apply a credit limit, ask for a deposit, charge interest on late payments where the law allows, and suspend the Services if payment is overdue.</li>
+          <li><strong>Taxes.</strong> Prices do not include taxes unless stated. You are responsible for all applicable taxes, duties and levies, other than taxes on our income.</li>
+          <li><strong>Billing disputes.</strong> If you believe a charge is wrong, you must tell us in writing within 30 days of the charge or invoice date, with supporting details. You must still pay any amounts that are not in dispute. Our call detail records are the primary basis for calculating usage charges.</li>
+          <li><strong>Chargebacks.</strong> If you dispute a card payment with your bank instead of contacting us, we may suspend your Account while the dispute is resolved.</li>
+        </ul>
+      </section>
+
+      <section id="acceptable-use">
+        <h2><span class="num">8.</span>Acceptable use</h2>
+        <p>You must use the Services lawfully and responsibly, and you are responsible for the use of the Services by your End Users. You must not use the Services, or allow them to be used, to:</p>
+        <ul>
+          <li>make unsolicited marketing calls or messages, or automated, prerecorded or artificial-voice calls, without the consent and registrations required by law, or in breach of any do-not-call or similar rules;</li>
+          <li>make calls or send messages that are fraudulent, deceptive, threatening, harassing, abusive or obscene;</li>
+          <li>artificially generate or inflate Traffic, including traffic pumping, international revenue share fraud, “wangiri” or call-back schemes, or calls made mainly to generate termination revenue;</li>
+          <li>bypass lawful termination routes or charges where this is prohibited, including through SIM boxes or unauthorised gateways;</li>
+          <li>carry a pattern of Traffic that unreasonably harms our network, such as very high volumes of very short calls;</li>
+          <li>record or monitor calls without giving the notices and obtaining the consents required by law;</li>
+          <li>transmit malware, attempt to gain unauthorised access to any system, or interfere with or overload our network or our other customers; or</li>
+          <li>infringe anyone else’s rights or break any applicable law.</li>
+        </ul>
+        <p>We may monitor Traffic patterns and call detail records to detect breaches of this section, and we may block destinations, limit capacity or suspend the Services if we reasonably suspect a breach.</p>
+      </section>
+
+      <section id="caller-id">
+        <h2><span class="num">9.</span>Caller ID</h2>
+        <p>The caller ID (CLI) you present on outbound calls must be a valid number that is assigned to you or that you are authorised to use. You must not falsify or manipulate caller ID to mislead, defraud, cause harm or hide your identity. Where call authentication frameworks apply, such as STIR/SHAKEN, we may assign an attestation level based on the information available to us, and we may block or modify calls that present invalid or unauthorised caller ID.</p>
+      </section>
+
+      <section id="fraud">
+        <h2><span class="num">10.</span>Security and fraud</h2>
+        <p>You are responsible for securing your phone systems, PBXs, softphones, devices, servers and network, and for protecting your Account credentials. We recommend strong passwords, IP address restrictions, disabling unused destinations and setting spending limits.</p>
+        <p>You must pay for all Traffic sent through your Account or credentials, including Traffic made without your permission as a result of hacking, toll fraud or compromised equipment, unless the unauthorised use was caused by a failure of our own systems.</p>
+        <p>If we detect unusual Traffic, we may, without notice, block destinations, lower limits, or suspend your Account to limit losses. We do not guarantee that we will detect or stop fraud, and our fraud controls do not reduce your responsibility under this section.</p>
+      </section>
+
+      <section id="equipment">
+        <h2><span class="num">11.</span>Your equipment and network</h2>
+        <p>You are responsible for providing, configuring and maintaining your own internet connection, routers, firewalls, PBX or application, and devices, and for making sure they are compatible with the Services and our technical requirements. We are not responsible for problems caused by your equipment, network, internet service provider or configuration.</p>
+      </section>
+
+      <section id="quality">
+        <h2><span class="num">12.</span>Service quality and availability</h2>
+        <p>We work to keep the Services reliable, but VoIP Traffic travels over the internet and through third-party carriers. Call quality, completion rates and delivery can be affected by factors outside our control, including network congestion, upstream carriers, destination networks and your own connection.</p>
+        <p>Unless a written service level agreement is included in your Order, we do not guarantee any level of availability, call quality or call completion. We may carry out scheduled or emergency maintenance, and we will try to give advance notice of scheduled maintenance that is likely to affect the Services. We may change carriers, routes and technical arrangements at any time.</p>
+      </section>
+
+      <section id="compliance">
+        <h2><span class="num">13.</span>Legal and regulatory compliance</h2>
+        <p>Telecommunications services are regulated, and requirements differ between countries. You must comply with all laws and regulations that apply to your use of the Services, including those on telemarketing, consent, call recording, data protection, consumer protection, sanctions and export controls.</p>
+        <p>We may need to retain records, verify customers, cooperate with lawful requests from regulators and law enforcement, and comply with lawful interception requirements. We may change, restrict or suspend the Services where this is needed to comply with the law, a regulator, or the requirements of an upstream carrier.</p>
+      </section>
+
+      <section id="resale">
+        <h2><span class="num">14.</span>Resale</h2>
+        <p>You may only resell or redistribute the Services if we have agreed to this in writing. If you resell the Services, you are responsible for your customers’ use of them as if it were your own, for obtaining any licences or registrations you need, for passing on the restrictions in these Terms (including section 5 on emergency calling), and for providing first-line support to your customers.</p>
+      </section>
+
+      <section id="data">
+        <h2><span class="num">15.</span>Data and privacy</h2>
+        <p>To provide the Services, we process account and contact details, billing information, and technical and traffic data such as call detail records, IP addresses and Number usage. We use this information to provide, bill for, secure and improve the Services, to prevent fraud, and to meet our legal obligations. We keep it only for as long as we need it for these purposes or as the law requires. We do not sell your personal information.</p>
+        <p>We do not record or store the content of your calls unless you use a feature that does this. If you use call recording, voicemail or similar features, you are responsible for giving any required notices and obtaining any required consents from the people involved.</p>
+        <p>You are responsible for having a lawful basis for any personal data about your End Users that you provide to us or process using the Services.</p>
+      </section>
+
+      <section id="ip">
+        <h2><span class="num">16.</span>Intellectual property</h2>
+        <p>Our website, customer portal, APIs, software, documentation and branding belong to Unity Carrier or its licensors. While your Account is active and you comply with these Terms, we give you a non-exclusive, non-transferable licence to use them only to access and use the Services. You must not copy, modify, reverse engineer or resell them, except where the law expressly allows this or we agree in writing.</p>
+      </section>
+
+      <section id="termination">
+        <h2><span class="num">17.</span>Suspension and termination</h2>
+        <p>You may stop using the Services at any time, subject to any minimum term or notice period in your Order. To close your Account, contact us using the details in <a href="#contact">section 25</a>.</p>
+        <p>We may suspend or terminate all or part of the Services, with or without notice, if:</p>
+        <ul>
+          <li>you do not pay amounts when they are due;</li>
+          <li>you breach these Terms, including sections 8, 9 or 10;</li>
+          <li>we reasonably suspect fraud, misuse or a security threat;</li>
+          <li>you do not provide verification or regulatory documents when asked; or</li>
+          <li>we are required to do so by law, a regulator or an upstream carrier.</li>
+        </ul>
+        <p>We may also end the Services for any other reason by giving you at least 30 days’ notice.</p>
+        <p>When the Services end, you must pay all outstanding charges, and Numbers that have not been ported out may be released. Sections that by their nature should continue, including sections 7, 10, and 15 to 24, continue to apply.</p>
+      </section>
+
+      <section id="disclaimers">
+        <h2><span class="num">18.</span>Disclaimers</h2>
+        <p>To the fullest extent permitted by law, the Services are provided “as is” and “as available”, without warranties of any kind, whether express or implied. This includes any implied warranties of merchantability, fitness for a particular purpose, uninterrupted service and non-infringement.</p>
+      </section>
+
+      <section id="liability">
+        <h2><span class="num">19.</span>Limitation of liability</h2>
+        <p>To the fullest extent permitted by law, Unity Carrier and its owners, staff, suppliers and carriers will not be liable for:</p>
+        <ul>
+          <li>any indirect, incidental, special, consequential or punitive loss;</li>
+          <li>loss of profits, revenue, business, contracts, goodwill or data;</li>
+          <li>the cost of substitute services; or</li>
+          <li>losses caused by failed, delayed or misrouted calls, including emergency calls, or by unauthorised use of your Account.</li>
+        </ul>
+        <p>Our total liability to you for all claims arising out of or relating to the Services or these Terms is limited to the fees you paid us for the Services in the 3 months before the event giving rise to the claim.</p>
+        <p>Nothing in these Terms limits or excludes liability that cannot be limited or excluded by law, including liability for fraud, or for death or personal injury caused by negligence.</p>
+      </section>
+
+      <section id="indemnity">
+        <h2><span class="num">20.</span>Indemnity</h2>
+        <p>You agree to defend and compensate Unity Carrier against any claims, fines, penalties, losses, liabilities and reasonable costs, including legal fees, that arise from your or your End Users’ use of the Services, any Traffic sent through your Account, your breach of these Terms, or your breach of any law or regulation.</p>
+      </section>
+
+      <section id="force-majeure">
+        <h2><span class="num">21.</span>Events outside our control</h2>
+        <p>We are not responsible for any failure or delay in providing the Services caused by events outside our reasonable control. These include natural disasters, fire, flood, power failures, internet or carrier outages, cable cuts, cyberattacks, government action, war, civil unrest and labour disputes.</p>
+      </section>
+
+      <section id="changes">
+        <h2><span class="num">22.</span>Changes to these terms</h2>
+        <p>We may update these Terms from time to time. When we do, we will change the “Last updated” date at the top of this page. If a change is significant, we will take reasonable steps to tell you in advance, for example by email or through the customer portal. If you continue to use the Services after the updated Terms take effect, you accept them.</p>
+      </section>
+
+      <section id="law">
+        <h2><span class="num">23.</span>Governing law and disputes</h2>
+        <p>These Terms are governed by the laws of the country in which Unity Carrier is established, without regard to its conflict-of-law rules. The courts of that country have exclusive jurisdiction over any dispute arising out of or relating to these Terms or the Services, except where the law gives you a right to bring a claim elsewhere.</p>
+        <p>If you have a concern, please contact us first. We will try to resolve it informally before either of us starts formal proceedings.</p>
+      </section>
+
+      <section id="general">
+        <h2><span class="num">24.</span>General</h2>
+        <ul>
+          <li><strong>Entire agreement.</strong> These Terms, together with any Order, are the whole agreement between you and us about the Services.</li>
+          <li><strong>Severability.</strong> If any part of these Terms is found to be unenforceable, the rest stays in effect.</li>
+          <li><strong>No waiver.</strong> If we do not enforce a right straight away, we can still enforce it later.</li>
+          <li><strong>Transfer.</strong> You may not transfer your rights or obligations under these Terms without our written consent. We may transfer ours as part of a reorganisation, merger or sale of our business.</li>
+          <li><strong>Notices.</strong> We may send notices to the email address on your Account or through the customer portal. You must send notices to us using the details below.</li>
+        </ul>
+      </section>
+
+      <section id="contact">
+        <h2><span class="num">25.</span>Contact us</h2>
+        <div class="contact">
+          <p>If you have any questions about these Terms or the Services, contact Unity Carrier at:</p>
+          <p>Email: <a href="mailto:support@unitycarrier.com">support@unitycarrier.com</a><br>
+          Website: <a href="https://unitycarrier.com">unitycarrier.com</a></p>
+        </div>
+      </section>
+    </article>
+  </main>
+
+  <footer>
+    <div class="inner">© 2026 Unity Carrier. All rights reserved.</div>
+  </footer>
+</body>
+</html>
