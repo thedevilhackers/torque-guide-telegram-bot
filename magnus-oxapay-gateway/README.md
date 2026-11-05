@@ -421,12 +421,16 @@ Everything is logged as JSON lines to `data/gateway.log`.
 
 ## Terms & Conditions page
 
-The gateway includes a Terms & Conditions page at `{payment page}/terms/`, for example `https://pay.unitycarrier.com/pay/terms/`.
-- It uses the current theme and is filled in from your settings: company name, currency, minimum and maximum, invoice lifetime, bank transfer, Telegram bot.
-- The payment page links to it under the pay button and in the footer, and the bot links to it in its welcome message.
-- **It is a starting template, not legal advice.** Have it checked for your country.
+The gateway serves **Unity Carrier's official Terms and Conditions** at `{payment page}/terms/`:
 
-To serve it at **`https://terms.unitycarrier.com/terms`**:
+- The file is `public/terms/terms.html`, copied unchanged from the terms branch `claude/festive-mendel-491a6v`.
+- The payment page links to it under the pay button and in the footer, and the bot links to it in its welcome message.
+- If you update the terms, replace `public/terms/terms.html` with the new file and run the installer again.
+- If the file is removed, a built-in template filled in from `config.php` is shown instead. It is not legal advice.
+
+The links point to `site.terms_url`. Use **one** of these for `https://terms.unitycarrier.com/terms`; DNS can only point to one place:
+
+**A. Host it on this server** (one command, no Render):
 
 1. Add a DNS A record `terms.unitycarrier.com → 212.113.119.248`.
 2. Run:
@@ -435,17 +439,15 @@ To serve it at **`https://terms.unitycarrier.com/terms`**:
    bash install.sh --terms-domain terms.unitycarrier.com --yes
    ```
 
-The installer creates an Apache site for that hostname. It serves only `/terms` and its styles; `/` redirects to the terms, and everything else returns 403. It also gets a free HTTPS certificate and points all Terms links to the new address.
+This creates an Apache site that serves only `/terms` and its styles (`/` redirects to the terms, and everything else returns 403), gets HTTPS, and sets the links.
 
-Set these under `terms` in `config.php`:
+**B. Host it on Render** (the other branch's `render.yaml`, with a CNAME to `unity-carrier-terms.onrender.com`). Once it is live, run:
 
-- `email`: contact address, e.g. `support@unitycarrier.com`
-- `address`: company address
-- `jurisdiction`: governing law, e.g. `the State of Wyoming, USA`
-- `refund_days`: window to report payment problems (default 14)
-- `updated`: date shown at the top
+```bash
+bash install.sh --terms-url https://terms.unitycarrier.com/terms --yes
+```
 
-To use your own text instead, save it as an HTML file on the server and set `terms.file` to its path.
+This only sets the links.
 
 ## Configuration notes
 

@@ -11,7 +11,8 @@
 #   --company "Unity Carrier"   --ip 212.113.119.248   --domain pay.unitycarrier.com
 #   --oxapay-key KEY   --sandbox | --live   --telegram-token TOKEN   --telegram-admins 123,456
 #   --telegram-viewers 789 (view-only admins; "none" to remove)
-#   --terms-domain terms.unitycarrier.com (Terms & Conditions at https://terms.../terms)   --theme voip|emerald|violet|luxury|light (website look)
+#   --terms-domain terms.unitycarrier.com (host the Terms page on this server, https://terms.../terms)
+#   --terms-url https://terms.unitycarrier.com/terms (Terms hosted elsewhere, e.g. Render: only set the link)   --theme voip|emerald|violet|luxury|light (website look)
 #   --currency EUR|USD|GBP (what customers pay in; Telegram admins can also change it under Settings)
 #   --email you@example.com (Let's Encrypt)   --path pay   --yes (accept defaults, no questions)
 #
@@ -34,6 +35,7 @@ DEFAULT_PUBLIC_IP="212.113.119.248"   # Unity Carrier's MagnusBilling server, us
 SITE_CONF="unitycarrier-pay"
 TERMS_CONF="unitycarrier-terms"
 TERMS_DOMAIN=""
+TERMS_URL_FLAG=""
 WEB_USER="www-data"
 
 COMPANY=""
@@ -107,6 +109,7 @@ while [[ $# -gt 0 ]]; do
         --ip) SERVER_IP=$2; shift 2 ;;
         --domain) DOMAIN=$2; shift 2 ;;
         --terms-domain) TERMS_DOMAIN=$2; shift 2 ;;
+        --terms-url) TERMS_URL_FLAG=$2; shift 2 ;;
         --oxapay-key) OXAPAY_KEY=$2; shift 2 ;;
         --sandbox) SANDBOX=1; shift ;;
         --live) SANDBOX=0; shift ;;
@@ -234,7 +237,9 @@ current_terms=$(php_conf site.terms_url)
 current_terms_domain=""
 [[ $current_terms =~ ^https?://([^/:]+) ]] && current_terms_domain=${BASH_REMATCH[1]}
 [[ $current_terms_domain == "$DOMAIN" ]] && current_terms_domain=""
-ask TERMS_DOMAIN "Domain for the Terms & Conditions page, e.g. terms.unitycarrier.com (optional)" "$current_terms_domain"
+if [[ -z $TERMS_URL_FLAG ]]; then
+    ask TERMS_DOMAIN "Domain to host the Terms & Conditions page on this server, e.g. terms.unitycarrier.com (optional)" "$current_terms_domain"
+fi
 TERMS_DOMAIN=${TERMS_DOMAIN#http://}; TERMS_DOMAIN=${TERMS_DOMAIN#https://}; TERMS_DOMAIN=${TERMS_DOMAIN%%/*}
 
 if [[ -z $OXAPAY_KEY && -z "$(php_conf "oxapay.merchant_api_key")" ]] && interactive; then
@@ -344,7 +349,13 @@ if [[ ${RELOAD_APACHE:-0} -eq 1 ]]; then reload_apache || true; fi
 
 # Separate Apache site for the Terms & Conditions subdomain. It serves only /terms and /assets from
 # the gateway's public/ folder; everything else on that hostname is refused.
-TERMS_URL=""
+TERMS_URL="$TERMS_URL_FLAG"
+if [[ -n $TERMS_URL_FLAG && ! $TERMS_URL_FLAG =~ ^https?:// ]]; then
+    die "--terms-url must start with https:// (for example https://terms.unitycarrier.com/terms)"
+fi
+if [[ -n $TERMS_URL_FLAG ]]; then
+    TERMS_DOMAIN=""   # hosted elsewhere: only the link is set
+fi
 if [[ -n $TERMS_DOMAIN ]]; then
     step "Terms page on $TERMS_DOMAIN"
     resolved=$(getent ahostsv4 "$TERMS_DOMAIN" 2>/dev/null | awk '{print $1}' | sort -u | xargs || true)

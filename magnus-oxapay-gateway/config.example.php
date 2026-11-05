@@ -14,7 +14,8 @@ return [
         // Public URL of the public/ folder, no trailing slash. OxaPay sends payment callbacks to {base_url}/webhook.php.
         'base_url' => 'https://www.unitycarrier.com/pay',
         'support_url' => 'https://www.unitycarrier.com',
-        // Terms & Conditions address. Empty = {base_url}/terms/. install.sh --terms-domain sets it.
+        // Terms & Conditions address used in links. Empty = {base_url}/terms/.
+        // install.sh --terms-domain (hosted here) or --terms-url (hosted elsewhere, e.g. Render) sets it.
         'terms_url' => '',
         'logo_url' => '',            // optional, e.g. https://www.unitycarrier.com/logo.png
         // Website look: 'voip' (midnight blue), 'emerald', 'violet', 'luxury' (gold) or 'light'.
@@ -26,14 +27,15 @@ return [
     ],
 
     // ------------------------------------------------------- terms & conditions
-    // Details used in the Terms & Conditions page (public/terms/). Review the text with a lawyer.
+    // public/terms/ shows Unity Carrier's official terms (public/terms/terms.html). The details below are
+    // only used by the built-in template, which appears if that file is removed.
     'terms' => [
         'email' => '',          // contact email shown in the terms, e.g. support@unitycarrier.com
         'address' => '',        // registered company address
         'jurisdiction' => '',   // governing law, e.g. 'the State of Wyoming, USA'
         'refund_days' => 14,    // days to report a wrong or duplicate payment
         'updated' => '',        // "last updated" date, e.g. '2026-11-05' (empty = today)
-        'file' => '',           // path to your own HTML terms, to replace the built-in text
+        'file' => '',           // path to another HTML terms page to show instead of terms.html
     ],
 
     // --------------------------------------------------------------- payments

@@ -3,9 +3,10 @@
 /**
  * Terms & Conditions page: {base_url}/terms/  (or https://terms.<your-domain>/terms with install.sh --terms-domain).
  *
- * The text is filled in from config.php (company name, terms.email, terms.address, terms.jurisdiction,
- * payment settings). To use your own text instead, set terms.file to the path of an HTML file.
- * This is a starting template, not legal advice: have it reviewed for your country.
+ * Which text is shown:
+ *   1. terms.file in config.php, if set (a full HTML page, or an HTML fragment shown in the site theme);
+ *   2. otherwise terms.html next to this file: Unity Carrier's official Terms and Conditions page;
+ *   3. otherwise the built-in template below, filled in from config.php (not legal advice).
  */
 
 declare(strict_types=1);
@@ -15,6 +16,19 @@ use Gateway\Web;
 require __DIR__ . '/../../app/bootstrap.php';
 
 $app = Web::boot();
+
+// Full HTML pages (the official terms, or terms.file with a whole page) are sent exactly as written.
+$fullPage = trim((string) ($app->config['terms']['file'] ?? ''));
+if ($fullPage === '' || !is_readable($fullPage)) {
+    $fullPage = __DIR__ . '/terms.html';
+}
+if (is_readable($fullPage) && stripos((string) file_get_contents($fullPage, false, null, 0, 2048), '<html') !== false) {
+    Web::securityHeaders();
+    header('Content-Type: text/html; charset=utf-8');
+    readfile($fullPage);
+    exit;
+}
+
 $site = $app->config['site'];
 $terms = $app->config['terms'] ?? [];
 $pay = $app->config['payments'];
