@@ -118,6 +118,7 @@
                 }
                 if (res.ok) {
                     check.exists = !!res.data.exists;
+                    updateSteps();
                     setBadge(check.exists ? 'ok' : 'bad', check.exists ? 'Found' : 'Not found');
                     setUserHint(check.exists ? 'ok' : 'bad', check.exists ? 'Account found.' : 'No account with this username. Check for typos.');
                 } else {
@@ -127,7 +128,22 @@
             });
         }
 
+        var steps = Array.prototype.slice.call(document.querySelectorAll('.steps li'));
+        function updateSteps() {
+            if (!steps.length) {
+                return;
+            }
+            var hasUser = check.exists === true;
+            var value = parseAmount(amount.value);
+            var hasAmount = value !== null && value >= pay.min_amount && value <= pay.max_amount;
+            var state = [hasUser ? 'done' : 'on', hasUser ? (hasAmount ? 'done' : 'on') : '', hasUser && hasAmount ? 'on' : ''];
+            steps.forEach(function (step, index) {
+                step.className = state[index];
+            });
+        }
+
         function updateAmount() {
+            updateSteps();
             var value = parseAmount(amount.value);
             presets.forEach(function (button) {
                 button.setAttribute('aria-pressed', value !== null && Number(button.dataset.amount) === value ? 'true' : 'false');

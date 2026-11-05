@@ -10,7 +10,7 @@
 # Options (all optional, you are asked for anything missing):
 #   --company "Unity Carrier"   --ip 212.113.119.248   --domain pay.unitycarrier.com
 #   --oxapay-key KEY   --sandbox | --live   --telegram-token TOKEN   --telegram-admins 123,456
-#   --telegram-viewers 789 (view-only admins; "none" to remove)
+#   --telegram-viewers 789 (view-only admins; "none" to remove)   --theme voip|luxury|classic (website look)
 #   --currency EUR|USD|GBP (what customers pay in; Telegram admins can also change it under Settings)
 #   --email you@example.com (Let's Encrypt)   --path pay   --yes (accept defaults, no questions)
 #
@@ -42,6 +42,7 @@ TG_TOKEN=""
 TG_ADMINS=""
 TG_VIEWERS=""
 CRON_FILE="/etc/cron.d/unitycarrier-pay"
+THEME=""
 CURRENCY=""
 LE_EMAIL=""
 ASSUME_YES=0
@@ -108,6 +109,7 @@ while [[ $# -gt 0 ]]; do
         --telegram-token) TG_TOKEN=$2; shift 2 ;;
         --telegram-admins) TG_ADMINS=$2; shift 2 ;;
         --telegram-viewers) TG_VIEWERS=$2; shift 2 ;;
+        --theme) THEME=$2; shift 2 ;;
         --currency) CURRENCY=$(echo "$2" | tr '[:lower:]' '[:upper:]'); shift 2 ;;
         --email) LE_EMAIL=$2; shift 2 ;;
         --path) URL_PATH=${2#/}; URL_PATH=${URL_PATH%/}; shift 2 ;;
@@ -325,7 +327,7 @@ if [[ ${RELOAD_APACHE:-0} -eq 1 ]]; then reload_apache || true; fi
 # ---------------------------------------------------------------- config
 
 step "Configuring (MagnusBilling API key, OxaPay, Telegram)"
-summary=$(UC_COMPANY="$COMPANY" UC_CURRENCY="$CURRENCY" UC_BASE_URL="$BASE_URL" UC_OXAPAY_KEY="$OXAPAY_KEY" UC_SANDBOX="$SANDBOX" \
+summary=$(UC_COMPANY="$COMPANY" UC_CURRENCY="$CURRENCY" UC_THEME="$THEME" UC_BASE_URL="$BASE_URL" UC_OXAPAY_KEY="$OXAPAY_KEY" UC_SANDBOX="$SANDBOX" \
     UC_TG_TOKEN="$TG_TOKEN" UC_TG_ADMINS="$TG_ADMINS" UC_TG_VIEWERS="$TG_VIEWERS" \
     php "$APP_DIR/bin/setup.php" configure) || die "Configuration failed (see the message above)."
 chown "root:$WEB_USER" "$APP_DIR/config.php"

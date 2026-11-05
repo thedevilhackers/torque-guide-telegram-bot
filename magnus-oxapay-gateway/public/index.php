@@ -19,6 +19,8 @@ $prefillUser = substr(preg_replace('/[^A-Za-z0-9_.@+\-]/', '', (string) ($_GET['
 $prefillAmount = preg_match('/^\d{1,9}(\.\d{1,2})?$/', (string) ($_GET['amount'] ?? '')) ? (string) $_GET['amount'] : '';
 $prefillPromo = preg_match('/^[A-Za-z0-9]{3,20}$/', (string) ($_GET['promo'] ?? '')) ? strtoupper((string) $_GET['promo']) : '';
 $title = $app->config['site']['name'] . ' · Top up';
+$theme = (string) ($app->config['site']['theme'] ?? 'voip');
+$voip = $theme === 'voip';
 
 $coinColors = [
     'USDT' => '#26a17b', 'USDC' => '#2775ca', 'BTC' => '#f7931a', 'ETH' => '#627eea', 'TRX' => '#ef0027',
@@ -26,12 +28,31 @@ $coinColors = [
     'XMR' => '#ff6600', 'BCH' => '#8dc351', 'DAI' => '#f5ac37', 'SHIB' => '#e42d04', 'POL' => '#8247e5',
 ];
 
-$body = static function () use ($pay, $payments, $prefillUser, $prefillAmount, $prefillPromo): void {
+$body = static function () use ($pay, $payments, $prefillUser, $prefillAmount, $prefillPromo, $voip): void {
+    if ($voip) {
+        ?>
+        <div class="card-head">
+            <div>
+                <h2>Top up balance</h2>
+                <p>Credit goes straight to your VoIP account.</p>
+            </div>
+            <span class="eq" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+        </div>
+        <ol class="steps" aria-label="Steps">
+            <li class="on"><b>1</b>Account</li>
+            <li><b>2</b>Amount</li>
+            <li><b>3</b>Pay</li>
+        </ol>
+        <?php
+    } else {
+        ?>
+        <div class="intro">
+            <h1>Add balance</h1>
+            <p>Instant VoIP credit, paid in crypto.</p>
+        </div>
+        <?php
+    }
     ?>
-    <div class="intro">
-        <h1>Add balance</h1>
-        <p>Instant VoIP credit, paid in crypto.</p>
-    </div>
 
     <form id="topup-form" class="form" novalidate>
         <div class="group">
@@ -126,10 +147,54 @@ $body = static function () use ($pay, $payments, $prefillUser, $prefillAmount, $
     <?php
 };
 
-$after = static function () use ($app, $pay, $public, $coinColors): void {
-    $coins = array_values(array_filter(array_map('strtoupper', array_map('strval', (array) ($pay['coins'] ?? [])))));
+$coins = array_values(array_filter(array_map('strtoupper', array_map('strval', (array) ($pay['coins'] ?? [])))));
+$coinList = static function () use ($coins, $coinColors): void {
+    if ($coins === []) {
+        return;
+    }
+    echo '<div class="coins" aria-label="Accepted coins">';
+    foreach ($coins as $coin) {
+        echo '<span class="coin"><i style="--coin: ' . Web::e($coinColors[$coin] ?? 'var(--accent)') . '"></i>' . Web::e($coin) . '</span>';
+    }
+    echo '</div>';
+};
+
+$hero = !$voip ? null : static function () use ($app, $pay, $payments, $coins, $coinList): void {
+    ?>
+    <span class="eyebrow"><i aria-hidden="true"></i>Instant VoIP recharge</span>
+    <h1>Recharge your VoIP account <em>in seconds</em></h1>
+    <p class="lead">Add credit to your SIP account with crypto. Your balance updates automatically the moment the payment is confirmed.</p>
+    <ul class="features">
+        <li>
+            <span class="ficon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></span>
+            <div><strong>Instant credit</strong><span>Added to your balance automatically, day and night.</span></div>
+        </li>
+        <li>
+            <span class="ficon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11.4 11.4 0 0 0 3.6.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.57a1 1 0 0 1-.25 1z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></span>
+            <div><strong>Just your account username</strong><span>No login needed. Top up your own line or someone else's.</span></div>
+        </li>
+        <li>
+            <span class="ficon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 6v6c0 4.5 3.4 8.2 8 9 4.6-.8 8-4.5 8-9V6z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="m8.5 12 2.5 2.5 4.5-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+            <div><strong>Secure crypto checkout</strong><span>Processed by OxaPay. We never see your wallet or keys.</span></div>
+        </li>
+    </ul>
+    <dl class="stats">
+        <div><dt>Top-ups</dt><dd>24/7</dd></div>
+        <div><dt>Amounts</dt><dd><?= Web::e($payments->money($pay['min_amount'], true)) ?>–<?= Web::e($payments->money($pay['max_amount'], true)) ?></dd></div>
+        <div><dt>Coins</dt><dd><?= count($coins) > 0 ? count($coins) . '+' : 'Many' ?></dd></div>
+    </dl>
+    <?php
+    $coinList();
+};
+
+$after = static function () use ($app, $pay, $public, $coins, $coinList, $voip): void {
     $bot = $public['telegram_bot'];
     $support = (string) $app->config['site']['support_url'];
+    if ($voip) {
+        echo '<div class="only-mobile">';
+        $coinList();
+        echo '</div>';
+    } else {
     ?>
     <ul class="perks" aria-label="Why pay here">
         <li>
@@ -146,14 +211,10 @@ $after = static function () use ($app, $pay, $public, $coinColors): void {
         </li>
     </ul>
 
-    <?php if ($coins !== []): ?>
-        <div class="coins" aria-label="Accepted coins">
-            <?php foreach ($coins as $coin): ?>
-                <span class="coin"><i style="--coin: <?= Web::e($coinColors[$coin] ?? 'var(--accent)') ?>"></i><?= Web::e($coin) ?></span>
-            <?php endforeach; ?>
-        </div>
-    <?php endif; ?>
-
+    <?php
+        $coinList();
+    }
+    ?>
     <section class="faq" aria-label="Questions">
         <h2>Questions</h2>
         <details>

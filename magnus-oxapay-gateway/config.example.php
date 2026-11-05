@@ -15,7 +15,7 @@ return [
         'base_url' => 'https://www.unitycarrier.com/pay',
         'support_url' => 'https://www.unitycarrier.com',
         'logo_url' => '',            // optional, e.g. https://www.unitycarrier.com/logo.png
-        'theme' => 'luxury',         // 'luxury' (black & gold) or 'classic' (light, uses accent)
+        'theme' => 'voip',           // 'voip' (navy & blue), 'luxury' (black & gold) or 'classic' (light, uses accent)
         'accent' => '#4f46e5',       // button colour for the classic theme
         'announcement' => '',        // optional banner, e.g. '5% bonus on top-ups over $100 this week'
         'timezone' => 'UTC',

@@ -222,6 +222,12 @@ try {
     if (($baseUrl = env('UC_BASE_URL')) !== '') {
         $config['site']['base_url'] = rtrim($baseUrl, '/');
     }
+    if (($theme = strtolower(env('UC_THEME'))) !== '') {
+        if (!isset(\Gateway\Settings::THEMES[$theme])) {
+            throw new \RuntimeException('Unknown theme ' . $theme . ' (use ' . implode(', ', array_keys(\Gateway\Settings::THEMES)) . ').');
+        }
+        $config['site']['theme'] = $theme;
+    }
     if (($support = env('UC_SUPPORT_URL')) !== '') {
         $config['site']['support_url'] = $support;
     }

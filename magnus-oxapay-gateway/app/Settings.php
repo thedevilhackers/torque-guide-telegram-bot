@@ -13,6 +13,9 @@ final class Settings
     /** Invoice currencies offered in the admin panel and their symbols. */
     public const CURRENCIES = ['EUR' => '€', 'USD' => '$', 'GBP' => '£'];
 
+    /** Website themes. */
+    public const THEMES = ['voip' => 'VoIP (navy & blue)', 'luxury' => 'Luxury (black & gold)', 'classic' => 'Classic (light)'];
+
     /** setting name => [config section, config key] */
     private const KEYS = [
         'min_amount' => ['payments', 'min_amount'],
@@ -21,6 +24,7 @@ final class Settings
         'low_balance' => ['payments', 'low_balance'],
         'bank_instructions' => ['payments', 'bank_instructions'],
         'report_hour' => ['telegram', 'report_hour'],
+        'theme' => ['site', 'theme'],
     ];
 
     /** @var App */
@@ -46,7 +50,7 @@ final class Settings
             if ($name === 'currency') {
                 $config[$section]['currency'] = $value;
                 $config[$section]['currency_symbol'] = self::CURRENCIES[$value] ?? '';
-            } elseif ($name === 'bank_instructions') {
+            } elseif ($name === 'bank_instructions' || $name === 'theme') {
                 $config[$section][$key] = $value;
             } elseif ($name === 'report_hour') {
                 $config[$section][$key] = (int) $value;
@@ -103,6 +107,13 @@ final class Settings
             $length = function_exists('mb_strlen') ? mb_strlen($value) : strlen($value);
             if ($length > 1000) {
                 throw new UserError('invalid_text', 'Keep the bank details under 1000 characters.');
+            }
+            return $value;
+        }
+        if ($name === 'theme') {
+            $value = strtolower(trim($value));
+            if (!isset(self::THEMES[$value])) {
+                throw new UserError('invalid_theme', 'Choose one of: ' . implode(', ', array_keys(self::THEMES)) . '.');
             }
             return $value;
         }

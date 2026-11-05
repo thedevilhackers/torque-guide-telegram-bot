@@ -61,7 +61,7 @@ final class App
                 'support_url' => '',
                 'logo_url' => '',
                 'accent' => '#4f46e5',
-                'theme' => 'luxury',
+                'theme' => 'voip',
                 'announcement' => '',
                 'timezone' => 'UTC',
             ],

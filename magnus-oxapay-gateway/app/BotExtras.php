@@ -383,6 +383,17 @@ trait BotExtras
                 $this->setSession($chatId, 'adm_setting', ['name' => $names[$command]]);
                 $this->say($chatId, $questions[$command], $this->cancelKeyboard());
                 return true;
+            case 'theme':
+                $buttons = [];
+                foreach (Settings::THEMES as $key => $label) {
+                    $buttons[] = [['text' => '🎨 ' . $label, 'callback_data' => 'adm:settheme:' . $key]];
+                }
+                $buttons[] = [['text' => 'Cancel', 'callback_data' => 'cancel']];
+                $this->say($chatId, '🎨 Which look should the payment website use?', ['reply_markup' => ['inline_keyboard' => $buttons]]);
+                return true;
+            case 'settheme':
+                $this->askSettingChange($chatId, 'theme', $arg);
+                return true;
             case 'reportnow':
                 $this->dailyReport();
                 return true;

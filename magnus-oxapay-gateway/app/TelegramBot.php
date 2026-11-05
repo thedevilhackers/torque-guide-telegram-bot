@@ -977,7 +977,8 @@ final class TelegramBot
                 $this->say($chatId, '✅ Saved.');
                 $this->sendSettings($chatId);
                 $labels = ['min_amount' => 'the minimum top-up', 'max_amount' => 'the maximum top-up', 'currency' => 'the currency',
-                    'low_balance' => 'the low-balance alert', 'report_hour' => 'the daily report time', 'bank_instructions' => 'the bank transfer details'];
+                    'low_balance' => 'the low-balance alert', 'report_hour' => 'the daily report time', 'bank_instructions' => 'the bank transfer details',
+                    'theme' => 'the website theme'];
                 $this->notifyOtherAdmins($chatId, '⚙️ ' . self::e($this->actor) . ' changed ' . self::e($labels[(string) $action['name']] ?? 'a setting') . '.');
                 return;
 
@@ -1276,7 +1277,7 @@ final class TelegramBot
         $overrides = $this->app->settings()->overrides();
         $changed = array_map(static function (string $name): string {
             return ['min_amount' => 'minimum', 'max_amount' => 'maximum', 'currency' => 'currency', 'low_balance' => 'low-balance alert',
-                'report_hour' => 'report time', 'bank_instructions' => 'bank details'][$name] ?? $name;
+                'report_hour' => 'report time', 'bank_instructions' => 'bank details', 'theme' => 'theme'][$name] ?? $name;
         }, array_keys($overrides));
         $low = (float) ($pay['low_balance'] ?? 0);
         $hour = (int) ($this->app->config['telegram']['report_hour'] ?? -1);
@@ -1289,6 +1290,7 @@ final class TelegramBot
             'Low-balance alert: <b>' . ($low > 0 ? 'below ' . self::e(number_format($low, 2)) : 'off') . '</b>',
             'Daily report: <b>' . ($hour >= 0 ? sprintf('%02d:00', $hour) : 'off') . '</b>',
             'Bank transfer: <b>' . ($this->bankEnabled() ? 'on' : 'off') . '</b>',
+            'Website theme: <b>' . self::e(Settings::THEMES[(string) ($this->app->config['site']['theme'] ?? 'voip')] ?? (string) $this->app->config['site']['theme']) . '</b>',
             '',
             $changed === [] ? 'All values come from config.php.' : 'Changed here: ' . self::e(implode(', ', $changed)) . '. Applies to the website and bot right away.',
         ];
@@ -1296,6 +1298,7 @@ final class TelegramBot
             [['text' => '✏️ Minimum', 'callback_data' => 'adm:set:min'], ['text' => '✏️ Maximum', 'callback_data' => 'adm:set:max']],
             [['text' => '💱 Currency', 'callback_data' => 'adm:cur'], ['text' => '🪫 Low-balance alert', 'callback_data' => 'adm:setlow']],
             [['text' => '📊 Report time', 'callback_data' => 'adm:sethour'], ['text' => '🏦 Bank details', 'callback_data' => 'adm:setbank']],
+            [['text' => '🎨 Website theme', 'callback_data' => 'adm:theme']],
         ];
         if (array_intersect(array_keys($overrides), ['min_amount', 'max_amount', 'currency']) !== []) {
             $keyboard[] = [['text' => '↩️ Reset to config.php', 'callback_data' => 'adm:reset']];
@@ -1325,6 +1328,8 @@ final class TelegramBot
                 : '🪫 Turn low-balance alerts off?';
         } elseif ($name === 'report_hour') {
             $text = (int) $value >= 0 ? '📊 Send the daily report at <b>' . sprintf('%02d:00', (int) $value) . '</b> (server time)?' : '📊 Turn the daily report off?';
+        } elseif ($name === 'theme') {
+            $text = '🎨 Switch the payment website to <b>' . self::e(Settings::THEMES[$value]) . '</b>?';
         } elseif ($name === 'bank_instructions') {
             $text = $value !== '' ? "🏦 Offer bank transfer with these details?\n\n" . self::e($value) : '🏦 Turn bank transfer off?';
         } else {

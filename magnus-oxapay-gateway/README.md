@@ -429,7 +429,10 @@ Everything is logged as JSON lines to `data/gateway.log`.
 
   New invoices, the website and the bot then use €. Orders already created keep their own currency.
 - **Credit amount**: MagnusBilling receives `amount × payments.credit_rate` credit. Keep `credit_rate` at `1` when MagnusBilling's own currency is the same as the one customers pay in.
-- `site.theme`: `luxury` (default, black and gold) or `classic` (light, follows dark mode, uses `site.accent`).
+- `site.theme`: `voip` (default), `luxury` (black and gold) or `classic` (light, follows dark mode, uses `site.accent`).
+  - `voip` is navy and electric blue, with a top bar and a live status pill ("All systems online" changes to "Delays possible" when the health check finds a problem).
+  - On desktop it shows a VoIP intro beside the top-up panel, which has a 1-2-3 step indicator.
+  - Change the theme in Telegram (⚙️ Settings → 🎨 Website theme) or with `bash install.sh --theme voip --yes`.
 - `site.announcement`: a banner above the form, for example `'Get 5% bonus credit on top-ups from $100'`. Leave it empty to hide it.
 - `site.logo_url`: your logo (square works best). It's also used as the browser tab icon.
 - `payments.coins`: the coin badges shown on the page. The checkout itself lists every coin OxaPay supports.
