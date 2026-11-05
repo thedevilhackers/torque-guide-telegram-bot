@@ -158,6 +158,87 @@ final class AdminTools
         return ['user' => $after, 'slow' => $slow];
     }
 
+    /**
+     * Username rules of MagnusBilling: 4-20 characters, starts with a letter or digit, no spaces.
+     */
+    public function normalizeNewUsername(string $raw): string
+    {
+        $username = trim($raw);
+        if (!preg_match('/^[A-Za-z0-9][A-Za-z0-9_.\-]{3,19}$/', $username) || !MagnusBilling::isSafeValue($username)) {
+            throw new UserError('invalid_username', 'Use 4 to 20 letters, digits, dot, dash or underscore, starting with a letter or digit.');
+        }
+
+        return $username;
+    }
+
+    public function normalizeNewPassword(string $raw): string
+    {
+        $password = trim($raw);
+        if (!preg_match('/^[^\s\'"]{6,30}$/', $password) || !MagnusBilling::isSafeValue($password)) {
+            throw new UserError('invalid_password', 'Use 6 to 30 characters without spaces or quotes.');
+        }
+        if (in_array($password, ['123456', '12345678', '012345'], true)) {
+            throw new UserError('invalid_password', 'That password is too simple.');
+        }
+
+        return $password;
+    }
+
+    public function normalizeEmail(string $raw): string
+    {
+        $email = trim($raw);
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($email) > 100 || !MagnusBilling::isSafeValue($email)) {
+            throw new UserError('invalid_email', 'That does not look like an email address.');
+        }
+
+        return $email;
+    }
+
+    /**
+     * Creates a MagnusBilling customer (with its SIP account).
+     *
+     * @return array{id:int, username:string, password:string}
+     */
+    public function createCustomer(?string $username, ?string $password, string $email, ?int $planId, string $actor): array
+    {
+        $fields = ['email' => $email];
+        if ($username !== null) {
+            $fields['username'] = $this->normalizeNewUsername($username);
+        }
+        if ($password !== null) {
+            $fields['password'] = $this->normalizeNewPassword($password);
+        }
+        if ($planId !== null && $planId > 0) {
+            $fields['id_plan'] = $planId;
+        }
+
+        try {
+            $user = $this->app->magnus()->createUser($fields);
+        } catch (\Throwable $e) {
+            if (stripos($e->getMessage(), 'email already in use') !== false) {
+                throw new UserError(
+                    'email_in_use',
+                    'MagnusBilling needs a different email: another account already uses ' . ($email === '' ? 'an empty email' : $email)
+                    . '. Send the customer\'s own email, or allow it in MagnusBilling: Settings > Configuration > "API allow multiple user/email" = 1.',
+                    409
+                );
+            }
+            if (stripos($e->getMessage(), 'username already in use') !== false) {
+                throw new UserError('username_in_use', 'That username already exists in MagnusBilling. Choose another one.', 409);
+            }
+            throw $this->billingError($e);
+        }
+
+        $created = [
+            'id' => (int) ($user['id'] ?? 0),
+            'username' => (string) ($user['username'] ?? ($fields['username'] ?? '')),
+            'password' => (string) ($user['password'] ?? ($fields['password'] ?? '')),
+        ];
+        $this->app->log('info', 'Admin created a customer', ['user' => $created['username'], 'plan' => $planId, 'admin' => $actor]);
+
+        return $created;
+    }
+
     private function billingError(\Throwable $e): \Throwable
     {
         if ($e instanceof UserError) {

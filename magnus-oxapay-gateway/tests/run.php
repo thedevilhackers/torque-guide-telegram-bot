@@ -58,7 +58,7 @@ function makeApp(array $overrides = []): array
         'site' => ['name' => 'Test Carrier', 'base_url' => 'https://pay.example.test'],
         'magnus' => ['url' => FakeServices::MAGNUS_URL, 'api_key' => FakeServices::MAGNUS_KEY, 'api_secret' => FakeServices::MAGNUS_SECRET],
         'oxapay' => ['merchant_api_key' => FakeServices::OXAPAY_KEY, 'base_url' => 'https://api.oxapay.test/v1'],
-        'telegram' => ['enabled' => true, 'bot_token' => '123:abc', 'admin_chat_ids' => [999], 'webhook_secret' => 'secret-secret-secret'],
+        'telegram' => ['enabled' => true, 'bot_token' => '123:abc', 'bot_username' => 'testpay_bot', 'admin_chat_ids' => [999], 'webhook_secret' => 'secret-secret-secret'],
         'database' => ['dsn' => 'sqlite::memory:'],
         'app' => ['log_file' => ''],
     ];
@@ -843,6 +843,140 @@ test('admin: an unconfirmed change is reported as such, and nothing is applied',
     $fake->magnusDown = false;
     check(strpos($done['text'], 'unavailable') !== false, 'lookup failure message');
     same(0, count($fake->refills));
+});
+
+function inviteToken(array $reply): string
+{
+    if (!preg_match('/start=l_([a-f0-9]{16})/', $reply['text'], $m)) {
+        throw new RuntimeException('No invite link in: ' . $reply['text']);
+    }
+
+    return $m[1];
+}
+
+test('customers: create a customer step by step, then the customer links Telegram', function () {
+    [$app, $fake] = makeApp();
+    $menu = tgTap($app, $fake, 999, 'adm:cust');
+    $step = tgTap($app, $fake, 999, findButton($menu, 'New customer'));
+    check(strpos($step['text'], '(1/4)') !== false, 'asks username');
+    $step = tgSay($app, $fake, 999, 'alice');
+    check(strpos($step['text'], 'already exists') !== false, 'existing username refused');
+    $step = tgSay($app, $fake, 999, 'x y');
+    check(strpos($step['text'], 'Use 4 to 20') !== false, 'invalid username refused');
+    $step = tgSay($app, $fake, 999, 'newcust1');
+    check(strpos($step['text'], '(2/4)') !== false, 'asks password');
+    $step = tgSay($app, $fake, 999, 'Secret99');
+    check(strpos($step['text'], '(3/4)') !== false, 'asks email');
+    $step = tgSay($app, $fake, 999, 'new@customer.test');
+    check(strpos($step['text'], '(4/4)') !== false, 'asks plan');
+    $confirm = tgTap($app, $fake, 999, findButton($step, 'Premium'));
+    check(strpos($confirm['text'], 'Plan: Premium') !== false && strpos($confirm['text'], 'newcust1') !== false, 'summary');
+    $done = tgTap($app, $fake, 999, findButton($confirm, 'Confirm'));
+    check(strpos($done['text'], 'Customer created') !== false && strpos($done['text'], 'Secret99') !== false, 'credentials shown');
+    check(strpos($done['reply_markup']['inline_keyboard'][0][0]['url'], 'https://t.me/share/url?url=') === 0, 'share button');
+    $new = end($fake->users);
+    same('newcust1', $new['username']);
+    same(2, $new['id_plan']);
+    same('new@customer.test', $new['email']);
+    $sip = end($fake->sips);
+    same('newcust1', $sip['name'], 'SIP account created');
+
+    // The customer opens the invite link.
+    $token = inviteToken($done);
+    tgSay($app, $fake, 777, '/start l_' . $token, 'newcustomer');
+    $messages = messagesTo($fake, '777');
+    check(strpos($messages[0]['text'], 'linked to account <code>newcust1</code>') !== false, 'linked');
+    same('👤 My account', $messages[1]['reply_markup']['keyboard'][1][0]['text'], 'My account button');
+    $account = tgSay($app, $fake, 777, '👤 My account', 'newcustomer');
+    check(strpos($account['text'], 'Balance: <b>0.00</b>') !== false && strpos($account['text'], 'SIP <code>newcust1</code>') !== false, 'account card');
+    same('usr:newcust1', $account['reply_markup']['inline_keyboard'][0][0]['callback_data'], 'top up own account');
+
+    $reply = tgSay($app, $fake, 778, '/start l_' . $token, 'someoneelse');
+    check(strpos($reply['text'], 'not valid any more') !== false, 'invite works once');
+});
+
+test('customers: automatic username, generated password, and the email rule', function () {
+    [$app, $fake] = makeApp();
+    tgTap($app, $fake, 999, 'adm:new');
+    tgTap($app, $fake, 999, 'adm:newauto');
+    tgTap($app, $fake, 999, 'adm:newgen');
+    $plans = tgTap($app, $fake, 999, 'adm:newskip');
+    $confirm = tgTap($app, $fake, 999, findButton($plans, 'Default plan'));
+    check(strpos($confirm['text'], '<i>automatic</i>') !== false && strpos($confirm['text'], '<i>generated</i>') !== false, 'summary');
+    $done = tgTap($app, $fake, 999, findButton($confirm, 'Confirm'));
+    check(strpos($done['text'], 'API allow multiple user/email') !== false, 'explains the unique email rule');
+    same(2, count($fake->users), 'nothing created');
+
+    $fake->apiAllowSameEmail = true;
+    tgTap($app, $fake, 999, 'adm:new');
+    tgTap($app, $fake, 999, 'adm:newauto');
+    tgTap($app, $fake, 999, 'adm:newgen');
+    $plans = tgTap($app, $fake, 999, 'adm:newskip');
+    $confirm = tgTap($app, $fake, 999, findButton($plans, 'Default plan'));
+    $done = tgTap($app, $fake, 999, findButton($confirm, 'Confirm'));
+    check(strpos($done['text'], 'Customer created') !== false, 'created');
+    $new = end($fake->users);
+    check(strpos($done['text'], '<code>' . $new['password'] . '</code>') !== false, 'generated password shown');
+});
+
+test('customers: invite for an existing account; website payments reach the linked chat', function () {
+    [$app, $fake] = makeApp();
+    $card = tgTap($app, $fake, 999, 'adm:account:alice');
+    check(strpos($card['text'], 'Telegram: not linked') !== false, 'not linked yet');
+    $invite = tgTap($app, $fake, 999, findButton($card, 'Telegram invite'));
+    tgSay($app, $fake, 555, '/start l_' . inviteToken($invite), 'alice_tg');
+
+    $order = $app->payments()->createOrder(['username' => 'alice', 'amount' => '10'], 'web');
+    $fake->oxapayStatus($order['track_id'], 'Paid');
+    [$body, $hmac] = $fake->webhook($order['track_id'], 'Paid');
+    $app->payments()->handleWebhook($body, $hmac);
+    $last = messagesTo($fake, '555');
+    check(strpos(end($last)['text'], 'Payment confirmed') !== false, 'linked chat notified of a website payment');
+
+    $card = tgTap($app, $fake, 999, 'adm:account:alice');
+    check(strpos($card['text'], 'Telegram: linked (1 chat)') !== false, 'card shows link');
+
+    $unlinked = tgTap($app, $fake, 555, 'unlink');
+    check(strpos($unlinked['text'], 'no longer linked') !== false, 'unlink');
+    same(null, $app->customers()->linkedUsername('555'));
+});
+
+test('notifications: message one customer, and broadcast to everyone', function () {
+    [$app, $fake] = makeApp();
+    $reply = tgTap($app, $fake, 999, 'adm:msgu:alice');
+    check(strpos($reply['text'], 'not linked to Telegram') !== false, 'needs a link first');
+
+    $invite = tgTap($app, $fake, 999, 'adm:inv:alice');
+    tgSay($app, $fake, 555, '/start l_' . inviteToken($invite), 'alice_tg');
+    tgTap($app, $fake, 999, 'adm:msgu:alice');
+    $confirm = tgSay($app, $fake, 999, "Maintenance tonight 02:00-03:00 <b>UTC</b>");
+    check(strpos($confirm['text'], 'Send this to 1 chat?') !== false, 'preview');
+    tgTap($app, $fake, 999, findButton($confirm, 'Confirm'));
+    $got = messagesTo($fake, '555');
+    same("📣 <b>Test Carrier</b>\n\nMaintenance tonight 02:00-03:00 &lt;b&gt;UTC&lt;/b&gt;", end($got)['text'], 'delivered, escaped');
+    $admin = messagesTo($fake, '999');
+    check(strpos(end($admin)['text'], 'Sent to 1 chat') !== false, 'report');
+
+    // Broadcast: three more people used the bot, one of them blocked it.
+    foreach ([601, 602, 603] as $chat) {
+        tgSay($app, $fake, $chat, '/start', 'user' . $chat);
+    }
+    $fake->blockedChats = ['602'];
+    $menu = tgTap($app, $fake, 999, 'adm:notify');
+    $button = findButton($menu, 'Everyone who used the bot');
+    same('adm:bc:all', $button);
+    check(strpos(json_encode($menu['reply_markup'], JSON_UNESCAPED_UNICODE), 'Everyone who used the bot (5)') !== false, 'counts admin + 4 customers');
+    tgTap($app, $fake, 999, $button);
+    $confirm = tgSay($app, $fake, 999, 'New low rates to Europe!');
+    tgTap($app, $fake, 999, findButton($confirm, 'Confirm'));
+    $admin = messagesTo($fake, '999');
+    check(strpos(end($admin)['text'], 'Sent to 4 chats · 1 failed') !== false, 'blocked chat counted as failed: ' . end($admin)['text']);
+    $got603 = messagesTo($fake, '603');
+    check(strpos(end($got603)['text'], 'New low rates to Europe!') !== false, 'customer received broadcast');
+    same(4, $app->customers()->counts()['users'], 'blocked chat skipped next time');
+
+    $reply = tgTap($app, $fake, 601, 'adm:bc:all');
+    check(empty($reply) || strpos($reply['text'] ?? '', 'Type the message') === false, 'customers cannot broadcast');
 });
 
 test('telegram: unexpected errors reply politely instead of crashing', function () {

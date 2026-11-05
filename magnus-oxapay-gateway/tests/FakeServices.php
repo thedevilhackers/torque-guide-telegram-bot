@@ -26,6 +26,13 @@ final class FakeServices
         22 => ['id' => 22, 'id_user' => 7, 'name' => 'alice2', 'callerid' => '15550002', 'cid_number' => '15550002', 'idUserusername' => 'alice'],
         23 => ['id' => 23, 'id_user' => 8, 'name' => '100234', 'callerid' => '100234', 'cid_number' => '100234', 'idUserusername' => '100234'],
     ];
+    /** @var array<int,array<string,mixed>> */
+    public $plans = [1 => ['id' => 1, 'name' => 'Standard'], 2 => ['id' => 2, 'name' => 'Premium']];
+    /** MagnusBilling setting "API allow multiple user/email" (default 0). */
+    public $apiAllowSameEmail = false;
+    /** Telegram chats that blocked the bot. */
+    public $blockedChats = [];
+
     /** Permissions of the API key, like pkg_api.action. */
     public $apiActions = 'cru';
     /** @var array<string,array<string,mixed>> */
@@ -59,6 +66,10 @@ final class FakeServices
         }
         if (strpos($url, 'https://api.telegram.org/bot') === 0) {
             $methodName = substr($url, strrpos($url, '/') + 1);
+            $params = json_decode((string) $body, true);
+            if ($methodName === 'sendMessage' && in_array((string) ($params['chat_id'] ?? ''), $this->blockedChats, true)) {
+                return ['status' => 403, 'body' => json_encode(['ok' => false, 'error_code' => 403, 'description' => 'Forbidden: bot was blocked by the user'])];
+            }
             $this->telegram[] = ['method' => $methodName, 'params' => json_decode((string) $body, true)];
             return ['status' => 200, 'body' => json_encode(['ok' => true, 'result' => $methodName === 'getMe' ? ['username' => 'test_bot'] : true])];
         }
@@ -149,6 +160,35 @@ final class FakeServices
         $needed = $post['action'] === 'read' ? 'r' : ((string) ($post['id'] ?? '0') === '0' ? 'c' : 'u');
         if (strpos($this->apiActions, $needed) === false) {
             return ['status' => 200, 'body' => 'invalid API action'];
+        }
+
+        if ($post['module'] === 'plan' && $post['action'] === 'read') {
+            return self::json(['rows' => array_values($this->plans), 'count' => count($this->plans)]);
+        }
+
+        if ($post['module'] === 'user' && $post['action'] === 'save' && !empty($post['createUser'])) {
+            // Same checks as MagnusBilling's ApiAccess::createUser().
+            if (!$this->apiAllowSameEmail) {
+                foreach ($this->users as $user) {
+                    if ((string) ($user['email'] ?? '') === (string) $post['email']) {
+                        return self::json(['success' => false, 'errors' => 'This email already in use']);
+                    }
+                }
+            }
+            $username = isset($post['username']) ? (string) $post['username'] : (string) (70000 + count($this->users));
+            foreach ($this->users as $user) {
+                if (strcasecmp((string) $user['username'], $username) === 0) {
+                    return self::json(['success' => false, 'errors' => 'This username already in use']);
+                }
+            }
+            $id = max(array_keys($this->users)) + 1;
+            $password = isset($post['password']) ? (string) $post['password'] : 'Gen' . substr(md5((string) $id), 0, 7);
+            $this->users[$id] = ['id' => $id, 'username' => $username, 'credit' => 0, 'email' => (string) $post['email'],
+                'password' => $password, 'id_plan' => (int) ($post['id_plan'] ?? 1)];
+            $sipId = max(array_keys($this->sips)) + 1;
+            $this->sips[$sipId] = ['id' => $sipId, 'id_user' => $id, 'name' => $username, 'callerid' => $username,
+                'cid_number' => $username, 'idUserusername' => $username, 'secret' => $password];
+            return self::json(['success' => true, 'data' => $this->users[$id]]);
         }
 
         if ($post['module'] === 'sip' && $post['action'] === 'read') {

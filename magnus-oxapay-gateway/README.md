@@ -226,6 +226,23 @@ Open `https://www.unitycarrier.com/pay/`, enter a username and an amount, and pa
 
 Settings changed in Telegram are stored in the gateway's database and take priority over `config.php`. Tap **↩️ Reset to config.php** to go back to the file's values. `php bin/cli.php check` shows the values in use.
 
+**👥 Customers:**
+
+- **➕ New customer** creates the MagnusBilling account and its SIP account in four steps. It asks for the username (or automatic), password (or generated), email and plan, then shows a Confirm step.
+- After creating the account, the bot shows the login details and a **Telegram invite link** with a **📤 Share invite** button.
+- **🔗 Telegram invite** makes the same kind of link for an existing account. You'll also find it on every 👤 Account card.
+- When the customer opens the link, their Telegram is linked to that account. Links work once and expire after 7 days, so nobody can attach themselves to someone else's account.
+- Linked customers get **👤 My account** (balance, caller IDs, latest top-ups, one-tap **Top up this account**, **Unlink**). They also get a message for every credit added to their account, including payments made on the website.
+- **📇 Linked customers** lists who is linked, with a quick **✉️ Message** button.
+
+**📣 Send message:**
+
+- Choose **👤 One customer** (by username, if linked), **🔗 All linked customers**, or **👥 Everyone who used the bot**.
+- Type the message, check the preview, then tap **Confirm**.
+- The bot reports how many people received it. People who blocked the bot are skipped next time.
+
+By default, MagnusBilling only creates accounts through the API when the email is unique, and an empty email counts as one. If you create customers without an email, set **Settings → Configuration → "API allow multiple user/email" = 1** in MagnusBilling.
+
 Payment alerts carry buttons too:
 
 - **New top-up**: **Account**

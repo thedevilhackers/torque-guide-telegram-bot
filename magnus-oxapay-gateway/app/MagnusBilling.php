@@ -242,6 +242,34 @@ final class MagnusBilling
     }
 
     /**
+     * Creates a customer with MagnusBilling's createUser API call, which also creates the SIP account
+     * (same username and password). Omit username/password to let MagnusBilling generate them.
+     *
+     * @param array<string,scalar> $fields username, password, email, id_plan, firstname, ...
+     * @return array<string,mixed> the new user (id, username, password, ...)
+     */
+    public function createUser(array $fields): array
+    {
+        // MagnusBilling reads "email" unconditionally, so always send it.
+        $fields += ['email' => ''];
+        $result = $this->call('user', 'save', ['createUser' => 1, 'id' => 0] + $fields);
+        if (empty($result['success'])) {
+            throw new \RuntimeException('MagnusBilling refused the new customer: ' . self::message($result, 'unknown error'));
+        }
+        $data = $result['data'] ?? ($result['rows'][0] ?? []);
+
+        return is_array($data) ? $data : [];
+    }
+
+    /**
+     * @return array<int,array<string,mixed>> plans (id, name)
+     */
+    public function plans(): array
+    {
+        return $this->read('plan', [], 25);
+    }
+
+    /**
      * Updates fields of one record (needs the "u" permission on the API key).
      *
      * @param array<string,scalar> $fields

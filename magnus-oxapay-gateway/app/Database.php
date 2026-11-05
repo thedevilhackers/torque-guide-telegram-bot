@@ -158,6 +158,27 @@ final class Database
             updated_at BIGINT NOT NULL
         )' . $suffix);
 
+        $this->pdo->exec('CREATE TABLE IF NOT EXISTS ' . $this->table('tg_users') . ' (
+            chat_id VARCHAR(32) NOT NULL PRIMARY KEY,
+            tg_username VARCHAR(64) NULL,
+            first_name VARCHAR(100) NULL,
+            magnus_username VARCHAR(100) NULL,
+            linked_at BIGINT NULL,
+            first_seen BIGINT NOT NULL,
+            last_seen BIGINT NOT NULL,
+            blocked INTEGER NOT NULL DEFAULT 0
+        )' . $suffix);
+
+        $this->pdo->exec('CREATE TABLE IF NOT EXISTS ' . $this->table('invites') . ' (
+            token VARCHAR(32) NOT NULL PRIMARY KEY,
+            magnus_username VARCHAR(100) NOT NULL,
+            created_by VARCHAR(100) NULL,
+            created_at BIGINT NOT NULL,
+            expires_at BIGINT NOT NULL,
+            used_by VARCHAR(32) NULL,
+            used_at BIGINT NULL
+        )' . $suffix);
+
         $this->pdo->exec('CREATE TABLE IF NOT EXISTS ' . $this->table('settings') . ' (
             skey VARCHAR(100) NOT NULL PRIMARY KEY,
             svalue VARCHAR(500) NOT NULL,

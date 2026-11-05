@@ -212,6 +212,11 @@ final class App
         return new AdminTools($this);
     }
 
+    public function customers(): Customers
+    {
+        return new Customers($this);
+    }
+
     /**
      * Public URL of the public/ folder without a trailing slash.
      */

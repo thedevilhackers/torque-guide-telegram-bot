@@ -24,6 +24,10 @@ final class TelegramBot
     private const MENU_ORDERS = '🧾 My payments';
     private const MENU_HELP = '❓ Help';
     private const MENU_ADMIN = '🛠 Admin panel';
+    private const MENU_ACCOUNT = '👤 My account';
+
+    /** Longest manual notification (Telegram allows 4096 characters per message). */
+    private const MESSAGE_MAX = 3500;
 
     /** Quick amounts on the admin add/remove credit buttons. */
     private const ADMIN_AMOUNTS = [5, 10, 25, 50, 100];
@@ -81,6 +85,14 @@ final class TelegramBot
     {
         $from = $update['message']['from'] ?? ($update['callback_query']['from'] ?? []);
         $this->actor = self::actorName(is_array($from) ? $from : []);
+        $chat = $update['message']['chat'] ?? ($update['callback_query']['message']['chat'] ?? null);
+        if (is_array($chat) && ($chat['type'] ?? '') === 'private' && isset($chat['id'])) {
+            try {
+                $this->app->customers()->touch((string) $chat['id'], is_array($from) ? $from : []);
+            } catch (\Throwable $e) {
+                $this->app->log('warning', 'Could not record Telegram user', ['error' => $e->getMessage()]);
+            }
+        }
 
         if (isset($update['callback_query']) && is_array($update['callback_query'])) {
             $this->onCallback($update['callback_query']);
@@ -122,6 +134,10 @@ final class TelegramBot
                     $this->startTopup($chatId, substr($payload, 2), null);
                     return;
                 }
+                if (strpos($payload, 'l_') === 0) {
+                    $this->acceptInvite($chatId, substr($payload, 2), $admin);
+                    return;
+                }
                 $this->clearSession($chatId);
                 $this->sendWelcome($chatId, $admin);
                 return;
@@ -135,6 +151,11 @@ final class TelegramBot
             case '/myorders':
             case '/payments':
                 $this->sendMyOrders($chatId);
+                return;
+
+            case '/myaccount':
+            case '/me':
+                $this->sendMyAccount($chatId);
                 return;
 
             case '/topup':
@@ -214,6 +235,9 @@ final class TelegramBot
             case self::MENU_ORDERS:
                 $this->sendMyOrders($chatId);
                 return;
+            case self::MENU_ACCOUNT:
+                $this->sendMyAccount($chatId);
+                return;
             case self::MENU_HELP:
                 $this->clearSession($chatId);
                 $this->sendWelcome($chatId, $this->app->isAdminChat($chatId));
@@ -284,6 +308,9 @@ final class TelegramBot
             $this->startTopup($chatId, null, null);
         } elseif (strpos($data, 'usr:') === 0) {
             $this->startTopup($chatId, substr($data, 4), null);
+        } elseif ($data === 'unlink') {
+            $this->app->customers()->unlink($chatId);
+            $this->say($chatId, 'Your Telegram is no longer linked to an account. Ask us for a new invite link to link it again.');
         } elseif ($data === 'cancel') {
             $state = $this->getSession($chatId)['state'];
             $wasConfirm = $state === 'confirm' || strpos($state, 'adm_') === 0;
@@ -306,7 +333,12 @@ final class TelegramBot
         if ($username === null) {
             $this->setSession($chatId, 'await_username', []);
             $keyboard = [];
-            foreach ($this->payments()->recentUsernamesForChat($chatId) as $previous) {
+            $linked = $this->app->customers()->linkedUsername($chatId);
+            $previousNames = $this->payments()->recentUsernamesForChat($chatId);
+            if ($linked !== null) {
+                $previousNames = array_values(array_unique(array_merge([$linked], $previousNames)));
+            }
+            foreach (array_slice($previousNames, 0, 3) as $previous) {
                 if (strlen($previous) <= 56) {
                     $keyboard[] = [['text' => '↻ ' . $previous, 'callback_data' => 'usr:' . $previous]];
                 }
@@ -439,12 +471,20 @@ final class TelegramBot
             $lines[] = '/sip &lt;sip or username&gt; · /callerid &lt;sip&gt; &lt;number&gt;';
         }
 
+        $linked = $this->app->customers()->linkedUsername($chatId);
         $keyboard = [
             [['text' => self::MENU_TOPUP], ['text' => self::MENU_ORDERS]],
-            [['text' => self::MENU_HELP]],
+            [],
         ];
+        if ($linked !== null) {
+            $keyboard[1][] = ['text' => self::MENU_ACCOUNT];
+        }
+        $keyboard[1][] = ['text' => self::MENU_HELP];
         if ($admin) {
             $keyboard[1][] = ['text' => self::MENU_ADMIN];
+        }
+        if ($linked !== null) {
+            array_splice($lines, 2, 0, ['🔗 Linked to account <code>' . self::e($linked) . '</code>']);
         }
         $this->say($chatId, implode("\n", $lines), ['reply_markup' => [
             'keyboard' => $keyboard,
@@ -566,9 +606,11 @@ final class TelegramBot
             return;
         }
         $name = (string) $user['username'];
+        $linkedChats = $this->app->customers()->chatsForUsername($name);
         $lines = [
             '👤 <b>Account</b> <code>' . self::e($name) . '</code>',
             'Balance: <b>' . self::e(number_format((float) ($user['credit'] ?? 0), 2)) . '</b>',
+            'Telegram: ' . ($linkedChats === [] ? 'not linked' : 'linked (' . count($linkedChats) . ' chat' . (count($linkedChats) === 1 ? '' : 's') . ')'),
         ];
         try {
             $sips = $this->app->magnus()->sipAccountsForUser((int) $user['id']);
@@ -600,6 +642,11 @@ final class TelegramBot
             }
         }
         if (strlen($name) <= 50) {
+            $row = [['text' => '🔗 Telegram invite', 'callback_data' => 'adm:inv:' . $name]];
+            if ($linkedChats !== []) {
+                $row[] = ['text' => '✉️ Message', 'callback_data' => 'adm:msgu:' . $name];
+            }
+            $keyboard[] = $row;
             $keyboard[] = [['text' => '🔍 All orders', 'callback_data' => 'adm:findu:' . $name], ['text' => '« Admin panel', 'callback_data' => 'adm:panel']];
         }
         $this->say($chatId, implode("\n", $lines), ['reply_markup' => ['inline_keyboard' => $keyboard]]);
@@ -788,7 +835,7 @@ final class TelegramBot
 
         $action = (array) $data['action'];
         $tools = $this->app->adminTools();
-        if (in_array($action['type'] ?? '', ['callerid', 'credit', 'markpaid'], true)) {
+        if (in_array($action['type'] ?? '', ['callerid', 'credit', 'markpaid', 'create_user'], true)) {
             $this->say($chatId, '⏳ Saving in MagnusBilling…');
         }
         $slowNote = "\n<i>MagnusBilling took a while to answer. That is usually its customer email step: check Settings → SMTP in MagnusBilling.</i>";
@@ -833,6 +880,35 @@ final class TelegramBot
                     . ', maximum ' . self::e($this->payments()->money($pay['max_amount'])));
                 return;
 
+            case 'create_user':
+                $created = $tools->createCustomer(
+                    $action['username'] !== '' ? (string) $action['username'] : null,
+                    $action['password'] !== '' ? (string) $action['password'] : null,
+                    (string) $action['email'],
+                    !empty($action['plan']) ? (int) $action['plan'] : null,
+                    $this->actor
+                );
+                $token = $this->app->customers()->createInvite($created['username'], $this->actor);
+                $link = $this->app->customers()->inviteLink($token);
+                $this->say($chatId, implode("\n", [
+                    '✅ <b>Customer created</b>',
+                    'Username: <code>' . self::e($created['username']) . '</code>',
+                    'Password: <code>' . self::e($created['password']) . '</code>',
+                    'SIP account: <code>' . self::e($created['username']) . '</code> (same password)',
+                    '',
+                    'Send this link so the customer can connect their Telegram (single use, valid 7 days):',
+                    self::e($link),
+                ]), ['reply_markup' => ['inline_keyboard' => [
+                    [['text' => '📤 Share invite', 'url' => $this->shareUrl($link)]],
+                    [['text' => '➕ Add credit', 'callback_data' => 'adm:add:' . $created['username']], ['text' => '👤 Account', 'callback_data' => 'adm:account:' . $created['username']]],
+                ]]]);
+                $this->notifyOtherAdmins($chatId, '👤 ' . self::e($this->actor) . ' created customer <code>' . self::e($created['username']) . '</code>');
+                return;
+
+            case 'notify':
+                $this->sendNotification($chatId, $action);
+                return;
+
             case 'settings_reset':
                 $this->app->settings()->reset($this->actor);
                 $this->say($chatId, '✅ Settings reset to config.php.');
@@ -866,6 +942,7 @@ final class TelegramBot
                 [['text' => '➕ Add credit', 'callback_data' => 'adm:add'], ['text' => '➖ Remove credit', 'callback_data' => 'adm:remove']],
                 [['text' => '☎️ SIP accounts', 'callback_data' => 'adm:sip'], ['text' => '📞 Caller ID', 'callback_data' => 'adm:cid']],
                 [['text' => '✅ Mark an order paid', 'callback_data' => 'adm:markpaid']],
+                [['text' => '👥 Customers', 'callback_data' => 'adm:cust'], ['text' => '📣 Send message', 'callback_data' => 'adm:notify']],
                 [['text' => '⚙️ Settings (minimum, currency)', 'callback_data' => 'adm:settings']],
             ]]]
         );
@@ -957,6 +1034,77 @@ final class TelegramBot
             case 'retry':
                 $order = $this->payments()->retry($arg);
                 $this->say($chatId, $this->orderText($order, true), $this->orderButtons($order));
+                return;
+            case 'cust':
+                $this->clearSession($chatId);
+                $this->sendCustomersMenu($chatId);
+                return;
+            case 'new':
+                $this->setSession($chatId, 'adm_new_user', []);
+                $this->say($chatId, "👤 <b>New customer</b> (1/4)\nSend a <b>username</b> (4–20 letters or digits), or let MagnusBilling choose one.", ['reply_markup' => ['inline_keyboard' => [
+                    [['text' => '🎲 Automatic username', 'callback_data' => 'adm:newauto']],
+                    [['text' => 'Cancel', 'callback_data' => 'cancel']],
+                ]]]);
+                return;
+            case 'newauto':
+            case 'newgen':
+            case 'newskip':
+                $session = $this->getSession($chatId);
+                $expected = ['newauto' => 'adm_new_user', 'newgen' => 'adm_new_pass', 'newskip' => 'adm_new_email'][$command];
+                if ($session['state'] !== $expected) {
+                    $this->say($chatId, 'That button has expired. Start again with 👥 Customers.');
+                    return;
+                }
+                $this->newCustomerStep($chatId, $session, null);
+                return;
+            case 'newplan':
+                $session = $this->getSession($chatId);
+                if ($session['state'] !== 'adm_new_plan') {
+                    $this->say($chatId, 'That button has expired. Start again with 👥 Customers.');
+                    return;
+                }
+                $data = $session['data'];
+                $data['plan'] = (int) $arg;
+                foreach ((array) ($data['plans'] ?? []) as $plan) {
+                    if ((int) $plan['id'] === (int) $arg) {
+                        $data['plan_name'] = (string) $plan['name'];
+                    }
+                }
+                unset($data['plans']);
+                $this->clearSession($chatId);
+                $this->confirmNewCustomer($chatId, $data);
+                return;
+            case 'inv':
+                if ($arg === '') {
+                    $this->setSession($chatId, 'adm_invite', []);
+                    $this->say($chatId, '🔗 Send the <b>username</b> of the account the customer should connect to.', $this->cancelKeyboard());
+                    return;
+                }
+                $this->sendInvite($chatId, $arg);
+                return;
+            case 'linked':
+                $this->sendLinkedCustomers($chatId);
+                return;
+            case 'notify':
+                $this->clearSession($chatId);
+                $counts = $this->app->customers()->counts();
+                $this->say($chatId, "📣 <b>Send a message</b>\nWho should receive it?", ['reply_markup' => ['inline_keyboard' => [
+                    [['text' => '👤 One customer', 'callback_data' => 'adm:msgu']],
+                    [['text' => '🔗 All linked customers (' . $counts['linked'] . ')', 'callback_data' => 'adm:bc:linked']],
+                    [['text' => '👥 Everyone who used the bot (' . $counts['users'] . ')', 'callback_data' => 'adm:bc:all']],
+                    [['text' => '« Admin panel', 'callback_data' => 'adm:panel']],
+                ]]]);
+                return;
+            case 'msgu':
+                if ($arg === '') {
+                    $this->setSession($chatId, 'adm_msg_user', []);
+                    $this->say($chatId, '✉️ Send the <b>username</b> of the customer to message.', $this->cancelKeyboard());
+                    return;
+                }
+                $this->askMessageText($chatId, ['audience' => 'user', 'username' => $arg]);
+                return;
+            case 'bc':
+                $this->askMessageText($chatId, ['audience' => $arg === 'linked' ? 'linked' : 'all']);
                 return;
             case 'settings':
                 $this->clearSession($chatId);
@@ -1107,6 +1255,21 @@ final class TelegramBot
             case 'adm_setting':
                 $this->askSettingChange($chatId, (string) $data['name'], $text);
                 return;
+            case 'adm_new_user':
+            case 'adm_new_pass':
+            case 'adm_new_email':
+                $this->newCustomerStep($chatId, $session, $text);
+                return;
+            case 'adm_invite':
+                $this->clearSession($chatId);
+                $this->sendInvite($chatId, $text);
+                return;
+            case 'adm_msg_user':
+                $this->askMessageText($chatId, ['audience' => 'user', 'username' => trim($text)]);
+                return;
+            case 'adm_msg_text':
+                $this->askMessageConfirm($chatId, $data, $text);
+                return;
         }
     }
 
@@ -1153,6 +1316,295 @@ final class TelegramBot
         }
 
         return $keyboard === [] ? [] : ['reply_markup' => ['inline_keyboard' => $keyboard]];
+    }
+
+    // ------------------------------------------------- customers & messages
+
+    private function acceptInvite(string $chatId, string $token, bool $admin): void
+    {
+        $username = $this->app->customers()->redeemInvite($token, $chatId);
+        if ($username === null) {
+            $this->say($chatId, 'This invite link is not valid any more (it can be used once, within 7 days). Ask us for a new one.');
+            return;
+        }
+        $this->say($chatId, '✅ Your Telegram is now linked to account <code>' . self::e($username) . "</code>.\nYou will get a message here whenever credit is added.");
+        $this->sendWelcome($chatId, $admin);
+        $this->sendMyAccount($chatId);
+        $this->notifyOtherAdmins('', '🔗 Account <code>' . self::e($username) . '</code> was linked to Telegram ' . self::e($this->actor));
+    }
+
+    private function sendMyAccount(string $chatId): void
+    {
+        $username = $this->app->customers()->linkedUsername($chatId);
+        if ($username === null) {
+            $this->say($chatId, 'Your Telegram is not linked to an account yet. Ask us for an invite link, or tap <b>' . self::e(self::MENU_TOPUP) . '</b> to top up any account.');
+            return;
+        }
+        $user = $this->payments()->lookupUser($username);
+        if ($user === null) {
+            $this->say($chatId, 'The linked account <code>' . self::e($username) . '</code> was not found. Please contact support.');
+            return;
+        }
+        $lines = [
+            '👤 <b>Your account</b> <code>' . self::e((string) $user['username']) . '</code>',
+            'Balance: <b>' . self::e(number_format((float) ($user['credit'] ?? 0), 2)) . '</b>',
+        ];
+        try {
+            foreach (array_slice($this->app->magnus()->sipAccountsForUser((int) $user['id']), 0, 5) as $sip) {
+                $lines[] = 'SIP <code>' . self::e((string) $sip['name']) . '</code> · caller ID <code>' . self::e((string) ($sip['callerid'] ?? '-')) . '</code>';
+            }
+        } catch (\Throwable $e) {
+        }
+        $orders = $this->payments()->ordersForUsername((string) $user['username'], 3);
+        if ($orders !== []) {
+            $lines[] = '';
+            $lines[] = '<b>Latest top-ups</b>';
+            foreach ($orders as $order) {
+                $lines[] = $this->orderLine($order);
+            }
+        }
+        $keyboard = [];
+        if (strlen((string) $user['username']) <= 56) {
+            $keyboard[] = [['text' => '💳 Top up this account', 'callback_data' => 'usr:' . $user['username']]];
+        }
+        $keyboard[] = [['text' => '🔌 Unlink this Telegram', 'callback_data' => 'unlink']];
+        $this->say($chatId, implode("\n", $lines), ['reply_markup' => ['inline_keyboard' => $keyboard]]);
+    }
+
+    private function sendCustomersMenu(string $chatId): void
+    {
+        $counts = $this->app->customers()->counts();
+        $this->say(
+            $chatId,
+            "👥 <b>Customers</b>\nLinked to Telegram: " . $counts['linked'] . "\nPeople who used the bot: " . $counts['users'],
+            ['reply_markup' => ['inline_keyboard' => [
+                [['text' => '➕ New customer', 'callback_data' => 'adm:new'], ['text' => '🔗 Telegram invite', 'callback_data' => 'adm:inv']],
+                [['text' => '📇 Linked customers', 'callback_data' => 'adm:linked'], ['text' => '👤 Account', 'callback_data' => 'adm:account']],
+                [['text' => '« Admin panel', 'callback_data' => 'adm:panel']],
+            ]]]
+        );
+    }
+
+    /**
+     * New customer wizard: username -> password -> email -> plan -> confirm.
+     *
+     * @param array{state:string, data:array<string,mixed>} $session
+     * @param string|null $input typed text, or null for the "automatic" / "generate" / "skip" buttons
+     */
+    private function newCustomerStep(string $chatId, array $session, ?string $input): void
+    {
+        $tools = $this->app->adminTools();
+        $data = $session['data'];
+        switch ($session['state']) {
+            case 'adm_new_user':
+                if ($input !== null) {
+                    $username = $tools->normalizeNewUsername($input);
+                    if ($this->payments()->lookupUser($username) !== null) {
+                        throw new UserError('username_in_use', 'Username ' . $username . ' already exists. Send another one, or tap Automatic.');
+                    }
+                    $data['username'] = $username;
+                } else {
+                    $data['username'] = '';
+                }
+                $this->setSession($chatId, 'adm_new_pass', $data);
+                $this->say($chatId, "🔑 <b>New customer</b> (2/4)\nSend a <b>password</b> (6–30 characters, no spaces), or let MagnusBilling generate one. It is also the SIP password.", ['reply_markup' => ['inline_keyboard' => [
+                    [['text' => '🎲 Generate password', 'callback_data' => 'adm:newgen']],
+                    [['text' => 'Cancel', 'callback_data' => 'cancel']],
+                ]]]);
+                return;
+
+            case 'adm_new_pass':
+                $data['password'] = $input !== null ? $tools->normalizeNewPassword($input) : '';
+                $this->setSession($chatId, 'adm_new_email', $data);
+                $this->say($chatId, "✉️ <b>New customer</b> (3/4)\nSend the customer's <b>email</b>. MagnusBilling uses it for receipts and, by default, needs it to be unique.", ['reply_markup' => ['inline_keyboard' => [
+                    [['text' => 'Skip', 'callback_data' => 'adm:newskip']],
+                    [['text' => 'Cancel', 'callback_data' => 'cancel']],
+                ]]]);
+                return;
+
+            case 'adm_new_email':
+                $data['email'] = $input !== null ? $tools->normalizeEmail($input) : '';
+                try {
+                    $plans = $this->app->magnus()->plans();
+                } catch (\Throwable $e) {
+                    $plans = [];
+                }
+                $plans = array_values(array_filter($plans, static function ($plan): bool {
+                    return isset($plan['id'], $plan['name']);
+                }));
+                if (count($plans) < 2) {
+                    $this->clearSession($chatId);
+                    $this->confirmNewCustomer($chatId, $data + ['plan' => 0, 'plan_name' => '']);
+                    return;
+                }
+                $data['plans'] = array_map(static function (array $plan): array {
+                    return ['id' => (int) $plan['id'], 'name' => (string) $plan['name']];
+                }, array_slice($plans, 0, 10));
+                $this->setSession($chatId, 'adm_new_plan', $data);
+                $buttons = [];
+                foreach ($data['plans'] as $plan) {
+                    $buttons[] = [['text' => '📦 ' . $plan['name'], 'callback_data' => 'adm:newplan:' . $plan['id']]];
+                }
+                $buttons[] = [['text' => 'Default plan', 'callback_data' => 'adm:newplan:0']];
+                $buttons[] = [['text' => 'Cancel', 'callback_data' => 'cancel']];
+                $this->say($chatId, "📦 <b>New customer</b> (4/4)\nWhich <b>plan</b>?", ['reply_markup' => ['inline_keyboard' => $buttons]]);
+                return;
+        }
+    }
+
+    private function confirmNewCustomer(string $chatId, array $data): void
+    {
+        $this->askConfirm($chatId, implode("\n", [
+            '👤 <b>Create this customer in MagnusBilling?</b>',
+            'Username: ' . ($data['username'] !== '' ? '<code>' . self::e((string) $data['username']) . '</code>' : '<i>automatic</i>'),
+            'Password: ' . ($data['password'] !== '' ? '<code>' . self::e((string) $data['password']) . '</code>' : '<i>generated</i>'),
+            'Email: ' . ($data['email'] !== '' ? self::e((string) $data['email']) : '<i>none</i>'),
+            'Plan: ' . (!empty($data['plan']) ? self::e((string) $data['plan_name']) : '<i>default</i>'),
+            'A SIP account with the same username and password is created too.',
+        ]), [
+            'type' => 'create_user',
+            'username' => (string) $data['username'],
+            'password' => (string) $data['password'],
+            'email' => (string) $data['email'],
+            'plan' => (int) ($data['plan'] ?? 0),
+            'plan_name' => (string) ($data['plan_name'] ?? ''),
+        ]);
+    }
+
+    private function sendInvite(string $chatId, string $username): void
+    {
+        $payments = $this->payments();
+        $user = $payments->lookupUser($payments->normalizeUsername($username));
+        if ($user === null) {
+            $this->say($chatId, 'No account found with username <code>' . self::e($username) . '</code>.');
+            return;
+        }
+        $name = (string) $user['username'];
+        $link = $this->app->customers()->inviteLink($this->app->customers()->createInvite($name, $this->actor));
+        $this->say(
+            $chatId,
+            '🔗 <b>Telegram invite for</b> <code>' . self::e($name) . "</code>\nSend this link to the customer. It works once, within 7 days:\n" . self::e($link),
+            ['reply_markup' => ['inline_keyboard' => [[['text' => '📤 Share invite', 'url' => $this->shareUrl($link)]]]]]
+        );
+    }
+
+    private function sendLinkedCustomers(string $chatId): void
+    {
+        $rows = $this->app->customers()->linked(20);
+        if ($rows === []) {
+            $this->say($chatId, 'No customer has linked Telegram yet. Use 🔗 Telegram invite to send them a link.');
+            return;
+        }
+        $lines = ['📇 <b>Linked customers</b>'];
+        $buttons = [];
+        foreach ($rows as $row) {
+            $who = !empty($row['tg_username']) ? '@' . $row['tg_username'] : (string) ($row['first_name'] ?? 'Telegram user');
+            $lines[] = '<code>' . self::e((string) $row['magnus_username']) . '</code> · ' . self::e($who)
+                . ($row['blocked'] ? ' · blocked the bot' : '') . ' · ' . date('d M', (int) $row['linked_at']);
+            if (count($buttons) < 8 && strlen((string) $row['magnus_username']) <= 50) {
+                $buttons[] = [['text' => '✉️ ' . $row['magnus_username'], 'callback_data' => 'adm:msgu:' . $row['magnus_username']]];
+            }
+        }
+        $buttons[] = [['text' => '« Customers', 'callback_data' => 'adm:cust']];
+        $this->say($chatId, implode("\n", $lines), ['reply_markup' => ['inline_keyboard' => $buttons]]);
+    }
+
+    /**
+     * @param array<string,mixed> $target audience ('user' with username, 'linked' or 'all')
+     */
+    private function askMessageText(string $chatId, array $target): void
+    {
+        $customers = $this->app->customers();
+        if ($target['audience'] === 'user') {
+            $username = (string) $target['username'];
+            $count = count($customers->chatsForUsername($username));
+            if ($count === 0) {
+                $this->clearSession($chatId);
+                $this->say($chatId, 'Account <code>' . self::e($username) . '</code> is not linked to Telegram. Send them an invite first.', strlen($username) <= 50
+                    ? ['reply_markup' => ['inline_keyboard' => [[['text' => '🔗 Telegram invite', 'callback_data' => 'adm:inv:' . $username]]]]]
+                    : []);
+                return;
+            }
+            $who = 'account <code>' . self::e($username) . '</code>';
+        } else {
+            $count = count($customers->audience((string) $target['audience']));
+            $who = $target['audience'] === 'linked' ? 'all linked customers' : 'everyone who used the bot';
+            if ($count === 0) {
+                $this->clearSession($chatId);
+                $this->say($chatId, 'Nobody to send to yet.');
+                return;
+            }
+        }
+        $this->setSession($chatId, 'adm_msg_text', $target);
+        $this->say($chatId, '✍️ Type the message for ' . $who . ' (' . $count . ' chat' . ($count === 1 ? '' : 's') . ').', $this->cancelKeyboard());
+    }
+
+    private function askMessageConfirm(string $chatId, array $target, string $text): void
+    {
+        $text = trim($text);
+        $length = function_exists('mb_strlen') ? mb_strlen($text) : strlen($text);
+        if ($text === '' || $length > self::MESSAGE_MAX) {
+            throw new UserError('invalid_message', 'The message must be 1 to ' . self::MESSAGE_MAX . ' characters.');
+        }
+        $customers = $this->app->customers();
+        $count = $target['audience'] === 'user'
+            ? count($customers->chatsForUsername((string) $target['username']))
+            : count($customers->audience((string) $target['audience']));
+        $this->askConfirm(
+            $chatId,
+            '📣 <b>Send this to ' . $count . ' chat' . ($count === 1 ? '' : 's') . "?</b>\n\n" . $this->formatNotification($text),
+            ['type' => 'notify', 'audience' => (string) $target['audience'], 'username' => (string) ($target['username'] ?? ''), 'text' => $text]
+        );
+    }
+
+    private function formatNotification(string $text): string
+    {
+        return '📣 <b>' . self::e((string) $this->app->config['site']['name']) . "</b>\n\n" . self::e($text);
+    }
+
+    /**
+     * @param array<string,mixed> $action confirmed "notify" action
+     */
+    private function sendNotification(string $chatId, array $action): void
+    {
+        $customers = $this->app->customers();
+        $recipients = $action['audience'] === 'user'
+            ? $customers->chatsForUsername((string) $action['username'])
+            : $customers->audience((string) $action['audience']);
+        @set_time_limit(0);
+        if (count($recipients) > 1) {
+            $this->say($chatId, '⏳ Sending to ' . count($recipients) . ' chats…');
+        }
+        $html = $this->formatNotification((string) $action['text']);
+        $sent = 0;
+        $failed = 0;
+        foreach ($recipients as $index => $recipient) {
+            if ($index > 0) {
+                usleep(40000); // stay under Telegram's ~30 messages per second
+            }
+            try {
+                $this->say($recipient, $html);
+                $sent++;
+            } catch (\Throwable $e) {
+                $failed++;
+                if (preg_match('/blocked|deactivated|chat not found|Forbidden/i', $e->getMessage())) {
+                    $customers->markBlocked($recipient);
+                }
+            }
+        }
+        $this->app->log('info', 'Admin sent a notification', [
+            'audience' => $action['audience'], 'username' => $action['username'], 'sent' => $sent, 'failed' => $failed, 'admin' => $this->actor,
+        ]);
+        $this->say($chatId, '✅ Sent to ' . $sent . ' chat' . ($sent === 1 ? '' : 's')
+            . ($failed > 0 ? ' · ' . $failed . ' failed (they blocked the bot or deleted the chat)' : '') . '.');
+        $target = $action['audience'] === 'user' ? 'account ' . $action['username'] : ($action['audience'] === 'linked' ? 'linked customers' : 'everyone');
+        $this->notifyOtherAdmins($chatId, '📣 ' . self::e($this->actor) . ' sent a message to ' . self::e($target) . ' (' . $sent . ' delivered)');
+    }
+
+    private function shareUrl(string $link): string
+    {
+        return 'https://t.me/share/url?url=' . rawurlencode($link)
+            . '&text=' . rawurlencode('Connect your Telegram to your ' . $this->app->config['site']['name'] . ' account');
     }
 
     private function notifyOtherAdmins(string $exceptChat, string $html): void
@@ -1233,6 +1685,18 @@ final class TelegramBot
 
         if ($customer !== null && !empty($order['tg_chat_id'])) {
             $this->say((string) $order['tg_chat_id'], $customer);
+        }
+        if ($event === 'credited' && $customer !== null) {
+            foreach ($this->app->customers()->chatsForUsername((string) $order['username']) as $linkedChat) {
+                if ($linkedChat === (string) ($order['tg_chat_id'] ?? '')) {
+                    continue;
+                }
+                try {
+                    $this->say($linkedChat, $customer);
+                } catch (\Throwable $e) {
+                    $this->app->log('warning', 'Linked customer notification failed', ['chat' => $linkedChat, 'error' => $e->getMessage()]);
+                }
+            }
         }
         if ($admin !== null && !empty($this->app->config['telegram']['notify_admins'])) {
             foreach ((array) $this->app->config['telegram']['admin_chat_ids'] as $adminChat) {
