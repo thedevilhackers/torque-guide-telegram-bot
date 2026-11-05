@@ -1,0 +1,2199 @@
+/*!
+ * MagnusBilling 8 — Futuristic Theme (MBF)
+ * A drop-in visual overlay for the MagnusBilling 8 ExtJS admin panel.
+ *
+ * How it works
+ *  - mbf.js adds the class "mbf" to <html> and loads this file.
+ *  - Every rule is scoped to html.mbf, so removing the class (or the
+ *    <script> tag) restores the stock MagnusBilling look instantly.
+ *  - The theme styles the shared ExtJS components (grids, forms, tabs,
+ *    windows, menus, pickers, toolbars...). Every MagnusBilling module —
+ *    SIP Users, Caller ID, Rates, Trunks, CDR, Refills, DIDs, IVRs, Queues,
+ *    Campaigns, Reports, Settings — is built from these components, so the
+ *    whole panel is restyled, not only the outer frame.
+ *
+ * Rule of thumb used throughout: ExtJS measures element sizes in JavaScript,
+ * so this file changes colours, backgrounds, radii, shadows and fonts, but
+ * keeps the stock paddings, heights and border widths. That keeps every
+ * layout pixel-aligned.
+ *
+ * License: GPL-3.0-or-later (same family as MagnusBilling).
+ */
+
+/* =========================================================================
+   1. Design tokens
+   ========================================================================= */
+html.mbf {
+    --mbf-accent: #00e5ff;
+    --mbf-accent-rgb: 0, 229, 255;
+    --mbf-accent2: #ff2bd6;
+    --mbf-accent2-rgb: 255, 43, 214;
+    --mbf-on-accent: #031018;
+
+    --mbf-ok: #2dffb3;
+    --mbf-ok-rgb: 45, 255, 179;
+    --mbf-warn: #ffc94d;
+    --mbf-warn-rgb: 255, 201, 77;
+    --mbf-err: #ff4d6d;
+    --mbf-err-rgb: 255, 77, 109;
+
+    --mbf-bg0: #04060d;
+    --mbf-bg1: #070c1a;
+    --mbf-bg2: #0b1326;
+    --mbf-surface: rgba(10, 17, 34, 0.66);
+    --mbf-surface-strong: rgba(9, 15, 30, 0.86);
+    --mbf-surface-solid: #0a1122;
+    --mbf-float: rgba(8, 13, 27, 0.97);
+    --mbf-input: rgba(4, 9, 20, 0.72);
+    --mbf-input-hover: rgba(8, 16, 34, 0.85);
+
+    --mbf-line: rgba(122, 170, 255, 0.13);
+    --mbf-line-2: rgba(122, 170, 255, 0.22);
+    --mbf-line-accent: rgba(var(--mbf-accent-rgb), 0.42);
+
+    --mbf-text: #dce8ff;
+    --mbf-text-strong: #ffffff;
+    --mbf-text-dim: #93a6cc;
+    --mbf-text-mute: #5f7299;
+
+    --mbf-font: "Inter", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --mbf-font-display: "Orbitron", "Rajdhani", "Inter", "Segoe UI", sans-serif;
+    --mbf-font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+    --mbf-radius-sm: 6px;
+    --mbf-radius: 10px;
+    --mbf-radius-lg: 16px;
+
+    --mbf-glow: 0 0 0 1px rgba(var(--mbf-accent-rgb), 0.35), 0 0 18px rgba(var(--mbf-accent-rgb), 0.22);
+    --mbf-glow-strong: 0 0 0 1px rgba(var(--mbf-accent-rgb), 0.6), 0 0 24px rgba(var(--mbf-accent-rgb), 0.35);
+    --mbf-shadow-float: 0 18px 50px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(var(--mbf-accent-rgb), 0.18), 0 0 30px rgba(var(--mbf-accent-rgb), 0.10);
+    --mbf-blur: blur(14px) saturate(140%);
+
+    --mbf-grad: linear-gradient(135deg, var(--mbf-accent) 0%, var(--mbf-accent2) 100%);
+    --mbf-grad-soft: linear-gradient(135deg, rgba(var(--mbf-accent-rgb), 0.18) 0%, rgba(var(--mbf-accent2-rgb), 0.10) 100%);
+
+    color-scheme: dark;
+}
+
+/* Accent presets (Theme Studio / mbf-config.js "accent") */
+html.mbf[data-mbf-accent="magenta"] {
+    --mbf-accent: #ff3fd8; --mbf-accent-rgb: 255, 63, 216;
+    --mbf-accent2: #7c5cff; --mbf-accent2-rgb: 124, 92, 255;
+    --mbf-on-accent: #19001a;
+}
+html.mbf[data-mbf-accent="matrix"] {
+    --mbf-accent: #39ff88; --mbf-accent-rgb: 57, 255, 136;
+    --mbf-accent2: #00d0ff; --mbf-accent2-rgb: 0, 208, 255;
+    --mbf-on-accent: #02140a;
+}
+html.mbf[data-mbf-accent="amber"] {
+    --mbf-accent: #ffb020; --mbf-accent-rgb: 255, 176, 32;
+    --mbf-accent2: #ff4d6d; --mbf-accent2-rgb: 255, 77, 109;
+    --mbf-on-accent: #1a0e00;
+}
+html.mbf[data-mbf-accent="violet"] {
+    --mbf-accent: #a78bff; --mbf-accent-rgb: 167, 139, 255;
+    --mbf-accent2: #00e5ff; --mbf-accent2-rgb: 0, 229, 255;
+    --mbf-on-accent: #0c0620;
+}
+html.mbf[data-mbf-accent="ice"] {
+    --mbf-accent: #7cc4ff; --mbf-accent-rgb: 124, 196, 255;
+    --mbf-accent2: #c9f2ff; --mbf-accent2-rgb: 201, 242, 255;
+    --mbf-on-accent: #04101c;
+}
+
+html.mbf.mbf-noglass {
+    --mbf-surface: rgba(10, 17, 34, 0.94);
+    --mbf-blur: none;
+}
+
+/* =========================================================================
+   2. Page canvas, boot screen, scrollbars, selection
+   ========================================================================= */
+html.mbf {
+    background:
+        radial-gradient(1200px 800px at 12% -10%, rgba(var(--mbf-accent-rgb), 0.10), transparent 60%),
+        radial-gradient(1000px 700px at 110% 110%, rgba(var(--mbf-accent2-rgb), 0.10), transparent 60%),
+        linear-gradient(180deg, var(--mbf-bg1) 0%, var(--mbf-bg0) 100%) !important;
+    background-attachment: fixed !important;
+    min-height: 100%;
+}
+
+/* The page background lives on <html> so the animated canvas (z-index:-1)
+   can sit between it and the ExtJS viewport. */
+html.mbf body,
+html.mbf body.x-body,
+html.mbf .x-viewport,
+html.mbf .x-border-layout-ct,
+html.mbf .x-autocontainer-outerCt,
+html.mbf .x-container-default {
+    background-color: transparent !important;
+}
+
+html.mbf .x-body {
+    color: var(--mbf-text) !important;
+    font-family: var(--mbf-font) !important;
+}
+
+html.mbf ::selection {
+    background: rgba(var(--mbf-accent-rgb), 0.35);
+    color: #fff;
+}
+
+html.mbf * {
+    scrollbar-color: rgba(var(--mbf-accent-rgb), 0.35) transparent;
+}
+html.mbf ::-webkit-scrollbar { width: 10px; height: 10px; }
+html.mbf ::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.02); }
+html.mbf ::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, rgba(var(--mbf-accent-rgb), 0.45), rgba(var(--mbf-accent2-rgb), 0.35));
+    border-radius: 10px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+}
+html.mbf ::-webkit-scrollbar-thumb:hover { background-color: rgba(var(--mbf-accent-rgb), 0.7); }
+html.mbf ::-webkit-scrollbar-corner { background: transparent; }
+
+/* Animated background canvas injected by mbf.js */
+#mbf-bg {
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: -1;
+    pointer-events: none;
+    opacity: 0.9;
+}
+html.mbf[data-mbf-bg="grid"] body::before,
+html.mbf[data-mbf-bg="network"] body::before {
+    /* perspective "cyber floor" grid under the particles */
+    content: "";
+    position: fixed;
+    left: -50%;
+    right: -50%;
+    bottom: -10%;
+    height: 60vh;
+    z-index: -1;
+    pointer-events: none;
+    background-image:
+        linear-gradient(rgba(var(--mbf-accent-rgb), 0.16) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(var(--mbf-accent-rgb), 0.16) 1px, transparent 1px);
+    background-size: 64px 64px;
+    transform: perspective(520px) rotateX(62deg);
+    transform-origin: 50% 100%;
+    -webkit-mask-image: linear-gradient(to top, rgba(0, 0, 0, 0.9), transparent 85%);
+    mask-image: linear-gradient(to top, rgba(0, 0, 0, 0.9), transparent 85%);
+    animation: mbf-grid-scroll 6s linear infinite;
+}
+@keyframes mbf-grid-scroll {
+    from { background-position: 0 0, 0 0; }
+    to   { background-position: 0 64px, 0 0; }
+}
+
+/* Boot / loading screen (index.html #loading-mask) */
+html.mbf #loading-mask {
+    background:
+        radial-gradient(800px 500px at 50% 40%, rgba(var(--mbf-accent-rgb), 0.12), transparent 70%),
+        linear-gradient(180deg, var(--mbf-bg1), var(--mbf-bg0)) !important;
+}
+html.mbf #loading .loading-indicator,
+html.mbf #loading {
+    color: var(--mbf-text) !important;
+    font-family: var(--mbf-font) !important;
+    background: transparent !important;
+}
+html.mbf #loading #name-system {
+    font-family: var(--mbf-font-display) !important;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--mbf-text-strong) !important;
+    text-shadow: 0 0 18px rgba(var(--mbf-accent-rgb), 0.65);
+}
+html.mbf #loading #text-msg {
+    color: var(--mbf-accent) !important;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    font-size: 11px;
+}
+html.mbf #loading #loading-msg { color: var(--mbf-text-dim) !important; }
+html.mbf #loading #loadinggif {
+    filter: drop-shadow(0 0 16px rgba(var(--mbf-accent-rgb), 0.55));
+}
+
+/* =========================================================================
+   3. Typography (text-bearing classes only — icon fonts stay untouched)
+   ========================================================================= */
+html.mbf .x-panel-header-title,
+html.mbf .x-window-header-title,
+html.mbf .x-title-text,
+html.mbf .x-btn-inner,
+html.mbf .x-tab-inner,
+html.mbf .x-grid-cell-inner,
+html.mbf .x-column-header-text,
+html.mbf .x-column-header-text-inner,
+html.mbf .x-form-item-label,
+html.mbf .x-form-item-label-inner,
+html.mbf .x-form-text,
+html.mbf .x-form-textarea,
+html.mbf .x-form-display-field,
+html.mbf .x-form-cb-label,
+html.mbf .x-boundlist-item,
+html.mbf .x-menu-item-text,
+html.mbf .x-toolbar-text,
+html.mbf .x-tree-node-text,
+html.mbf .x-fieldset-header-text,
+html.mbf .x-window-text,
+html.mbf .x-mask-msg-text,
+html.mbf .x-tip-body,
+html.mbf .x-tip-header-text,
+html.mbf .x-datepicker,
+html.mbf .x-datepicker-date,
+html.mbf .x-datepicker-column-header-inner,
+html.mbf .x-monthpicker-item-inner,
+html.mbf .x-progress-text,
+html.mbf .x-tagfield-item-text,
+html.mbf .x-grid-group-title,
+html.mbf .x-grid-empty,
+html.mbf .x-autocontainer-innerCt,
+html.mbf .x-panel-body-default,
+html.mbf .x-window-body-default {
+    font-family: var(--mbf-font) !important;
+}
+
+html.mbf .x-panel-header-title-default .x-title-text,
+html.mbf .x-window-header-title-default .x-title-text,
+html.mbf .x-fieldset-header-text {
+    font-family: var(--mbf-font-display) !important;
+    letter-spacing: 0.06em;
+    font-weight: 600 !important;
+}
+
+/* Numbers line up in grids (rates, credit, durations) */
+html.mbf .x-grid-cell-inner,
+html.mbf .x-form-text,
+html.mbf .x-toolbar-text {
+    font-variant-numeric: tabular-nums;
+}
+
+/* =========================================================================
+   4. Panels & regions
+   ========================================================================= */
+html.mbf .x-panel-default,
+html.mbf .x-panel {
+    border-color: var(--mbf-line) !important;
+}
+
+/* Top-level panel bodies get glass; nested ones stay transparent so the
+   tint does not stack up into a muddy dark block. */
+html.mbf .x-panel-body-default,
+html.mbf .x-panel-body-default-framed,
+html.mbf .x-panel-default-framed,
+html.mbf .x-panel-body {
+    background-color: var(--mbf-surface) !important;
+    background-image: none !important;
+    color: var(--mbf-text) !important;
+    border-color: var(--mbf-line) !important;
+}
+html.mbf .x-panel-body .x-panel-body,
+html.mbf .x-panel-body .x-panel-body-default,
+html.mbf .x-window-body .x-panel-body,
+html.mbf .x-menu .x-panel-body,
+html.mbf .x-tip .x-panel-body {
+    background-color: transparent !important;
+}
+
+html.mbf .x-panel-header-default,
+html.mbf .x-panel-header-default-horizontal,
+html.mbf .x-panel-header-default-vertical,
+html.mbf .x-panel-header-default-collapsed-top,
+html.mbf .x-panel-header-default-collapsed-left,
+html.mbf .x-panel-header-default-collapsed-right,
+html.mbf .x-panel-header-default-collapsed-bottom {
+    background-color: rgba(8, 14, 30, 0.82) !important;
+    background-image: linear-gradient(90deg, rgba(var(--mbf-accent-rgb), 0.16), rgba(var(--mbf-accent2-rgb), 0.05) 70%, transparent) !important;
+    border-color: var(--mbf-line-2) !important;
+    box-shadow: inset 0 -1px 0 rgba(var(--mbf-accent-rgb), 0.25) !important;
+}
+html.mbf .x-panel-header-title-default,
+html.mbf .x-panel-header-title-default .x-title-text {
+    color: var(--mbf-text-strong) !important;
+    text-shadow: 0 0 12px rgba(var(--mbf-accent-rgb), 0.35);
+}
+html.mbf .x-panel-header-default .x-title-icon,
+html.mbf .x-panel-header-default .x-title-glyph {
+    color: var(--mbf-accent) !important;
+}
+
+/* Header tools (collapse, close, refresh, gear...) */
+html.mbf .x-tool-tool-el,
+html.mbf .x-tool-img {
+    color: var(--mbf-text-dim) !important;
+    background-color: transparent !important;
+    transition: color 0.15s, filter 0.15s;
+}
+html.mbf .x-tool-over .x-tool-tool-el,
+html.mbf .x-tool-over .x-tool-img {
+    color: var(--mbf-accent) !important;
+    filter: drop-shadow(0 0 6px rgba(var(--mbf-accent-rgb), 0.8));
+}
+
+/* Collapsed region strip & splitters */
+html.mbf .x-region-collapsed-placeholder,
+html.mbf .x-panel-collapsed .x-panel-header-default {
+    background-color: rgba(8, 14, 30, 0.85) !important;
+}
+html.mbf .x-splitter {
+    background-color: transparent !important;
+}
+html.mbf .x-splitter-active,
+html.mbf .x-splitter:hover {
+    background-color: rgba(var(--mbf-accent-rgb), 0.25) !important;
+}
+html.mbf .x-collapse-el {
+    color: var(--mbf-accent) !important;
+}
+
+/* =========================================================================
+   5. Main shell (classes added by mbf.js to the standard layout)
+   ========================================================================= */
+html.mbf .mbf-header,
+html.mbf .mbf-header .x-panel-body,
+html.mbf .mbf-header .x-toolbar {
+    background-color: rgba(6, 10, 22, 0.78) !important;
+    background-image: none !important;
+    -webkit-backdrop-filter: var(--mbf-blur);
+    backdrop-filter: var(--mbf-blur);
+    border-color: transparent !important;
+}
+html.mbf .mbf-header {
+    box-shadow: 0 1px 0 rgba(var(--mbf-accent-rgb), 0.35), 0 10px 30px rgba(0, 0, 0, 0.35) !important;
+}
+html.mbf .mbf-header::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--mbf-accent), var(--mbf-accent2), transparent);
+    opacity: 0.9;
+    pointer-events: none;
+    animation: mbf-scan 6s ease-in-out infinite;
+    background-size: 200% 100%;
+}
+@keyframes mbf-scan {
+    0%, 100% { background-position: 0% 0; }
+    50%      { background-position: 100% 0; }
+}
+html.mbf .mbf-header .x-img {
+    filter: drop-shadow(0 0 10px rgba(var(--mbf-accent-rgb), 0.35));
+}
+
+html.mbf .mbf-menu,
+html.mbf .mbf-menu > .x-panel-body {
+    background-color: rgba(6, 10, 22, 0.72) !important;
+    -webkit-backdrop-filter: var(--mbf-blur);
+    backdrop-filter: var(--mbf-blur);
+}
+html.mbf .mbf-menu {
+    box-shadow: 1px 0 0 rgba(var(--mbf-accent-rgb), 0.18) !important;
+}
+
+html.mbf .mbf-center > .x-panel-body,
+html.mbf .mbf-center > .x-tabpanel-body {
+    background-color: var(--mbf-surface) !important;
+    -webkit-backdrop-filter: var(--mbf-blur);
+    backdrop-filter: var(--mbf-blur);
+}
+
+/* Balance / credit widget and user button in the top bar */
+html.mbf .mbf-header .x-toolbar-text,
+html.mbf .mbf-header .x-component {
+    color: var(--mbf-text) !important;
+}
+
+/* =========================================================================
+   6. Toolbars & paging
+   ========================================================================= */
+html.mbf .x-toolbar,
+html.mbf .x-toolbar-default,
+html.mbf .x-toolbar-footer {
+    background-color: rgba(255, 255, 255, 0.025) !important;
+    background-image: none !important;
+    border-color: var(--mbf-line) !important;
+}
+html.mbf .x-toolbar-footer,
+html.mbf .x-window .x-toolbar,
+html.mbf .x-menu .x-toolbar {
+    background-color: transparent !important;
+}
+html.mbf .x-toolbar-text,
+html.mbf .x-toolbar-text-default {
+    color: var(--mbf-text-dim) !important;
+}
+html.mbf .x-toolbar-separator,
+html.mbf .x-toolbar-separator-horizontal,
+html.mbf .x-toolbar-separator-vertical {
+    border-color: var(--mbf-line-2) !important;
+    background-color: transparent !important;
+}
+html.mbf .x-tbar-page-number .x-form-text,
+html.mbf .x-tbar-page-number {
+    text-align: center;
+}
+
+/* =========================================================================
+   7. Buttons
+   ========================================================================= */
+html.mbf .x-btn-default-small,
+html.mbf .x-btn-default-medium,
+html.mbf .x-btn-default-large,
+html.mbf [class*="x-btn-default-small-"],
+html.mbf [class*="x-btn-default-medium-"],
+html.mbf [class*="x-btn-default-large-"] {
+    background-color: rgba(var(--mbf-accent-rgb), 0.10) !important;
+    background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0)) !important;
+    border-color: rgba(var(--mbf-accent-rgb), 0.45) !important;
+    border-radius: 8px !important;
+    box-shadow: inset 0 0 14px rgba(var(--mbf-accent-rgb), 0.08) !important;
+    transition: background-color 0.15s, box-shadow 0.15s, border-color 0.15s, transform 0.08s;
+}
+html.mbf .x-btn-default-small.x-btn-over,
+html.mbf .x-btn-default-medium.x-btn-over,
+html.mbf .x-btn-default-large.x-btn-over,
+html.mbf .x-btn-default-small.x-btn-focus,
+html.mbf .x-btn-default-medium.x-btn-focus,
+html.mbf .x-btn-default-large.x-btn-focus {
+    background-color: rgba(var(--mbf-accent-rgb), 0.20) !important;
+    border-color: rgba(var(--mbf-accent-rgb), 0.85) !important;
+    box-shadow: var(--mbf-glow), inset 0 0 18px rgba(var(--mbf-accent-rgb), 0.14) !important;
+}
+html.mbf .x-btn-default-small.x-btn-pressed,
+html.mbf .x-btn-default-medium.x-btn-pressed,
+html.mbf .x-btn-default-large.x-btn-pressed,
+html.mbf .x-btn-default-small.x-btn-menu-active,
+html.mbf .x-btn-default-medium.x-btn-menu-active,
+html.mbf .x-btn-default-large.x-btn-menu-active {
+    background-color: rgba(var(--mbf-accent-rgb), 0.30) !important;
+    border-color: var(--mbf-accent) !important;
+    box-shadow: var(--mbf-glow-strong) !important;
+}
+html.mbf .x-btn:active:not(.x-btn-disabled) {
+    transform: translateY(1px);
+}
+
+/* Toolbar buttons: quiet until hovered */
+html.mbf .x-btn-default-toolbar-small,
+html.mbf .x-btn-default-toolbar-medium,
+html.mbf .x-btn-default-toolbar-large,
+html.mbf [class*="x-btn-default-toolbar-small-"],
+html.mbf [class*="x-btn-default-toolbar-medium-"],
+html.mbf [class*="x-btn-default-toolbar-large-"],
+html.mbf .x-btn-plain-toolbar-small,
+html.mbf .x-btn-plain-toolbar-medium {
+    background-color: transparent !important;
+    background-image: none !important;
+    border-color: transparent !important;
+    border-radius: 8px !important;
+    box-shadow: none !important;
+    transition: background-color 0.15s, box-shadow 0.15s, border-color 0.15s;
+}
+html.mbf .x-btn-default-toolbar-small.x-btn-over,
+html.mbf .x-btn-default-toolbar-medium.x-btn-over,
+html.mbf .x-btn-default-toolbar-large.x-btn-over,
+html.mbf .x-btn-default-toolbar-small.x-btn-focus,
+html.mbf .x-btn-default-toolbar-medium.x-btn-focus,
+html.mbf .x-btn-default-toolbar-large.x-btn-focus,
+html.mbf .x-btn-plain-toolbar-small.x-btn-over,
+html.mbf .x-btn-plain-toolbar-medium.x-btn-over {
+    background-color: rgba(var(--mbf-accent-rgb), 0.12) !important;
+    border-color: rgba(var(--mbf-accent-rgb), 0.55) !important;
+    box-shadow: 0 0 14px rgba(var(--mbf-accent-rgb), 0.18) !important;
+}
+html.mbf .x-btn-default-toolbar-small.x-btn-pressed,
+html.mbf .x-btn-default-toolbar-medium.x-btn-pressed,
+html.mbf .x-btn-default-toolbar-large.x-btn-pressed,
+html.mbf .x-btn-default-toolbar-small.x-btn-menu-active,
+html.mbf .x-btn-default-toolbar-medium.x-btn-menu-active,
+html.mbf .x-btn-default-toolbar-large.x-btn-menu-active {
+    background-color: rgba(var(--mbf-accent-rgb), 0.22) !important;
+    border-color: var(--mbf-accent) !important;
+}
+
+/* Footer buttons (Save / Cancel on every edit form) get the hero gradient */
+html.mbf .x-toolbar-footer .x-btn-default-small,
+html.mbf .x-toolbar-footer .x-btn-default-medium,
+html.mbf .x-toolbar-footer [class*="x-btn-default-small-"] {
+    background-image: linear-gradient(135deg, rgba(var(--mbf-accent-rgb), 0.28), rgba(var(--mbf-accent2-rgb), 0.22)) !important;
+}
+
+html.mbf [class*="x-btn-inner-default-"],
+html.mbf [class*="x-btn-inner-plain-"],
+html.mbf .x-btn-inner {
+    color: var(--mbf-text) !important;
+}
+html.mbf .x-btn-over [class*="x-btn-inner-"],
+html.mbf .x-btn-pressed [class*="x-btn-inner-"],
+html.mbf .x-btn-menu-active [class*="x-btn-inner-"] {
+    color: var(--mbf-text-strong) !important;
+}
+html.mbf [class*="x-btn-icon-el-default-"],
+html.mbf [class*="x-btn-icon-el-plain-"],
+html.mbf .x-btn-glyph {
+    color: var(--mbf-accent) !important;
+}
+html.mbf .x-btn-over .x-btn-glyph,
+html.mbf .x-btn-over [class*="x-btn-icon-el-"] {
+    filter: drop-shadow(0 0 6px rgba(var(--mbf-accent-rgb), 0.85));
+}
+html.mbf .x-btn-arrow-right:after,
+html.mbf .x-btn-arrow-bottom:after,
+html.mbf .x-btn-split-right:after,
+html.mbf .x-btn-split-bottom:after {
+    color: var(--mbf-text-dim) !important;
+}
+html.mbf .x-btn-disabled,
+html.mbf .x-btn.x-item-disabled {
+    opacity: 0.4 !important;
+    box-shadow: none !important;
+}
+
+/* =========================================================================
+   8. Tabs
+   ========================================================================= */
+html.mbf .x-tab-bar-default,
+html.mbf .x-tab-bar,
+html.mbf .x-tab-bar-default-top,
+html.mbf .x-tab-bar-default-bottom {
+    background-color: rgba(4, 8, 18, 0.55) !important;
+    background-image: none !important;
+    border-color: var(--mbf-line) !important;
+}
+html.mbf .x-tab-bar-strip-default,
+html.mbf .x-tab-bar-strip {
+    background-color: transparent !important;
+    background-image: var(--mbf-grad) !important;
+    border-color: transparent !important;
+    box-shadow: 0 0 12px rgba(var(--mbf-accent-rgb), 0.45);
+}
+html.mbf .x-tab-default,
+html.mbf .x-tab-default-top,
+html.mbf .x-tab-default-bottom,
+html.mbf .x-tab-default-left,
+html.mbf .x-tab-default-right,
+html.mbf [class*="x-tab-default-top-"],
+html.mbf .x-tab {
+    background-color: rgba(255, 255, 255, 0.03) !important;
+    background-image: none !important;
+    border-color: var(--mbf-line) !important;
+    transition: background-color 0.15s, box-shadow 0.15s;
+}
+html.mbf .x-tab-default-top,
+html.mbf [class*="x-tab-default-top-"] {
+    border-radius: 9px 9px 0 0 !important;
+}
+html.mbf .x-tab-over,
+html.mbf .x-tab.x-tab-over {
+    background-color: rgba(var(--mbf-accent-rgb), 0.10) !important;
+}
+html.mbf .x-tab-active,
+html.mbf .x-tab.x-tab-active {
+    background-color: rgba(var(--mbf-accent-rgb), 0.08) !important;
+    background-image: linear-gradient(180deg, rgba(var(--mbf-accent-rgb), 0.26), rgba(var(--mbf-accent-rgb), 0.04)) !important;
+    border-color: rgba(var(--mbf-accent-rgb), 0.55) !important;
+    box-shadow: inset 0 2px 0 var(--mbf-accent), 0 -4px 18px rgba(var(--mbf-accent-rgb), 0.18) !important;
+}
+html.mbf .x-tab-inner-default,
+html.mbf .x-tab-inner {
+    color: var(--mbf-text-dim) !important;
+}
+html.mbf .x-tab-over .x-tab-inner-default,
+html.mbf .x-tab-over .x-tab-inner {
+    color: var(--mbf-text) !important;
+}
+html.mbf .x-tab-active .x-tab-inner-default,
+html.mbf .x-tab-active .x-tab-inner {
+    color: var(--mbf-text-strong) !important;
+    text-shadow: 0 0 10px rgba(var(--mbf-accent-rgb), 0.55);
+}
+html.mbf .x-tab-icon-el,
+html.mbf .x-tab-glyph,
+html.mbf [class*="x-tab-icon-el-default"] {
+    color: var(--mbf-accent) !important;
+}
+html.mbf .x-tab-close-btn {
+    color: var(--mbf-text-dim) !important;
+    opacity: 0.75;
+}
+html.mbf .x-tab-close-btn:hover {
+    color: var(--mbf-err) !important;
+    opacity: 1;
+}
+html.mbf .x-tabpanel-child,
+html.mbf .x-tab-panel-body,
+html.mbf .x-tabpanel-body {
+    background-color: transparent !important;
+}
+
+/* =========================================================================
+   9. Grids — every module list (SIP Users, Caller ID, CDR, Rates, ...)
+   ========================================================================= */
+html.mbf .x-grid,
+html.mbf .x-grid-body,
+html.mbf .x-grid-view,
+html.mbf .x-grid-panel .x-panel-body,
+html.mbf .x-tree-view {
+    background-color: transparent !important;
+    border-color: var(--mbf-line) !important;
+    color: var(--mbf-text) !important;
+}
+
+html.mbf .x-grid-header-ct,
+html.mbf .x-grid-header-ct-default {
+    background-color: rgba(var(--mbf-accent-rgb), 0.06) !important;
+    background-image: none !important;
+    border-color: var(--mbf-line-2) !important;
+    box-shadow: inset 0 -1px 0 rgba(var(--mbf-accent-rgb), 0.35);
+}
+html.mbf .x-column-header,
+html.mbf .x-column-header-default,
+html.mbf .x-group-header {
+    background-color: transparent !important;
+    background-image: none !important;
+    border-color: var(--mbf-line) !important;
+    color: var(--mbf-text-dim) !important;
+}
+html.mbf .x-column-header-inner,
+html.mbf .x-column-header-text,
+html.mbf .x-column-header-text-inner {
+    color: var(--mbf-text-dim) !important;
+    background-color: transparent !important;
+}
+html.mbf .x-column-header-text-inner {
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 600 !important;
+    font-size: 11px !important;
+}
+html.mbf .x-column-header-over,
+html.mbf .x-column-header-over .x-column-header-inner,
+html.mbf .x-column-header-sort-ASC,
+html.mbf .x-column-header-sort-DESC {
+    background-color: rgba(var(--mbf-accent-rgb), 0.10) !important;
+}
+html.mbf .x-column-header-over .x-column-header-text-inner,
+html.mbf .x-column-header-sort-ASC .x-column-header-text-inner,
+html.mbf .x-column-header-sort-DESC .x-column-header-text-inner {
+    color: var(--mbf-accent) !important;
+}
+html.mbf .x-column-header-sort-ASC .x-column-header-text-inner:after,
+html.mbf .x-column-header-sort-DESC .x-column-header-text-inner:after {
+    color: var(--mbf-accent) !important;
+}
+html.mbf .x-column-header-trigger {
+    background-color: rgba(var(--mbf-accent-rgb), 0.18) !important;
+    border-color: var(--mbf-line-accent) !important;
+}
+html.mbf .x-column-header-open .x-column-header-trigger,
+html.mbf .x-column-header-trigger:hover {
+    background-color: rgba(var(--mbf-accent-rgb), 0.35) !important;
+}
+html.mbf .x-column-header-checkbox,
+html.mbf .x-column-header-checkbox .x-column-header-inner {
+    background-color: transparent !important;
+}
+
+html.mbf .x-grid-item,
+html.mbf .x-grid-row,
+html.mbf table.x-grid-item {
+    background-color: transparent !important;
+    color: var(--mbf-text) !important;
+    border-color: var(--mbf-line) !important;
+}
+html.mbf .x-grid-item-alt,
+html.mbf table.x-grid-item-alt {
+    background-color: rgba(255, 255, 255, 0.022) !important;
+}
+html.mbf .x-grid-with-row-lines .x-grid-item,
+html.mbf .x-grid-with-row-lines .x-grid-td {
+    border-color: var(--mbf-line) !important;
+}
+html.mbf .x-grid-with-col-lines .x-grid-cell {
+    border-right-color: var(--mbf-line) !important;
+}
+html.mbf .x-grid-cell,
+html.mbf .x-grid-td {
+    background-color: transparent !important;
+    border-color: var(--mbf-line) !important;
+    color: var(--mbf-text) !important;
+}
+html.mbf .x-grid-cell-inner {
+    color: var(--mbf-text) !important;
+}
+html.mbf .x-grid-item-over,
+html.mbf .x-grid-item-over .x-grid-td,
+html.mbf table.x-grid-item-over {
+    background-color: rgba(var(--mbf-accent-rgb), 0.08) !important;
+}
+html.mbf .x-grid-item-selected,
+html.mbf .x-grid-item-selected .x-grid-td,
+html.mbf table.x-grid-item-selected,
+html.mbf .x-grid-item-selected-activated {
+    background-color: rgba(var(--mbf-accent-rgb), 0.17) !important;
+}
+html.mbf .x-grid-item-selected .x-grid-cell-inner,
+html.mbf .x-grid-item-selected-activated .x-grid-cell-inner {
+    color: var(--mbf-text-strong) !important;
+}
+html.mbf .x-grid-item-selected .x-grid-cell:first-child,
+html.mbf .x-grid-item-selected .x-grid-td:first-child {
+    box-shadow: inset 3px 0 0 var(--mbf-accent);
+}
+html.mbf .x-grid-item-focused .x-grid-cell-inner:before,
+html.mbf .x-grid-item-focused:before {
+    border-color: rgba(var(--mbf-accent-rgb), 0.55) !important;
+}
+html.mbf .x-grid-cell-selected,
+html.mbf .x-grid-cell-selected .x-grid-cell-inner {
+    background-color: rgba(var(--mbf-accent-rgb), 0.22) !important;
+}
+html.mbf .x-grid-dirty-cell {
+    box-shadow: inset 0 0 0 1px rgba(var(--mbf-warn-rgb), 0.45);
+}
+html.mbf .x-grid-empty,
+html.mbf .x-grid-empty div {
+    color: var(--mbf-text-mute) !important;
+    background: transparent !important;
+}
+html.mbf .x-grid-row-summary,
+html.mbf .x-grid-item-summary,
+html.mbf .x-grid-row-summary .x-grid-cell,
+html.mbf .x-grid-item-summary .x-grid-cell {
+    background-color: rgba(var(--mbf-accent2-rgb), 0.08) !important;
+    color: var(--mbf-text-strong) !important;
+    font-weight: 600;
+}
+html.mbf .x-grid-group-hd,
+html.mbf .x-grid-group-hd-collapsible {
+    background-color: rgba(var(--mbf-accent-rgb), 0.07) !important;
+    border-color: var(--mbf-line) !important;
+}
+html.mbf .x-grid-group-title {
+    color: var(--mbf-accent) !important;
+}
+html.mbf .x-grid-rowbody,
+html.mbf .x-grid-rowbody-tr {
+    background-color: transparent !important;
+    color: var(--mbf-text-dim) !important;
+}
+html.mbf .x-grid-row-editor,
+html.mbf .x-grid-row-editor-wrap,
+html.mbf .x-grid-row-editor-buttons {
+    background-color: var(--mbf-float) !important;
+    border-color: var(--mbf-line-accent) !important;
+}
+html.mbf .x-grid-locked .x-grid-inner-locked {
+    border-right-color: var(--mbf-line-accent) !important;
+}
+html.mbf .x-grid-resize-marker {
+    background-color: var(--mbf-accent) !important;
+}
+
+/* Status cells rendered by MagnusBilling (active / inactive / online...) */
+html.mbf .x-grid-cell-inner span[style*="color:green"],
+html.mbf .x-grid-cell-inner span[style*="color: green"],
+html.mbf .x-grid-cell-inner font[color="green"] {
+    color: var(--mbf-ok) !important;
+    text-shadow: 0 0 8px rgba(var(--mbf-ok-rgb), 0.5);
+}
+html.mbf .x-grid-cell-inner span[style*="color:red"],
+html.mbf .x-grid-cell-inner span[style*="color: red"],
+html.mbf .x-grid-cell-inner font[color="red"] {
+    color: var(--mbf-err) !important;
+    text-shadow: 0 0 8px rgba(var(--mbf-err-rgb), 0.45);
+}
+html.mbf .x-grid-cell-inner span[style*="color:blue"],
+html.mbf .x-grid-cell-inner span[style*="color: blue"],
+html.mbf .x-grid-cell-inner font[color="blue"] {
+    color: var(--mbf-accent) !important;
+}
+html.mbf .x-grid-cell-inner span[style*="color:#000"],
+html.mbf .x-grid-cell-inner span[style*="color: #000"],
+html.mbf .x-grid-cell-inner span[style*="color:black"],
+html.mbf .x-grid-cell-inner span[style*="color: black"],
+html.mbf .x-grid-cell-inner font[color="black"] {
+    color: var(--mbf-text) !important;
+}
+
+/* =========================================================================
+   10. Tree / accordion menu
+   ========================================================================= */
+html.mbf .x-accordion-hd,
+html.mbf .x-accordion-item .x-accordion-hd,
+html.mbf .x-accordion-item .x-panel-header-default {
+    background-color: rgba(255, 255, 255, 0.02) !important;
+    background-image: none !important;
+    border-color: var(--mbf-line) !important;
+    box-shadow: none !important;
+    transition: background-color 0.15s, box-shadow 0.15s;
+}
+html.mbf .x-accordion-hd:hover,
+html.mbf .x-accordion-item .x-panel-header-default:hover {
+    background-color: rgba(var(--mbf-accent-rgb), 0.08) !important;
+}
+html.mbf .x-accordion-item:not(.x-collapsed) .x-accordion-hd,
+html.mbf .x-accordion-item:not(.x-collapsed) > .x-panel-header-default {
+    background-image: linear-gradient(90deg, rgba(var(--mbf-accent-rgb), 0.22), transparent 85%) !important;
+    box-shadow: inset 3px 0 0 var(--mbf-accent) !important;
+}
+html.mbf .x-accordion-hd .x-title-text,
+html.mbf .x-accordion-item .x-panel-header-title-default .x-title-text {
+    font-family: var(--mbf-font) !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.03em;
+    color: var(--mbf-text) !important;
+    text-shadow: none;
+}
+html.mbf .x-accordion-hd .x-title-icon,
+html.mbf .x-accordion-hd .x-title-glyph {
+    color: var(--mbf-accent) !important;
+}
+html.mbf .x-accordion-body,
+html.mbf .x-accordion-item .x-panel-body {
+    background-color: transparent !important;
+}
+
+html.mbf .x-tree-node-text {
+    color: var(--mbf-text-dim) !important;
+}
+html.mbf .x-grid-item-over .x-tree-node-text,
+html.mbf .x-grid-item-selected .x-tree-node-text,
+html.mbf .x-grid-item-selected-activated .x-tree-node-text {
+    color: var(--mbf-text-strong) !important;
+}
+html.mbf .x-tree-icon,
+html.mbf .x-tree-icon-leaf,
+html.mbf .x-tree-icon-parent,
+html.mbf .x-tree-icon-custom {
+    color: var(--mbf-accent) !important;
+    opacity: 0.9;
+}
+html.mbf .x-grid-item-selected .x-tree-icon,
+html.mbf .x-grid-item-over .x-tree-icon {
+    filter: drop-shadow(0 0 6px rgba(var(--mbf-accent-rgb), 0.85));
+    opacity: 1;
+}
+html.mbf .x-tree-elbow-img,
+html.mbf .x-tree-expander {
+    color: var(--mbf-text-mute) !important;
+}
+
+/* =========================================================================
+   11. Forms — every edit form (SIP user, Caller ID, User, Plan, Trunk, ...)
+   ========================================================================= */
+html.mbf .x-form-item-label,
+html.mbf .x-form-item-label-default,
+html.mbf .x-form-item-label-inner {
+    color: var(--mbf-text-dim) !important;
+}
+html.mbf .x-form-item-label-default.x-form-item-label-top,
+html.mbf .x-form-item-label-top {
+    color: var(--mbf-text-dim) !important;
+}
+
+html.mbf .x-form-text-wrap-default,
+html.mbf .x-form-trigger-wrap-default,
+html.mbf .x-form-text-wrap,
+html.mbf .x-form-trigger-wrap {
+    background-color: var(--mbf-input) !important;
+    background-image: none !important;
+    border-color: var(--mbf-line-2) !important;
+    border-radius: var(--mbf-radius-sm) !important;
+    transition: border-color 0.15s, box-shadow 0.15s, background-color 0.15s;
+}
+html.mbf .x-form-trigger-wrap-default:hover,
+html.mbf .x-form-text-wrap-default:hover {
+    background-color: var(--mbf-input-hover) !important;
+    border-color: rgba(var(--mbf-accent-rgb), 0.35) !important;
+}
+html.mbf .x-form-trigger-wrap-focus,
+html.mbf .x-form-text-wrap-focus,
+html.mbf .x-form-trigger-wrap-default.x-form-trigger-wrap-focus,
+html.mbf .x-form-text-wrap-default.x-form-text-wrap-focus {
+    border-color: var(--mbf-accent) !important;
+    box-shadow: 0 0 0 1px rgba(var(--mbf-accent-rgb), 0.35), 0 0 16px rgba(var(--mbf-accent-rgb), 0.22) !important;
+}
+html.mbf .x-form-text,
+html.mbf .x-form-text-default,
+html.mbf .x-form-field.x-form-text,
+html.mbf textarea.x-form-text,
+html.mbf .x-form-textarea {
+    background-color: transparent !important;
+    background-image: none !important;
+    color: var(--mbf-text-strong) !important;
+    caret-color: var(--mbf-accent);
+}
+html.mbf .x-form-text::placeholder,
+html.mbf .x-form-textarea::placeholder,
+html.mbf .x-form-empty-field,
+html.mbf .x-form-empty-field-default {
+    color: var(--mbf-text-mute) !important;
+    opacity: 1;
+}
+html.mbf .x-form-readonly .x-form-text,
+html.mbf .x-form-readonly .x-form-trigger-wrap,
+html.mbf .x-form-readonly .x-form-text-wrap {
+    color: var(--mbf-text-dim) !important;
+    background-color: rgba(255, 255, 255, 0.02) !important;
+}
+
+/* Combo / date / lookup / spinner triggers */
+html.mbf .x-form-trigger,
+html.mbf .x-form-trigger-default {
+    background-color: transparent !important;
+    border-color: var(--mbf-line) !important;
+    color: var(--mbf-accent) !important;
+    transition: color 0.15s, filter 0.15s;
+}
+html.mbf .x-form-trigger-over,
+html.mbf .x-form-trigger:hover {
+    color: var(--mbf-text-strong) !important;
+    filter: drop-shadow(0 0 6px rgba(var(--mbf-accent-rgb), 0.9));
+}
+html.mbf .x-form-trigger:before,
+html.mbf .x-form-trigger-default:before {
+    color: inherit !important;
+}
+
+/* Validation */
+html.mbf .x-form-invalid-field,
+html.mbf .x-form-trigger-wrap-invalid,
+html.mbf .x-form-text-wrap-invalid,
+html.mbf .x-form-invalid .x-form-trigger-wrap,
+html.mbf .x-form-invalid .x-form-text-wrap {
+    border-color: var(--mbf-err) !important;
+    box-shadow: 0 0 0 1px rgba(var(--mbf-err-rgb), 0.35), 0 0 14px rgba(var(--mbf-err-rgb), 0.2) !important;
+}
+html.mbf .x-form-error-msg,
+html.mbf .x-form-invalid-under,
+html.mbf .x-form-invalid-under-default {
+    color: var(--mbf-err) !important;
+}
+
+/* Checkboxes & radios */
+html.mbf .x-form-cb-label,
+html.mbf .x-form-cb-label-default,
+html.mbf .x-form-cb-label-after,
+html.mbf .x-form-cb-label-before {
+    color: var(--mbf-text) !important;
+}
+html.mbf .x-form-checkbox,
+html.mbf .x-form-checkbox-default,
+html.mbf .x-form-radio,
+html.mbf .x-form-radio-default {
+    color: var(--mbf-text-dim) !important;
+}
+html.mbf .x-form-cb-checked .x-form-checkbox,
+html.mbf .x-form-cb-checked .x-form-checkbox-default,
+html.mbf .x-form-cb-checked .x-form-radio,
+html.mbf .x-form-cb-checked .x-form-radio-default,
+html.mbf .x-grid-checkcolumn-checked,
+html.mbf .x-grid-item-selected .x-grid-row-checker,
+html.mbf .x-column-header-checkbox.x-grid-hd-checker-on .x-column-header-text {
+    color: var(--mbf-accent) !important;
+    filter: drop-shadow(0 0 5px rgba(var(--mbf-accent-rgb), 0.7));
+}
+html.mbf .x-grid-checkcolumn,
+html.mbf .x-grid-row-checker {
+    color: var(--mbf-text-dim) !important;
+}
+
+/* Fieldsets & containers inside forms */
+html.mbf .x-fieldset,
+html.mbf .x-fieldset-default {
+    background-color: rgba(255, 255, 255, 0.015) !important;
+    border-color: rgba(var(--mbf-accent-rgb), 0.28) !important;
+    border-radius: var(--mbf-radius) !important;
+}
+html.mbf .x-fieldset-header,
+html.mbf .x-fieldset-header-default {
+    background-color: transparent !important;
+}
+html.mbf .x-fieldset-header-text,
+html.mbf .x-fieldset-header-text-default {
+    color: var(--mbf-accent) !important;
+    text-shadow: 0 0 10px rgba(var(--mbf-accent-rgb), 0.35);
+}
+html.mbf .x-fieldset-header-checkbox,
+html.mbf .x-fieldset .x-tool-img {
+    color: var(--mbf-accent) !important;
+}
+html.mbf .x-form-display-field,
+html.mbf .x-form-display-field-default {
+    color: var(--mbf-text) !important;
+}
+html.mbf .x-form-item-body a,
+html.mbf .x-panel-body a,
+html.mbf .x-window-body a {
+    color: var(--mbf-accent) !important;
+}
+
+/* Tag field (multi-select) */
+html.mbf .x-tagfield-item {
+    background-color: rgba(var(--mbf-accent-rgb), 0.16) !important;
+    border-color: rgba(var(--mbf-accent-rgb), 0.5) !important;
+    border-radius: 999px !important;
+}
+html.mbf .x-tagfield-item-text { color: var(--mbf-text-strong) !important; }
+html.mbf .x-tagfield-item-close { color: var(--mbf-text-dim) !important; }
+html.mbf .x-tagfield-item-selected {
+    background-color: rgba(var(--mbf-accent-rgb), 0.35) !important;
+}
+
+/* Html editor */
+html.mbf .x-html-editor-wrap,
+html.mbf .x-html-editor-tb {
+    background-color: var(--mbf-input) !important;
+    border-color: var(--mbf-line-2) !important;
+}
+
+/* File upload / slider / progress */
+html.mbf .x-slider-thumb {
+    filter: hue-rotate(160deg) saturate(1.6) drop-shadow(0 0 6px rgba(var(--mbf-accent-rgb), 0.7));
+}
+html.mbf .x-progress,
+html.mbf .x-progress-default {
+    background-color: rgba(255, 255, 255, 0.05) !important;
+    border-color: var(--mbf-line-2) !important;
+    border-radius: 999px !important;
+    overflow: hidden;
+}
+html.mbf .x-progress-bar,
+html.mbf .x-progress-bar-default {
+    background-color: var(--mbf-accent) !important;
+    background-image: var(--mbf-grad) !important;
+    box-shadow: 0 0 14px rgba(var(--mbf-accent-rgb), 0.6);
+}
+html.mbf .x-progress-text { color: var(--mbf-text-strong) !important; }
+html.mbf .x-progress-text-back { color: var(--mbf-text-dim) !important; }
+
+/* =========================================================================
+   12. Floating layers: combo lists, menus, tips, pickers
+   ========================================================================= */
+html.mbf .x-boundlist,
+html.mbf .x-boundlist-default,
+html.mbf .x-menu,
+html.mbf .x-menu-default,
+html.mbf .x-menu-body,
+html.mbf .x-menu-body-default,
+html.mbf .x-datepicker,
+html.mbf .x-datepicker-default,
+html.mbf .x-monthpicker,
+html.mbf .x-tip,
+html.mbf .x-tip-default,
+html.mbf .x-tip-form-invalid {
+    background-color: var(--mbf-float) !important;
+    background-image: none !important;
+    border-color: rgba(var(--mbf-accent-rgb), 0.35) !important;
+    color: var(--mbf-text) !important;
+}
+html.mbf .x-boundlist,
+html.mbf .x-menu,
+html.mbf .x-datepicker,
+html.mbf .x-tip {
+    border-radius: var(--mbf-radius) !important;
+    box-shadow: var(--mbf-shadow-float) !important;
+}
+html.mbf .x-menu-body,
+html.mbf .x-menu-body-default {
+    border-radius: inherit;
+    box-shadow: none !important;
+}
+html.mbf .x-boundlist-list-ct,
+html.mbf .x-boundlist-list-ct-default {
+    background-color: transparent !important;
+}
+html.mbf .x-boundlist-item {
+    color: var(--mbf-text) !important;
+    background-color: transparent !important;
+    border-color: transparent !important;
+}
+html.mbf .x-boundlist-item-over {
+    background-color: rgba(var(--mbf-accent-rgb), 0.12) !important;
+    color: var(--mbf-text-strong) !important;
+}
+html.mbf .x-boundlist-selected {
+    background-color: rgba(var(--mbf-accent-rgb), 0.24) !important;
+    color: var(--mbf-text-strong) !important;
+    box-shadow: inset 3px 0 0 var(--mbf-accent);
+}
+
+html.mbf .x-menu-item,
+html.mbf .x-menu-item-default {
+    background-color: transparent !important;
+    border-color: transparent !important;
+}
+html.mbf .x-menu-item-text,
+html.mbf .x-menu-item-text-default {
+    color: var(--mbf-text) !important;
+}
+html.mbf .x-menu-item-active,
+html.mbf .x-menu-item-focus,
+html.mbf .x-menu-item-default.x-menu-item-active,
+html.mbf .x-menu-item-default.x-menu-item-focus {
+    background-color: rgba(var(--mbf-accent-rgb), 0.14) !important;
+    background-image: none !important;
+    border-color: rgba(var(--mbf-accent-rgb), 0.35) !important;
+}
+html.mbf .x-menu-item-active .x-menu-item-text,
+html.mbf .x-menu-item-focus .x-menu-item-text {
+    color: var(--mbf-text-strong) !important;
+}
+html.mbf .x-menu-item-icon,
+html.mbf .x-menu-item-icon-default,
+html.mbf .x-menu-item-glyph {
+    color: var(--mbf-accent) !important;
+}
+html.mbf .x-menu-item-arrow,
+html.mbf .x-menu-item-arrow-default {
+    color: var(--mbf-text-dim) !important;
+}
+html.mbf .x-menu-item-separator,
+html.mbf .x-menu-item-separator-horizontal {
+    border-color: var(--mbf-line-2) !important;
+    background-color: var(--mbf-line-2) !important;
+}
+html.mbf .x-menu-icon-separator,
+html.mbf .x-menu-default-icon-separator {
+    background-color: var(--mbf-line) !important;
+    border-color: var(--mbf-line) !important;
+}
+html.mbf .x-menu-item-disabled { opacity: 0.4; }
+
+html.mbf .x-tip-body,
+html.mbf .x-tip-body-default,
+html.mbf .x-tip-body-form-invalid {
+    color: var(--mbf-text) !important;
+}
+html.mbf .x-tip-header,
+html.mbf .x-tip-header-default {
+    background-color: transparent !important;
+}
+html.mbf .x-tip-header-text,
+html.mbf .x-tip-header-title,
+html.mbf .x-tip-header-title-default {
+    color: var(--mbf-accent) !important;
+}
+html.mbf .x-tip-form-invalid,
+html.mbf .x-tip-body-form-invalid {
+    border-color: rgba(var(--mbf-err-rgb), 0.55) !important;
+}
+
+/* Date picker (CDR filters, refill dates, DateTimeField ux) */
+html.mbf .x-datepicker-header,
+html.mbf .x-datepicker-header-default {
+    background-color: transparent !important;
+    background-image: var(--mbf-grad-soft) !important;
+    border-color: var(--mbf-line-2) !important;
+}
+html.mbf .x-datepicker-month .x-btn-inner,
+html.mbf .x-datepicker-month [class*="x-btn-inner"] {
+    color: var(--mbf-text-strong) !important;
+    font-family: var(--mbf-font-display) !important;
+    letter-spacing: 0.05em;
+}
+html.mbf .x-datepicker-arrow,
+html.mbf .x-datepicker-arrow-default {
+    color: var(--mbf-accent) !important;
+}
+html.mbf .x-datepicker-column-header,
+html.mbf .x-datepicker-column-header-inner {
+    background-color: transparent !important;
+    color: var(--mbf-text-mute) !important;
+    border-color: var(--mbf-line) !important;
+}
+html.mbf .x-datepicker-cell,
+html.mbf .x-datepicker-inner {
+    background-color: transparent !important;
+    border-color: var(--mbf-line) !important;
+}
+html.mbf .x-datepicker-date {
+    color: var(--mbf-text) !important;
+    background-color: transparent !important;
+    border-color: transparent !important;
+    border-radius: 6px;
+}
+html.mbf .x-datepicker-date:hover {
+    background-color: rgba(var(--mbf-accent-rgb), 0.14) !important;
+    color: var(--mbf-text-strong) !important;
+}
+html.mbf .x-datepicker-prevday .x-datepicker-date,
+html.mbf .x-datepicker-nextday .x-datepicker-date,
+html.mbf .x-datepicker-disabled .x-datepicker-date {
+    color: var(--mbf-text-mute) !important;
+}
+html.mbf .x-datepicker-today .x-datepicker-date {
+    border-color: rgba(var(--mbf-accent2-rgb), 0.8) !important;
+    color: var(--mbf-text-strong) !important;
+}
+html.mbf .x-datepicker-selected .x-datepicker-date,
+html.mbf .x-datepicker-selected.x-datepicker-cell .x-datepicker-date {
+    background-color: rgba(var(--mbf-accent-rgb), 0.3) !important;
+    border-color: var(--mbf-accent) !important;
+    color: var(--mbf-text-strong) !important;
+    box-shadow: 0 0 12px rgba(var(--mbf-accent-rgb), 0.4);
+}
+html.mbf .x-datepicker-footer,
+html.mbf .x-monthpicker-buttons {
+    background-color: transparent !important;
+    border-color: var(--mbf-line) !important;
+}
+html.mbf .x-monthpicker-body,
+html.mbf .x-monthpicker-months,
+html.mbf .x-monthpicker-years {
+    background-color: transparent !important;
+    border-color: var(--mbf-line) !important;
+}
+html.mbf .x-monthpicker-item-inner {
+    color: var(--mbf-text) !important;
+    border-color: transparent !important;
+}
+html.mbf .x-monthpicker-item-inner:hover {
+    background-color: rgba(var(--mbf-accent-rgb), 0.14) !important;
+}
+html.mbf .x-monthpicker-selected {
+    background-color: rgba(var(--mbf-accent-rgb), 0.3) !important;
+    border-color: var(--mbf-accent) !important;
+}
+
+/* =========================================================================
+   13. Windows, message boxes, masks
+   ========================================================================= */
+html.mbf .x-window,
+html.mbf .x-window-default,
+html.mbf [class*="x-window-default-"] {
+    background-color: var(--mbf-float) !important;
+    background-image: none !important;
+    border-color: rgba(var(--mbf-accent-rgb), 0.35) !important;
+}
+html.mbf .x-window-default,
+html.mbf .x-window.x-window-default {
+    border-radius: var(--mbf-radius-lg) !important;
+    box-shadow: var(--mbf-shadow-float) !important;
+    -webkit-backdrop-filter: var(--mbf-blur);
+    backdrop-filter: var(--mbf-blur);
+}
+html.mbf .x-window-header,
+html.mbf .x-window-header-default,
+html.mbf [class*="x-window-header-default-"] {
+    background-color: transparent !important;
+    background-image: linear-gradient(90deg, rgba(var(--mbf-accent-rgb), 0.2), rgba(var(--mbf-accent2-rgb), 0.08) 70%, transparent) !important;
+    border-color: var(--mbf-line-2) !important;
+    box-shadow: inset 0 -1px 0 rgba(var(--mbf-accent-rgb), 0.3) !important;
+}
+html.mbf .x-window-header-default-top {
+    border-radius: var(--mbf-radius-lg) var(--mbf-radius-lg) 0 0 !important;
+}
+html.mbf .x-window-header-title,
+html.mbf .x-window-header-title-default,
+html.mbf .x-window-header-title-default .x-title-text {
+    color: var(--mbf-text-strong) !important;
+    text-shadow: 0 0 12px rgba(var(--mbf-accent-rgb), 0.4);
+}
+html.mbf .x-window-header .x-title-icon,
+html.mbf .x-window-header .x-title-glyph {
+    color: var(--mbf-accent) !important;
+}
+html.mbf .x-window-body,
+html.mbf .x-window-body-default,
+html.mbf [class*="x-window-body-default"] {
+    background-color: transparent !important;
+    border-color: var(--mbf-line) !important;
+    color: var(--mbf-text) !important;
+}
+html.mbf .x-window-text,
+html.mbf .x-message-box .x-window-body,
+html.mbf .x-message-box .x-form-display-field {
+    color: var(--mbf-text) !important;
+}
+html.mbf .x-css-shadow {
+    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.6) !important;
+}
+html.mbf .x-window-ghost,
+html.mbf .x-window-ghost .x-window-body {
+    background-color: rgba(var(--mbf-accent-rgb), 0.06) !important;
+    border-color: var(--mbf-accent) !important;
+}
+html.mbf .x-resizable-overlay,
+html.mbf .x-resizable-pinned .x-resizable-handle {
+    border-color: rgba(var(--mbf-accent-rgb), 0.5) !important;
+}
+
+html.mbf .x-mask {
+    background-color: rgba(2, 5, 14, 0.62) !important;
+    background-image: none !important;
+}
+/* The login window is itself a full-screen modal: let the animated
+   background show through instead of dimming it. */
+html.mbf.mbf-login-active body > .x-mask {
+    background-color: transparent !important;
+}
+html.mbf .x-mask-msg,
+html.mbf .x-mask-msg-default {
+    background-color: var(--mbf-float) !important;
+    background-image: none !important;
+    border-color: rgba(var(--mbf-accent-rgb), 0.45) !important;
+    border-radius: var(--mbf-radius) !important;
+    box-shadow: var(--mbf-glow) !important;
+}
+html.mbf .x-mask-msg-inner,
+html.mbf .x-mask-msg-inner-default {
+    background-color: transparent !important;
+}
+html.mbf .x-mask-msg-text,
+html.mbf .x-mask-msg-text-default {
+    color: var(--mbf-text) !important;
+}
+
+/* =========================================================================
+   14. Login / sign-up / forgot-password screens
+   ========================================================================= */
+html.mbf .auth-locked-window,
+html.mbf .auth-locked-window.x-window,
+html.mbf .auth-locked-window.x-window-default,
+html.mbf .auth-locked-window > .x-window-body,
+html.mbf .auth-locked-window .x-window-body-default {
+    background-color: transparent !important;
+    background-image: none !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+}
+html.mbf .auth-locked-window > .x-window-body:before,
+html.mbf .auth-locked-window .x-window-body-default:before {
+    background: transparent !important;
+}
+html.mbf.mbf-keep-loginbg .auth-locked-window.x-window {
+    background:
+        linear-gradient(180deg, rgba(4, 6, 13, 0.55), rgba(4, 6, 13, 0.85)),
+        url('../images/lock-screen-background.jpg') center center / cover no-repeat !important;
+}
+html.mbf .auth-locked-window .x-window-header-default,
+html.mbf .auth-locked-window .x-window-header {
+    background-color: transparent !important;
+    background-image: none !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+}
+html.mbf .auth-locked-window .x-window-header-title-default .x-title-text {
+    font-family: var(--mbf-font-display) !important;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+}
+
+/* The glass login card. Selectors are deliberately stronger than the
+   html:not(.mb-macos) .auth-locked-window .auth-dialog rules in init.css. */
+html.mbf:not(.mb-macos) .auth-locked-window .auth-dialog,
+html.mbf .auth-locked-window .auth-dialog.x-panel,
+html.mbf.mb-macos .auth-locked-window .auth-dialog.mb-mac-login-card,
+html.mbf .auth-locked-window .auth-dialog.mb-windows-login-card {
+    position: relative;
+    background: rgba(8, 14, 30, 0.68) !important;
+    border: 1px solid rgba(var(--mbf-accent-rgb), 0.28) !important;
+    border-radius: 20px !important;
+    box-shadow:
+        0 30px 80px rgba(0, 0, 0, 0.6),
+        0 0 0 1px rgba(255, 255, 255, 0.03) inset,
+        0 0 60px rgba(var(--mbf-accent-rgb), 0.16) !important;
+    -webkit-backdrop-filter: blur(18px) saturate(150%);
+    backdrop-filter: blur(18px) saturate(150%);
+    overflow: visible !important;
+}
+/* animated neon rim (init.css sets content:none on this pseudo-element) */
+html.mbf .auth-locked-window .auth-dialog.x-panel::before,
+html.mbf:not(.mb-macos) .auth-locked-window .auth-dialog.x-panel::before {
+    content: "" !important;
+    display: block !important;
+    position: absolute;
+    inset: -1px;
+    border-radius: 21px;
+    padding: 1px;
+    background: conic-gradient(from var(--mbf-angle, 0deg), transparent 0 55%, var(--mbf-accent) 70%, var(--mbf-accent2) 82%, transparent 95%);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+    pointer-events: none;
+    animation: mbf-rim 6s linear infinite;
+    z-index: 2;
+}
+@property --mbf-angle {
+    syntax: "<angle>";
+    inherits: false;
+    initial-value: 0deg;
+}
+@keyframes mbf-rim {
+    to { --mbf-angle: 360deg; }
+}
+html.mbf:not(.mb-macos) .auth-locked-window .auth-dialog .x-panel-body,
+html.mbf .auth-locked-window .auth-dialog .x-panel-body {
+    background: transparent !important;
+}
+html.mbf:not(.mb-macos) .auth-locked-window .auth-dialog .x-component,
+html.mbf:not(.mb-macos) .auth-locked-window .auth-dialog .x-form-cb-label,
+html.mbf .auth-locked-window .auth-dialog label.x-component {
+    color: var(--mbf-text) !important;
+}
+html.mbf:not(.mb-macos) .auth-locked-window .auth-dialog label.x-component,
+html.mbf .auth-locked-window .auth-dialog .mb-windows-login-heading,
+html.mbf .auth-locked-window .auth-dialog .mb-mac-login-heading {
+    font-family: var(--mbf-font-display) !important;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--mbf-text-strong) !important;
+    text-shadow: 0 0 14px rgba(var(--mbf-accent-rgb), 0.55);
+}
+html.mbf:not(.mb-macos) .auth-locked-window .auth-dialog .x-form-trigger-wrap-default,
+html.mbf:not(.mb-macos) .auth-locked-window .auth-dialog .x-form-text-wrap-default,
+html.mbf .auth-locked-window .auth-dialog .x-form-trigger-wrap,
+html.mbf .auth-locked-window .auth-dialog .x-form-text-wrap {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+html.mbf:not(.mb-macos) .auth-locked-window .auth-dialog .x-form-text-default,
+html.mbf .auth-locked-window .auth-dialog .x-form-text,
+html.mbf.mb-macos .auth-locked-window .auth-dialog .mb-mac-login-field .x-form-text {
+    background: rgba(2, 6, 16, 0.75) !important;
+    border: 1px solid rgba(var(--mbf-accent-rgb), 0.25) !important;
+    border-radius: 12px !important;
+    color: var(--mbf-text-strong) !important;
+    caret-color: var(--mbf-accent);
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+html.mbf:not(.mb-macos) .auth-locked-window .auth-dialog .x-form-text-default:focus,
+html.mbf .auth-locked-window .auth-dialog .x-form-text:focus {
+    border-color: var(--mbf-accent) !important;
+    box-shadow: 0 0 0 3px rgba(var(--mbf-accent-rgb), 0.18), 0 0 22px rgba(var(--mbf-accent-rgb), 0.25) !important;
+    outline: none !important;
+}
+html.mbf:not(.mb-macos) .auth-locked-window .auth-dialog .x-form-text-default::placeholder,
+html.mbf .auth-locked-window .auth-dialog .x-form-text::placeholder {
+    color: var(--mbf-text-mute) !important;
+}
+
+/* Primary "Login" button (the first large button; the language picker is a
+   small button and keeps the regular style) */
+html.mbf .auth-locked-window .auth-dialog .x-btn.x-btn-default-large,
+html.mbf .auth-locked-window .auth-dialog .x-btn.mb-windows-login-submit,
+html.mbf.mb-macos .auth-locked-window .auth-dialog .x-btn.mb-mac-login-submit {
+    background: var(--mbf-grad) !important;
+    background-size: 160% 160% !important;
+    border: none !important;
+    border-radius: 12px !important;
+    box-shadow: 0 10px 30px rgba(var(--mbf-accent-rgb), 0.28), 0 0 0 1px rgba(255, 255, 255, 0.08) inset !important;
+    transition: background-position 0.4s, box-shadow 0.2s, transform 0.08s;
+}
+html.mbf .auth-locked-window .auth-dialog .x-btn-default-large.x-btn-over,
+html.mbf .auth-locked-window .auth-dialog .x-btn-default-large:hover {
+    background-position: 100% 0 !important;
+    box-shadow: 0 12px 36px rgba(var(--mbf-accent-rgb), 0.42), 0 0 24px rgba(var(--mbf-accent2-rgb), 0.35) !important;
+}
+html.mbf .auth-locked-window .auth-dialog .x-btn-default-large .x-btn-inner,
+html.mbf .auth-locked-window .auth-dialog .x-btn-default-large [class*="x-btn-inner"],
+html.mbf .auth-locked-window .auth-dialog .x-btn-default-large [class*="x-btn-icon-el"],
+html.mbf .auth-locked-window .auth-dialog .x-btn.mb-windows-login-submit .x-btn-inner {
+    color: var(--mbf-on-accent) !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+}
+/* Secondary "Create an account" button (any large button after the first) */
+html.mbf .auth-locked-window .auth-dialog .x-btn-default-large ~ .x-btn-default-large,
+html.mbf .auth-locked-window .auth-dialog .x-btn.mb-windows-login-create,
+html.mbf.mb-macos .auth-locked-window .auth-dialog .x-btn.mb-mac-login-create {
+    background: rgba(var(--mbf-accent-rgb), 0.06) !important;
+    border: 1px solid rgba(var(--mbf-accent-rgb), 0.5) !important;
+    box-shadow: inset 0 0 18px rgba(var(--mbf-accent-rgb), 0.10) !important;
+}
+html.mbf .auth-locked-window .auth-dialog .x-btn-default-large ~ .x-btn-default-large.x-btn-over,
+html.mbf .auth-locked-window .auth-dialog .x-btn-default-large ~ .x-btn-default-large:hover {
+    background: rgba(var(--mbf-accent-rgb), 0.16) !important;
+    box-shadow: var(--mbf-glow) !important;
+}
+html.mbf .auth-locked-window .auth-dialog .x-btn-default-large ~ .x-btn-default-large .x-btn-inner,
+html.mbf .auth-locked-window .auth-dialog .x-btn-default-large ~ .x-btn-default-large [class*="x-btn-icon-el"] {
+    color: var(--mbf-accent) !important;
+}
+/* "OR" divider: centred label over a neon hairline */
+html.mbf .auth-locked-window .auth-dialog .outer-div {
+    position: relative;
+    text-align: center;
+    background: transparent !important;
+}
+html.mbf .auth-locked-window .auth-dialog .outer-div:after {
+    content: " ";
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    height: 1px;
+    width: auto;
+    background: linear-gradient(90deg, transparent, rgba(var(--mbf-accent-rgb), 0.45), transparent) !important;
+}
+html.mbf .auth-locked-window .auth-dialog .seperator {
+    position: relative;
+    z-index: 1;
+    display: inline-block;
+    padding: 0 12px;
+    border-radius: 999px;
+    background: #081022 !important;
+    color: var(--mbf-text-mute) !important;
+    letter-spacing: 0.3em;
+    font-size: 11px;
+}
+html.mbf:not(.mb-macos) .auth-locked-window .auth-dialog .x-container .x-box-item:last-child div[style*="text-align"],
+html.mbf:not(.mb-macos) .auth-locked-window .auth-dialog .x-panel .x-box-item:last-child div[style*="text-align"],
+html.mbf .auth-locked-window .auth-dialog div[style*="text-align: right"],
+html.mbf .auth-locked-window .auth-dialog .mb-windows-login-forgot,
+html.mbf .auth-locked-window .auth-dialog .mb-mac-login-forgot {
+    color: var(--mbf-accent) !important;
+    cursor: pointer;
+    text-shadow: 0 0 10px rgba(var(--mbf-accent-rgb), 0.4);
+}
+
+/* HUD decorations injected around the login card by mbf.js */
+.mbf-login-deco {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 1;
+    font-family: var(--mbf-font);
+    color: var(--mbf-text-dim);
+}
+.mbf-login-brand {
+    position: absolute;
+    top: 28px;
+    left: 32px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.mbf-login-brand-mark {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    background: var(--mbf-grad);
+    box-shadow: 0 0 22px rgba(var(--mbf-accent-rgb), 0.55);
+    position: relative;
+}
+.mbf-login-brand-mark::after {
+    content: "";
+    position: absolute;
+    inset: 9px;
+    border-radius: 50%;
+    border: 2px solid var(--mbf-on-accent);
+    border-right-color: transparent;
+    animation: mbf-spin 2.4s linear infinite;
+}
+@keyframes mbf-spin { to { transform: rotate(360deg); } }
+.mbf-login-brand-name {
+    font-family: var(--mbf-font-display);
+    font-weight: 700;
+    font-size: 18px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--mbf-text-strong);
+    text-shadow: 0 0 16px rgba(var(--mbf-accent-rgb), 0.55);
+}
+.mbf-login-brand-sub {
+    display: block;
+    font-family: var(--mbf-font-mono);
+    font-size: 10px;
+    letter-spacing: 0.32em;
+    color: var(--mbf-accent);
+    text-transform: uppercase;
+    margin-top: 2px;
+}
+.mbf-login-status {
+    position: absolute;
+    left: 32px;
+    right: 32px;
+    bottom: 22px;
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    font-family: var(--mbf-font-mono);
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+}
+.mbf-login-status b { color: var(--mbf-text); font-weight: 600; }
+.mbf-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--mbf-ok);
+    box-shadow: 0 0 10px var(--mbf-ok);
+    margin-right: 8px;
+    vertical-align: 1px;
+    animation: mbf-blink 2s ease-in-out infinite;
+}
+@keyframes mbf-blink { 50% { opacity: 0.35; } }
+@media (max-width: 640px) {
+    .mbf-login-status span:not(:first-child) { display: none; }
+    .mbf-login-brand { top: 16px; left: 16px; }
+}
+
+/* =========================================================================
+   15. Dashboard (Home tab)
+   ========================================================================= */
+html.mbf .weather-panel,
+html.mbf .dashboard-main-chart,
+html.mbf .x-panel.shadow,
+html.mbf .shadow.x-component {
+    background-color: rgba(10, 17, 34, 0.72) !important;
+    background-image: linear-gradient(160deg, rgba(var(--mbf-accent-rgb), 0.10), transparent 45%) !important;
+    border: 1px solid rgba(var(--mbf-accent-rgb), 0.22) !important;
+    border-radius: var(--mbf-radius-lg) !important;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.04) !important;
+    color: var(--mbf-text) !important;
+    overflow: hidden;
+    transition: box-shadow 0.25s, border-color 0.25s, transform 0.25s;
+}
+html.mbf .weather-panel:hover,
+html.mbf .dashboard-main-chart:hover {
+    border-color: rgba(var(--mbf-accent-rgb), 0.5) !important;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45), 0 0 26px rgba(var(--mbf-accent-rgb), 0.18) !important;
+}
+html.mbf .weather-panel .weather-image-container {
+    background: linear-gradient(180deg, rgba(var(--mbf-accent-rgb), 0.20), rgba(var(--mbf-accent2-rgb), 0.08)) !important;
+    box-shadow: inset -1px 0 0 rgba(var(--mbf-accent-rgb), 0.25);
+}
+html.mbf .weather-panel .weather-details-container {
+    color: var(--mbf-text) !important;
+    float: none !important;      /* fill the space beside the icon instead of dropping below it */
+    overflow: hidden;
+}
+html.mbf .weather-panel .weather-details-container > div {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+html.mbf .weather-panel .weather-details-container > div:first-child {
+    line-height: 1.15 !important;
+    margin-bottom: 6px !important;
+    font-family: var(--mbf-font) !important;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+    font-weight: 700;
+    color: var(--mbf-text-strong) !important;
+    text-shadow: 0 0 14px rgba(var(--mbf-accent-rgb), 0.6);
+}
+html.mbf .weather-panel .weather-details-container > div:last-child {
+    color: var(--mbf-text-dim) !important;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-size: 11px;
+}
+html.mbf .weather-panel .weather-image-container img {
+    /* MagnusBilling ships black line icons: render them white with a glow */
+    filter: brightness(0) invert(1) drop-shadow(0 0 8px rgba(var(--mbf-accent-rgb), 0.8));
+    opacity: 0.92;
+}
+html.mbf .weather-panel.mbf-pulse {
+    animation: mbf-pulse 1.2s ease-out 1;
+}
+@keyframes mbf-pulse {
+    0%   { box-shadow: 0 0 0 0 rgba(var(--mbf-accent-rgb), 0.55); }
+    100% { box-shadow: 0 0 0 18px rgba(var(--mbf-accent-rgb), 0); }
+}
+html.mbf .dashboard-main-chart .x-panel-header-default {
+    background-color: transparent !important;
+}
+html.mbf font[color="red"],
+html.mbf font[color="#FF0000"] {
+    color: var(--mbf-err) !important;
+}
+
+/* Charts: ExtJS draws axes/labels in dark ink on canvas. In dark mode we
+   invert the drawing surface and rotate hue back so series colours stay
+   close to the originals while labels become light. */
+html.mbf.mbf-chartfix .x-surface canvas,
+html.mbf.mbf-chartfix .x-surface svg,
+html.mbf.mbf-chartfix .x-draw-container canvas {
+    filter: invert(0.92) hue-rotate(180deg) saturate(1.3);
+}
+html.mbf .x-chart,
+html.mbf .x-draw-container,
+html.mbf .x-surface {
+    background-color: transparent !important;
+}
+html.mbf .x-legend,
+html.mbf .x-legend-item,
+html.mbf .x-legend-item-text,
+html.mbf .x-legend-container {
+    background-color: transparent !important;
+    color: var(--mbf-text) !important;
+}
+
+/* =========================================================================
+   16. Toast alerts (Ext.ux.Alert in init.css)
+   ========================================================================= */
+html.mbf .alert-box table[class^="alert-"] {
+    background: var(--mbf-float) !important;
+    border: 1px solid var(--mbf-line-2) !important;
+    box-shadow: var(--mbf-shadow-float) !important;
+    -webkit-backdrop-filter: var(--mbf-blur);
+    backdrop-filter: var(--mbf-blur);
+}
+html.mbf .alert-box table[class^="alert-"] td {
+    background: transparent !important;
+    color: var(--mbf-text) !important;
+    font-family: var(--mbf-font) !important;
+}
+html.mbf .alert-box .alert-error    { box-shadow: inset 4px 0 0 var(--mbf-err),  0 0 26px rgba(var(--mbf-err-rgb), 0.25) !important; }
+html.mbf .alert-box .alert-warning  { box-shadow: inset 4px 0 0 var(--mbf-warn), 0 0 26px rgba(var(--mbf-warn-rgb), 0.22) !important; }
+html.mbf .alert-box .alert-success  { box-shadow: inset 4px 0 0 var(--mbf-ok),   0 0 26px rgba(var(--mbf-ok-rgb), 0.22) !important; }
+html.mbf .alert-box .alert-information,
+html.mbf .alert-box .alert-notification { box-shadow: inset 4px 0 0 var(--mbf-accent), 0 0 26px rgba(var(--mbf-accent-rgb), 0.22) !important; }
+html.mbf .alert-box table[class^="alert-"] h3 {
+    color: var(--mbf-text-strong) !important;
+    font-family: var(--mbf-font-display) !important;
+    letter-spacing: 0.06em;
+}
+
+/* =========================================================================
+   17. Desktop layouts (Windows-style and macOS-style workspaces)
+   ========================================================================= */
+html.mbf .ux-wallpaper {
+    opacity: 0.12 !important;
+}
+html.mbf .ux-taskbar,
+html.mbf .ux-taskbar .x-toolbar,
+html.mbf .ux-desktop-windowbar,
+html.mbf .ux-start-menu-toolbar {
+    background-color: rgba(6, 10, 22, 0.82) !important;
+    background-image: none !important;
+    border-color: rgba(var(--mbf-accent-rgb), 0.3) !important;
+    -webkit-backdrop-filter: var(--mbf-blur);
+    backdrop-filter: var(--mbf-blur);
+}
+html.mbf .ux-desktop-shortcut-text {
+    color: var(--mbf-text-strong) !important;
+    text-shadow: 0 0 10px rgba(var(--mbf-accent-rgb), 0.65), 0 1px 2px #000 !important;
+}
+html.mbf .ux-desktop-shortcut:hover .ux-desktop-shortcut-icon,
+html.mbf .ux-desktop-shortcut-icon:hover {
+    filter: drop-shadow(0 0 10px rgba(var(--mbf-accent-rgb), 0.85));
+}
+html.mbf .mb-mac-menubar,
+html.mbf .mb-mac-dock {
+    background-color: rgba(6, 10, 22, 0.72) !important;
+    border-color: rgba(var(--mbf-accent-rgb), 0.25) !important;
+}
+
+/* =========================================================================
+   18. Sprite-based base themes (Neptune / Crisp / Classic / Gray)
+   Triton uses font glyphs that follow `color`; the older themes use PNG
+   sprites, so we recolour them with filters instead.
+   ========================================================================= */
+html.mbf.mbf-sprite .x-tool-img,
+html.mbf.mbf-sprite .x-tab-close-btn,
+html.mbf.mbf-sprite .x-menu-item-arrow,
+html.mbf.mbf-sprite .x-datepicker-arrow,
+html.mbf.mbf-sprite .x-btn-icon-el[class*="x-tbar-page-"],
+html.mbf.mbf-sprite .x-btn-icon-el.x-tbar-loading,
+html.mbf.mbf-sprite .x-tree-elbow-img,
+html.mbf.mbf-sprite .x-tree-expander,
+html.mbf.mbf-sprite .x-btn-arrow-right:after,
+html.mbf.mbf-sprite .x-btn-arrow-bottom:after,
+html.mbf.mbf-sprite .x-btn-split-right:after,
+html.mbf.mbf-sprite .x-btn-split-bottom:after,
+html.mbf.mbf-sprite .x-grid-group-hd-collapsible .x-grid-group-title:before {
+    filter: brightness(0) invert(0.86) !important;
+}
+html.mbf.mbf-sprite .x-tool-over .x-tool-img,
+html.mbf.mbf-sprite .x-tab-close-btn:hover {
+    filter: brightness(0) invert(1) drop-shadow(0 0 4px rgba(var(--mbf-accent-rgb), 0.9)) !important;
+}
+html.mbf.mbf-sprite .x-form-trigger,
+html.mbf.mbf-sprite .x-form-checkbox,
+html.mbf.mbf-sprite .x-form-radio,
+html.mbf.mbf-sprite .x-grid-checkcolumn,
+html.mbf.mbf-sprite .x-grid-row-checker,
+html.mbf.mbf-sprite .x-column-header-checkbox .x-column-header-text,
+html.mbf.mbf-sprite .x-menu-item-checked .x-menu-item-icon,
+html.mbf.mbf-sprite .x-menu-item-unchecked .x-menu-item-icon,
+html.mbf.mbf-sprite .x-fieldset-header-checkbox {
+    filter: invert(1) hue-rotate(180deg) saturate(1.4) !important;
+    mix-blend-mode: lighten;
+}
+html.mbf.mbf-sprite .x-form-trigger-over,
+html.mbf.mbf-sprite .x-form-cb-checked .x-form-checkbox,
+html.mbf.mbf-sprite .x-grid-checkcolumn-checked {
+    filter: invert(1) hue-rotate(180deg) saturate(1.6) drop-shadow(0 0 5px rgba(var(--mbf-accent-rgb), 0.8)) !important;
+}
+
+/* =========================================================================
+   19. MBF widgets: HUD bar, command palette, theme studio
+   ========================================================================= */
+.mbf-ui,
+.mbf-ui * {
+    box-sizing: border-box;
+    font-family: var(--mbf-font);
+}
+html:not(.mbf) .mbf-ui {
+    /* palette still works with the theme switched off */
+    --mbf-accent: #00b8d4; --mbf-accent-rgb: 0, 184, 212;
+    --mbf-accent2: #c026d3; --mbf-accent2-rgb: 192, 38, 211;
+    --mbf-text: #dce8ff; --mbf-text-strong: #fff; --mbf-text-dim: #93a6cc; --mbf-text-mute: #5f7299;
+    --mbf-line: rgba(122, 170, 255, 0.13); --mbf-line-2: rgba(122, 170, 255, 0.22);
+    --mbf-float: rgba(8, 13, 27, 0.97); --mbf-on-accent: #031018;
+    --mbf-font: "Segoe UI", Roboto, Arial, sans-serif;
+    --mbf-font-display: "Segoe UI", Roboto, Arial, sans-serif;
+    --mbf-font-mono: ui-monospace, Menlo, Consolas, monospace;
+    --mbf-grad: linear-gradient(135deg, #00b8d4, #c026d3);
+}
+
+/* HUD (top bar, standard layout) */
+#mbf-hud {
+    position: fixed;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    height: 60px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    z-index: 30;
+    pointer-events: none;
+    white-space: nowrap;
+}
+#mbf-hud .mbf-hud-chip {
+    pointer-events: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 32px;
+    padding: 0 12px;
+    border-radius: 999px;
+    background: rgba(4, 8, 18, 0.7);
+    border: 1px solid var(--mbf-line-2);
+    color: var(--mbf-text-dim);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    box-shadow: inset 0 0 12px rgba(var(--mbf-accent-rgb), 0.06);
+}
+#mbf-hud .mbf-hud-chip b {
+    font-family: var(--mbf-font-mono);
+    font-size: 13px;
+    letter-spacing: 0;
+    color: var(--mbf-text-strong);
+    font-weight: 600;
+    text-transform: none;
+}
+#mbf-hud .mbf-hud-calls b {
+    color: var(--mbf-accent);
+    text-shadow: 0 0 10px rgba(var(--mbf-accent-rgb), 0.7);
+    min-width: 2ch;
+    display: inline-block;
+    text-align: right;
+}
+#mbf-hud .mbf-hud-calls.mbf-bump b { animation: mbf-bump 0.6s ease-out; }
+@keyframes mbf-bump {
+    0% { transform: scale(1.35); color: #fff; }
+    100% { transform: scale(1); }
+}
+#mbf-hud canvas.mbf-spark { width: 70px; height: 20px; display: block; }
+#mbf-hud .mbf-hud-btn {
+    cursor: pointer;
+    transition: border-color 0.15s, box-shadow 0.15s, color 0.15s;
+}
+#mbf-hud .mbf-hud-btn:hover {
+    border-color: rgba(var(--mbf-accent-rgb), 0.7);
+    color: var(--mbf-text-strong);
+    box-shadow: 0 0 14px rgba(var(--mbf-accent-rgb), 0.3);
+}
+#mbf-hud kbd,
+.mbf-palette kbd {
+    font-family: var(--mbf-font-mono);
+    font-size: 10px;
+    padding: 1px 5px;
+    border-radius: 4px;
+    border: 1px solid var(--mbf-line-2);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--mbf-text-dim);
+}
+#mbf-hud .mbf-swatch-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--mbf-grad);
+    box-shadow: 0 0 8px rgba(var(--mbf-accent-rgb), 0.7);
+}
+#mbf-hud .mbf-lat-good { color: var(--mbf-ok); }
+#mbf-hud .mbf-lat-mid  { color: var(--mbf-warn); }
+#mbf-hud .mbf-lat-bad  { color: var(--mbf-err); }
+@media (max-width: 1280px) { #mbf-hud .mbf-hud-optional { display: none; } }
+@media (max-width: 1080px) { #mbf-hud { display: none; } }
+
+/* Command palette */
+.mbf-palette-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 99980;
+    background: rgba(2, 5, 14, 0.55);
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 12vh 16px 16px;
+    animation: mbf-fade 0.12s ease-out;
+}
+@keyframes mbf-fade { from { opacity: 0; } }
+.mbf-palette {
+    width: min(680px, 100%);
+    max-height: 70vh;
+    display: flex;
+    flex-direction: column;
+    background: var(--mbf-float);
+    border: 1px solid rgba(var(--mbf-accent-rgb), 0.4);
+    border-radius: 16px;
+    box-shadow: 0 30px 90px rgba(0, 0, 0, 0.6), 0 0 40px rgba(var(--mbf-accent-rgb), 0.18);
+    overflow: hidden;
+    animation: mbf-pop 0.16s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+@keyframes mbf-pop { from { transform: translateY(-8px) scale(0.98); opacity: 0; } }
+.mbf-palette-input-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--mbf-line-2);
+    background: linear-gradient(90deg, rgba(var(--mbf-accent-rgb), 0.10), transparent);
+}
+.mbf-palette-input-row .mbf-palette-icon {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: 2px solid var(--mbf-accent);
+    position: relative;
+    flex: none;
+    box-shadow: 0 0 10px rgba(var(--mbf-accent-rgb), 0.6);
+}
+.mbf-palette-input-row .mbf-palette-icon::after {
+    content: "";
+    position: absolute;
+    width: 7px;
+    height: 2px;
+    background: var(--mbf-accent);
+    right: -6px;
+    bottom: -3px;
+    transform: rotate(45deg);
+}
+.mbf-palette input.mbf-palette-input {
+    flex: 1;
+    min-width: 0;
+    background: transparent;
+    border: 0;
+    outline: 0;
+    color: var(--mbf-text-strong);
+    font-size: 16px;
+    caret-color: var(--mbf-accent);
+}
+.mbf-palette input.mbf-palette-input::placeholder { color: var(--mbf-text-mute); }
+.mbf-palette-list {
+    overflow-y: auto;
+    padding: 6px;
+    margin: 0;
+    list-style: none;
+}
+.mbf-palette-group {
+    padding: 10px 10px 4px;
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--mbf-text-mute);
+}
+.mbf-palette-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 9px 10px;
+    border-radius: 10px;
+    color: var(--mbf-text);
+    cursor: pointer;
+    font-size: 14px;
+}
+.mbf-palette-item .mbf-pi-icon {
+    width: 28px;
+    height: 28px;
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    background: rgba(var(--mbf-accent-rgb), 0.10);
+    border: 1px solid rgba(var(--mbf-accent-rgb), 0.25);
+    color: var(--mbf-accent);
+    font-size: 13px;
+}
+.mbf-palette-item .mbf-pi-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mbf-palette-item .mbf-pi-meta {
+    font-size: 11px;
+    color: var(--mbf-text-mute);
+    white-space: nowrap;
+}
+.mbf-palette-item mark {
+    background: transparent;
+    color: var(--mbf-accent);
+    text-shadow: 0 0 8px rgba(var(--mbf-accent-rgb), 0.6);
+    font-weight: 700;
+}
+.mbf-palette-item.mbf-active {
+    background: linear-gradient(90deg, rgba(var(--mbf-accent-rgb), 0.18), rgba(var(--mbf-accent-rgb), 0.04));
+    box-shadow: inset 2px 0 0 var(--mbf-accent);
+    color: var(--mbf-text-strong);
+}
+.mbf-palette-empty {
+    padding: 28px 16px;
+    text-align: center;
+    color: var(--mbf-text-mute);
+    font-size: 13px;
+}
+.mbf-palette-foot {
+    display: flex;
+    gap: 16px;
+    padding: 9px 14px;
+    border-top: 1px solid var(--mbf-line);
+    font-size: 11px;
+    color: var(--mbf-text-mute);
+    flex-wrap: wrap;
+}
+
+/* Theme Studio */
+.mbf-studio {
+    position: fixed;
+    top: 72px;
+    right: 16px;
+    width: min(340px, calc(100vw - 32px));
+    z-index: 99970;
+    background: var(--mbf-float);
+    border: 1px solid rgba(var(--mbf-accent-rgb), 0.4);
+    border-radius: 16px;
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6), 0 0 30px rgba(var(--mbf-accent-rgb), 0.15);
+    color: var(--mbf-text);
+    animation: mbf-pop 0.16s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+    overflow: hidden;
+}
+.mbf-studio-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px;
+    background: linear-gradient(90deg, rgba(var(--mbf-accent-rgb), 0.16), transparent);
+    border-bottom: 1px solid var(--mbf-line-2);
+}
+.mbf-studio-title {
+    font-family: var(--mbf-font-display);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--mbf-text-strong);
+}
+.mbf-studio-close {
+    cursor: pointer;
+    background: none;
+    border: 1px solid var(--mbf-line-2);
+    color: var(--mbf-text-dim);
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    font-size: 16px;
+    line-height: 1;
+}
+.mbf-studio-close:hover { color: #fff; border-color: var(--mbf-accent); }
+.mbf-studio-body { padding: 8px 16px 16px; }
+.mbf-studio-row { padding: 10px 0; border-bottom: 1px dashed var(--mbf-line); }
+.mbf-studio-row:last-child { border-bottom: 0; }
+.mbf-studio-label {
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--mbf-text-mute);
+    margin-bottom: 8px;
+}
+.mbf-swatches { display: flex; gap: 8px; flex-wrap: wrap; }
+.mbf-swatch {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    border: 2px solid transparent;
+    cursor: pointer;
+    position: relative;
+}
+.mbf-swatch[aria-pressed="true"] {
+    border-color: #fff;
+    box-shadow: 0 0 14px rgba(255, 255, 255, 0.35);
+}
+.mbf-seg { display: flex; flex-wrap: wrap; gap: 6px; }
+.mbf-seg button {
+    flex: 1 1 auto;
+    cursor: pointer;
+    padding: 7px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--mbf-line-2);
+    background: rgba(255, 255, 255, 0.03);
+    color: var(--mbf-text-dim);
+    font-size: 12px;
+}
+.mbf-seg button:hover { color: var(--mbf-text-strong); border-color: rgba(var(--mbf-accent-rgb), 0.5); }
+.mbf-seg button[aria-pressed="true"] {
+    color: var(--mbf-on-accent);
+    background: var(--mbf-grad);
+    border-color: transparent;
+    font-weight: 700;
+}
+.mbf-studio-note { font-size: 11px; color: var(--mbf-text-mute); margin-top: 6px; }
+.mbf-studio-reset {
+    margin-top: 12px;
+    width: 100%;
+    cursor: pointer;
+    padding: 9px;
+    border-radius: 10px;
+    border: 1px solid var(--mbf-line-2);
+    background: transparent;
+    color: var(--mbf-text-dim);
+    font-size: 12px;
+}
+.mbf-studio-reset:hover { color: #fff; border-color: var(--mbf-accent); }
+
+/* Focus rings for keyboard users */
+.mbf-palette input.mbf-palette-input:focus-visible { outline: none; }
+.mbf-ui button:focus-visible,
+.mbf-ui input:focus-visible {
+    outline: 2px solid var(--mbf-accent);
+    outline-offset: 2px;
+}
+
+/* =========================================================================
+   20. Motion preferences
+   ========================================================================= */
+html.mbf.mbf-still *,
+html.mbf.mbf-still *::before,
+html.mbf.mbf-still *::after {
+    animation: none !important;
+}
+@media (prefers-reduced-motion: reduce) {
+    html.mbf *,
+    html.mbf *::before,
+    html.mbf *::after {
+        animation: none !important;
+        transition: none !important;
+    }
+}

@@ -1,0 +1,463 @@
+#!/usr/bin/env bash
+# =============================================================================
+#  mbf-theme — manage the MagnusBilling 8 Futuristic Theme on this server
+#
+#  Installed to /usr/local/sbin/mbf-theme by install.sh.
+#
+#  Commands
+#    install [options]   write settings, copy the theme, hook it into index.html
+#    apply               re-copy files and re-hook index.html using saved settings
+#    reapply [--quiet]   apply only if something is missing (used by cron after
+#                        MagnusBilling's nightly auto-update overwrites index.html)
+#    set KEY VALUE       change one setting and apply (see `mbf-theme help`)
+#    enable | disable    switch between futuristic and stock look for everyone
+#    status              show what is installed and where
+#    uninstall [--purge] remove the hook and theme files (--purge: everything)
+#
+#  The theme never touches the database, Asterisk or PHP code. It adds one
+#  folder (resources/futuristic/) and a 4-line block to index.html.
+# =============================================================================
+set -euo pipefail
+
+MBF_VERSION="1.0.0"
+# MBF_ROOT is an optional prefix (like DESTDIR) used for testing in a sandbox.
+MBF_ROOT="${MBF_ROOT:-}"
+SHARE_DIR="$MBF_ROOT/usr/local/share/mbf-theme"
+CONF_FILE="$MBF_ROOT/etc/mbf-theme.conf"
+BACKUP_DIR="$MBF_ROOT/var/backups/mbf-theme"
+CRON_FILE="$MBF_ROOT/etc/cron.d/mbf-theme"
+SELF_BIN="$MBF_ROOT/usr/local/sbin/mbf-theme"
+WEB_SUBDIR="resources/futuristic"
+MARK_BEGIN="<!-- MBF:BEGIN"
+MARK_END="<!-- MBF:END -->"
+
+# ---- settings (defaults) ----------------------------------------------------
+MB_PATH=""
+ENABLED="1"
+ACCENT="cyan"
+BACKGROUND="network"
+GLASS="1"
+MOTION="1"
+GOOGLE_FONTS="1"
+HUD="1"
+HUD_POLL="10"
+PALETTE="1"
+KEEP_LOGIN_BG="0"
+CHART_FIX="1"
+LOCK="0"
+AUTO_REAPPLY="1"
+TAGLINE="VoIP Control Center"
+
+SETTING_KEYS="MB_PATH ENABLED ACCENT BACKGROUND GLASS MOTION GOOGLE_FONTS HUD HUD_POLL PALETTE KEEP_LOGIN_BG CHART_FIX LOCK AUTO_REAPPLY TAGLINE"
+ACCENTS="cyan magenta matrix amber violet ice"
+BACKGROUNDS="network grid static off"
+
+QUIET=0
+
+# ---- output -----------------------------------------------------------------
+if [ -t 1 ]; then
+    C_CYAN=$'\033[38;5;51m'; C_MAG=$'\033[38;5;201m'; C_OK=$'\033[38;5;48m'
+    C_WARN=$'\033[38;5;214m'; C_ERR=$'\033[38;5;203m'; C_DIM=$'\033[2m'; C_B=$'\033[1m'; C_0=$'\033[0m'
+else
+    C_CYAN=""; C_MAG=""; C_OK=""; C_WARN=""; C_ERR=""; C_DIM=""; C_B=""; C_0=""
+fi
+say()  { [ "$QUIET" = 1 ] || printf '%s\n' "$*"; }
+info() { [ "$QUIET" = 1 ] || printf '%s›%s %s\n' "$C_CYAN" "$C_0" "$*"; }
+ok()   { [ "$QUIET" = 1 ] || printf '%s✔%s %s\n' "$C_OK" "$C_0" "$*"; }
+warn() { printf '%s!%s %s\n' "$C_WARN" "$C_0" "$*" >&2; }
+die()  { printf '%s✖%s %s\n' "$C_ERR" "$C_0" "$*" >&2; exit 1; }
+
+banner() {
+    [ "$QUIET" = 1 ] && return 0
+    printf '%s' "$C_CYAN"
+    cat <<'EOF'
+   __  __ ____  _____    __  __            _            _ _      _   _
+  |  \/  | __ )|  ___|  |  \/  | __ _  __ _| |_ ___ _ __(_) | ___| |_| |_
+  | |\/| |  _ \| |_     | |\/| |/ _` |/ _` | __/ _ \ '__| | |/ _ \ __| __|
+  | |  | | |_) |  _|    | |  | | (_| | (_| | ||  __/ |  | | |  __/ |_| |_
+  |_|  |_|____/|_|      |_|  |_|\__,_|\__, |\__\___|_|  |_|_|\___|\__|\__|
+                                       |___/
+EOF
+    printf '%s  MagnusBilling 8 · Futuristic Theme v%s%s\n\n' "$C_MAG" "$MBF_VERSION" "$C_0"
+}
+
+need_root() {
+    [ "$(id -u)" = "0" ] || die "Run as root (e.g. sudo $0 $*)."
+}
+
+# ---- settings file (parsed, never sourced) -----------------------------------
+RE_PATH='^/[A-Za-z0-9._/-]+$'
+RE_TAGLINE='^[A-Za-z0-9 .,:;!?&()/+_@#-]{0,60}$'
+valid_bool()  { [ "$1" = "0" ] || [ "$1" = "1" ]; }
+in_list()     { local v="$1"; shift; for x in $*; do [ "$x" = "$v" ] && return 0; done; return 1; }
+
+validate_setting() {
+    local k="$1" v="$2"
+    case "$k" in
+        MB_PATH)      [ -z "$v" ] || [[ "$v" =~ $RE_PATH ]] || die "Invalid path: $v" ;;
+        ACCENT)       in_list "$v" "$ACCENTS" || die "ACCENT must be one of: $ACCENTS" ;;
+        BACKGROUND)   in_list "$v" "$BACKGROUNDS" || die "BACKGROUND must be one of: $BACKGROUNDS" ;;
+        HUD_POLL)     [[ "$v" =~ ^[0-9]+$ ]] && [ "$v" -ge 5 ] && [ "$v" -le 300 ] || die "HUD_POLL must be 5-300 seconds" ;;
+        TAGLINE)      [[ "$v" =~ $RE_TAGLINE ]] || die "TAGLINE: up to 60 letters, digits, spaces and . , : ; ! ? & ( ) / + _ @ # -" ;;
+        ENABLED|GLASS|MOTION|GOOGLE_FONTS|HUD|PALETTE|KEEP_LOGIN_BG|CHART_FIX|LOCK|AUTO_REAPPLY)
+                      valid_bool "$v" || die "$k must be 0 or 1" ;;
+        *)            die "Unknown setting: $k" ;;
+    esac
+}
+
+load_conf() {
+    [ -f "$CONF_FILE" ] || return 0
+    local line k v
+    while IFS= read -r line || [ -n "$line" ]; do
+        [[ "$line" =~ ^([A-Z_]+)=\"([^\"]*)\"$ ]] || continue
+        k="${BASH_REMATCH[1]}"; v="${BASH_REMATCH[2]}"
+        in_list "$k" "$SETTING_KEYS" || continue
+        ( validate_setting "$k" "$v" ) >/dev/null 2>&1 || { warn "Ignoring invalid $k in $CONF_FILE"; continue; }
+        printf -v "$k" '%s' "$v"
+    done < "$CONF_FILE"
+}
+
+save_conf() {
+    local tmp k
+    tmp="$(mktemp)"
+    {
+        echo "# MagnusBilling Futuristic Theme settings — edit with: mbf-theme set KEY VALUE"
+        for k in $SETTING_KEYS; do
+            printf '%s="%s"\n' "$k" "${!k}"
+        done
+    } > "$tmp"
+    mkdir -p "$(dirname "$CONF_FILE")"
+    install -m 0644 -o root -g root "$tmp" "$CONF_FILE"
+    rm -f "$tmp"
+}
+
+# ---- MagnusBilling location ---------------------------------------------------
+is_mb_root() {
+    [ -f "$1/index.html" ] && [ -d "$1/resources" ] && grep -q 'resources/init.css' "$1/index.html" 2>/dev/null
+}
+
+detect_mb_path() {
+    if [ -n "$MB_PATH" ]; then
+        is_mb_root "$MB_PATH" || die "MagnusBilling not found in $MB_PATH (expected index.html that loads resources/init.css)."
+        return 0
+    fi
+    local c
+    for c in /var/www/html/mbilling /var/www/mbilling /srv/www/htdocs/mbilling /usr/share/nginx/html/mbilling; do
+        if is_mb_root "$c"; then MB_PATH="$c"; return 0; fi
+    done
+    die "Could not find MagnusBilling. Re-run with --path /path/to/mbilling"
+}
+
+# ---- core operations ----------------------------------------------------------
+json_bool() { [ "$1" = "1" ] && echo true || echo false; }
+
+write_config_js() {
+    local out="$1"
+    cat > "$out" <<EOF
+/* MagnusBilling Futuristic Theme — server defaults.
+   Generated by mbf-theme on $(date -u +%Y-%m-%dT%H:%M:%SZ). Do not edit by hand:
+   use  mbf-theme set KEY VALUE  (or edit $CONF_FILE and run  mbf-theme apply).
+   Users can still personalise their own browser in Theme Studio unless lockUserSettings is true. */
+window.MBF_CONFIG = {
+    "enabled": $(json_bool "$ENABLED"),
+    "accent": "$ACCENT",
+    "background": "$BACKGROUND",
+    "glass": $(json_bool "$GLASS"),
+    "motion": $(json_bool "$MOTION"),
+    "googleFonts": $(json_bool "$GOOGLE_FONTS"),
+    "hud": $(json_bool "$HUD"),
+    "hudPollSeconds": $HUD_POLL,
+    "palette": $(json_bool "$PALETTE"),
+    "keepLoginBackground": $(json_bool "$KEEP_LOGIN_BG"),
+    "chartFix": $(json_bool "$CHART_FIX"),
+    "lockUserSettings": $(json_bool "$LOCK"),
+    "loginTagline": "$TAGLINE"
+};
+EOF
+}
+
+asset_hash() {
+    cat "$SHARE_DIR/mbf.css" "$SHARE_DIR/mbf.js" "$1" 2>/dev/null | sha256sum | cut -c1-10
+}
+
+hook_block() {
+    local v="$1"
+    printf '    %s MagnusBilling Futuristic Theme v%s (managed by mbf-theme; remove with: mbf-theme uninstall) -->\n' "$MARK_BEGIN" "$MBF_VERSION"
+    printf '    <script src="%s/mbf-config.js?v=%s"></script>\n' "$WEB_SUBDIR" "$v"
+    printf '    <script src="%s/mbf.js?v=%s"></script>\n' "$WEB_SUBDIR" "$v"
+    printf '    %s\n' "$MARK_END"
+}
+
+strip_hook() {
+    # stdin -> stdout without any MBF block
+    awk -v b="$MARK_BEGIN" -v e="$MARK_END" '
+        index($0, b) { skip = 1 }
+        !skip        { print }
+        index($0, e) { skip = 0 }
+    '
+}
+
+backup_index() {
+    local idx="$MB_PATH/index.html"
+    mkdir -p "$BACKUP_DIR"
+    chmod 0700 "$BACKUP_DIR"
+    if ! grep -q "$MARK_BEGIN" "$idx"; then
+        cp -p "$idx" "$BACKUP_DIR/index.html.$(date +%Y%m%d-%H%M%S)"
+        # keep the 10 most recent backups
+        ls -1t "$BACKUP_DIR"/index.html.* 2>/dev/null | tail -n +11 | xargs -r rm -f
+    fi
+}
+
+inject_hook() {
+    local idx="$MB_PATH/index.html" v="$1" tmp
+    [ -w "$idx" ] || die "$idx is not writable."
+    backup_index
+    tmp="$(mktemp "$MB_PATH/.index.html.mbf.XXXXXX")"
+    MBF_BLOCK="$(hook_block "$v")" awk '
+        { print }
+        !done && /resources\/init\.css/ { print ENVIRON["MBF_BLOCK"]; done = 1 }
+        END { if (!done) exit 3 }
+    ' < <(strip_hook < "$idx") > "$tmp" || {
+        # Fallback: no init.css line — insert before </head>
+        MBF_BLOCK="$(hook_block "$v")" awk '
+            !done && /<\/head>/ { print ENVIRON["MBF_BLOCK"]; done = 1 }
+            { print }
+            END { if (!done) exit 3 }
+        ' < <(strip_hook < "$idx") > "$tmp" || { rm -f "$tmp"; die "Could not find where to hook the theme in $idx"; }
+    }
+    # Overwrite in place so ownership and permissions stay exactly as they were.
+    cat "$tmp" > "$idx"
+    rm -f "$tmp"
+}
+
+copy_assets() {
+    local dest="$MB_PATH/$WEB_SUBDIR" owner
+    [ -f "$SHARE_DIR/mbf.css" ] && [ -f "$SHARE_DIR/mbf.js" ] || die "Theme files missing in $SHARE_DIR — run install.sh again."
+    owner="$(stat -c '%u:%g' "$MB_PATH/index.html")"
+    mkdir -p "$dest"
+    install -m 0644 "$SHARE_DIR/mbf.css" "$dest/mbf.css"
+    install -m 0644 "$SHARE_DIR/mbf.js"  "$dest/mbf.js"
+    write_config_js "$dest/mbf-config.js"
+    chmod 0644 "$dest/mbf-config.js"
+    [ -f "$dest/index.html" ] || : > "$dest/index.html"   # no directory listing
+    chmod 0755 "$dest"
+    chown -R "$owner" "$dest"
+}
+
+setup_cron() {
+    if [ "$AUTO_REAPPLY" = "1" ] && [ -d "$(dirname "$CRON_FILE")" ]; then
+        cat > "$CRON_FILE" <<EOF
+# MagnusBilling Futuristic Theme: restore the index.html hook after MagnusBilling
+# auto-updates (protected/commands/update.sh). Remove with: mbf-theme uninstall
+*/5 * * * * root $SELF_BIN reapply --quiet >/dev/null 2>&1
+EOF
+        chmod 0644 "$CRON_FILE"
+    else
+        rm -f "$CRON_FILE"
+    fi
+}
+
+do_apply() {
+    need_root
+    detect_mb_path
+    copy_assets
+    local v
+    v="${MBF_VERSION}-$(asset_hash "$MB_PATH/$WEB_SUBDIR/mbf-config.js")"
+    inject_hook "$v"
+    setup_cron
+    save_conf
+    ok "Theme files  → $MB_PATH/$WEB_SUBDIR/"
+    ok "Hooked into  → $MB_PATH/index.html"
+    if [ "$AUTO_REAPPLY" = "1" ]; then
+        ok "Auto-reapply → $CRON_FILE (survives MagnusBilling updates)"
+    fi
+}
+
+hook_present() {
+    grep -q "$MARK_BEGIN" "$MB_PATH/index.html" 2>/dev/null && \
+    [ -f "$MB_PATH/$WEB_SUBDIR/mbf.js" ] && [ -f "$MB_PATH/$WEB_SUBDIR/mbf.css" ] && \
+    cmp -s "$SHARE_DIR/mbf.js" "$MB_PATH/$WEB_SUBDIR/mbf.js" && \
+    cmp -s "$SHARE_DIR/mbf.css" "$MB_PATH/$WEB_SUBDIR/mbf.css"
+}
+
+# ---- commands -----------------------------------------------------------------
+usage() {
+    cat <<EOF
+${C_B}mbf-theme${C_0} v$MBF_VERSION — MagnusBilling 8 Futuristic Theme
+
+Usage:
+  mbf-theme install [options]     install or upgrade, then apply
+  mbf-theme apply                 re-apply with saved settings
+  mbf-theme reapply [--quiet]     apply only if the hook/files are missing
+  mbf-theme set KEY VALUE         change a setting and apply
+  mbf-theme enable | disable      futuristic look on/off for everyone
+  mbf-theme status                show installation details
+  mbf-theme uninstall [--purge]   remove (purge also removes settings + this tool)
+
+Install options:
+  --path DIR                 MagnusBilling folder (default: auto, /var/www/html/mbilling)
+  --accent NAME              ${ACCENTS// /|}
+  --background NAME          ${BACKGROUNDS// /|}
+  --tagline "TEXT"           text under the brand on the login screen
+  --no-google-fonts          use system fonts (no requests to fonts.googleapis.com)
+  --no-hud                   hide the live HUD bar
+  --hud-poll SECONDS         live-calls refresh interval (5-300, default 10)
+  --no-glass                 disable blur effects (older PCs)
+  --no-motion                disable animations
+  --keep-login-background    keep the login image uploaded in MagnusBilling
+  --lock                     users cannot change the look in Theme Studio
+  --no-auto-reapply          do not install the cron job
+
+Setting keys for 'set': ENABLED ACCENT BACKGROUND GLASS MOTION GOOGLE_FONTS HUD
+  HUD_POLL PALETTE KEEP_LOGIN_BG CHART_FIX LOCK AUTO_REAPPLY TAGLINE MB_PATH
+  Example: mbf-theme set ACCENT magenta
+
+Emergency: open the panel with ?mbf=off in the URL to load the stock look once.
+EOF
+}
+
+cmd_install() {
+    need_root
+    load_conf
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --path)                  MB_PATH="${2:-}"; shift ;;
+            --accent)                ACCENT="${2:-}"; shift ;;
+            --background)            BACKGROUND="${2:-}"; shift ;;
+            --tagline)               TAGLINE="${2:-}"; shift ;;
+            --hud-poll)              HUD_POLL="${2:-}"; shift ;;
+            --no-google-fonts)       GOOGLE_FONTS="0" ;;
+            --google-fonts)          GOOGLE_FONTS="1" ;;
+            --no-hud)                HUD="0" ;;
+            --no-glass)              GLASS="0" ;;
+            --no-motion)             MOTION="0" ;;
+            --keep-login-background) KEEP_LOGIN_BG="1" ;;
+            --lock)                  LOCK="1" ;;
+            --no-auto-reapply)       AUTO_REAPPLY="0" ;;
+            -y|--yes)                ;;
+            -h|--help)               usage; exit 0 ;;
+            *)                       die "Unknown option: $1 (see: mbf-theme help)" ;;
+        esac
+        shift
+    done
+    MB_PATH="${MB_PATH%/}"
+    local k
+    for k in $SETTING_KEYS; do validate_setting "$k" "${!k}"; done
+    ENABLED="1"
+    banner
+    info "Installing into MagnusBilling…"
+    do_apply
+    say ""
+    say "${C_B}Done.${C_0} Open your panel and press ${C_B}Ctrl+F5${C_0} (hard refresh)."
+    say "  • ${C_CYAN}Ctrl/Cmd+K${C_0}   search & open any module (SIP Users, Caller ID, Rates, CDR…)"
+    say "  • ${C_CYAN}◐ Theme${C_0}      top bar → accent colours, background, animations"
+    say "  • ${C_CYAN}Ctrl+Alt+F${C_0}  toggle futuristic/stock look in your browser"
+    say "  • ${C_DIM}Something off? Add ?mbf=off to the URL, or run: mbf-theme disable${C_0}"
+}
+
+cmd_set() {
+    need_root
+    [ $# -eq 2 ] || die "Usage: mbf-theme set KEY VALUE"
+    local k="${1^^}" v="$2"
+    in_list "$k" "$SETTING_KEYS" || die "Unknown setting: $k"
+    load_conf
+    validate_setting "$k" "$v"
+    printf -v "$k" '%s' "$v"
+    do_apply
+    ok "$k = $v"
+}
+
+cmd_reapply() {
+    [ "${1:-}" = "--quiet" ] && QUIET=1
+    need_root
+    load_conf
+    detect_mb_path
+    if hook_present; then
+        say "Hook present — nothing to do."
+        return 0
+    fi
+    do_apply
+}
+
+cmd_status() {
+    load_conf
+    banner
+    local p="${MB_PATH:-}"
+    if [ -z "$p" ]; then
+        ( detect_mb_path ) >/dev/null 2>&1 && detect_mb_path
+        p="$MB_PATH"
+    fi
+    printf '  %-16s %s\n' "Version" "$MBF_VERSION"
+    printf '  %-16s %s\n' "MagnusBilling" "${p:-not found}"
+    if [ -n "$p" ] && [ -f "$p/index.html" ]; then
+        if grep -q "$MARK_BEGIN" "$p/index.html"; then
+            printf '  %-16s %s\n' "index.html hook" "${C_OK}present${C_0}"
+        else
+            printf '  %-16s %s\n' "index.html hook" "${C_WARN}missing${C_0} (run: mbf-theme apply)"
+        fi
+        [ -f "$p/$WEB_SUBDIR/mbf.js" ] && printf '  %-16s %s\n' "Theme files" "$p/$WEB_SUBDIR/" || printf '  %-16s %s\n' "Theme files" "${C_WARN}missing${C_0}"
+    fi
+    printf '  %-16s %s\n' "Look" "$([ "$ENABLED" = 1 ] && echo futuristic || echo stock)"
+    printf '  %-16s %s\n' "Accent" "$ACCENT"
+    printf '  %-16s %s\n' "Background" "$BACKGROUND"
+    printf '  %-16s %s\n' "HUD" "$([ "$HUD" = 1 ] && echo "on (every ${HUD_POLL}s)" || echo off)"
+    printf '  %-16s %s\n' "Google fonts" "$([ "$GOOGLE_FONTS" = 1 ] && echo on || echo off)"
+    printf '  %-16s %s\n' "User override" "$([ "$LOCK" = 1 ] && echo locked || echo allowed)"
+    printf '  %-16s %s\n' "Auto-reapply" "$([ -f "$CRON_FILE" ] && echo "on ($CRON_FILE)" || echo off)"
+    printf '  %-16s %s\n' "Backups" "$BACKUP_DIR"
+}
+
+cmd_uninstall() {
+    need_root
+    load_conf
+    local purge=0
+    [ "${1:-}" = "--purge" ] && purge=1
+    if ( detect_mb_path ) >/dev/null 2>&1; then
+        detect_mb_path
+        local idx="$MB_PATH/index.html" tmp
+        if grep -q "$MARK_BEGIN" "$idx"; then
+            tmp="$(mktemp "$MB_PATH/.index.html.mbf.XXXXXX")"
+            strip_hook < "$idx" > "$tmp"
+            cat "$tmp" > "$idx"
+            rm -f "$tmp"
+            ok "Removed hook from $idx"
+        fi
+        if [ -d "$MB_PATH/$WEB_SUBDIR" ]; then
+            rm -rf "${MB_PATH:?}/$WEB_SUBDIR"
+            ok "Removed $MB_PATH/$WEB_SUBDIR"
+        fi
+    else
+        warn "MagnusBilling folder not found; skipping index.html cleanup."
+    fi
+    rm -f "$CRON_FILE"
+    ok "Removed cron job"
+    if [ "$purge" = 1 ]; then
+        rm -rf "$SHARE_DIR" "$CONF_FILE"
+        ok "Removed $SHARE_DIR and $CONF_FILE (backups kept in $BACKUP_DIR)"
+        rm -f "$SELF_BIN"
+        ok "Removed $SELF_BIN"
+    else
+        say "Settings kept in $CONF_FILE. Reinstall any time with: mbf-theme apply"
+    fi
+    say "Press Ctrl+F5 in the panel to load the stock look."
+}
+
+main() {
+    local cmd="${1:-help}"
+    [ $# -gt 0 ] && shift
+    case "$cmd" in
+        install)    cmd_install "$@" ;;
+        apply)      need_root; load_conf; do_apply ;;
+        reapply)    cmd_reapply "$@" ;;
+        set)        cmd_set "$@" ;;
+        enable)     cmd_set ENABLED 1 ;;
+        disable)    cmd_set ENABLED 0 ;;
+        status)     cmd_status ;;
+        uninstall|remove) cmd_uninstall "$@" ;;
+        version|--version|-v) echo "$MBF_VERSION" ;;
+        help|-h|--help) usage ;;
+        *)          usage; exit 1 ;;
+    esac
+}
+
+main "$@"
