@@ -49,13 +49,17 @@
         return AMOUNT_RE.test(text) ? Math.round(parseFloat(text) * 100) / 100 : null;
     }
 
+    var promo = { code: '', percent: 0 };
+
     function quote(amount) {
-        var bonus = 0;
+        var bonus = promo.percent || 0;
+        var tierBonus = 0;
         (pay.bonus || []).forEach(function (tier) {
             if (tier && amount >= Number(tier.min)) {
-                bonus = Math.max(bonus, Number(tier.percent) || 0);
+                tierBonus = Math.max(tierBonus, Number(tier.percent) || 0);
             }
         });
+        bonus += tierBonus;
         var rate = Number(pay.credit_rate) || 1;
         return { bonus: bonus, credit: Math.round(amount * rate * (1 + bonus / 100) * 10000) / 10000 };
     }
@@ -200,6 +204,7 @@
             api('create_payment', null, {
                 username: user,
                 amount: value.toFixed(2),
+                promo: promo.code,
                 email: email ? email.value.trim() : ''
             }).then(function (res) {
                 if (res.ok && res.data && res.data.payment_url) {
@@ -222,6 +227,44 @@
                 submit.querySelector('.btn-label').textContent = 'Continue to secure payment';
             }
         });
+
+        var promoInput = document.getElementById('promo');
+        var promoHint = document.getElementById('promo-hint');
+        function applyPromo() {
+            var code = promoInput.value.trim().toUpperCase();
+            promoInput.value = code;
+            if (!code) {
+                promo = { code: '', percent: 0 };
+                promoHint.hidden = true;
+                updateAmount();
+                return;
+            }
+            api('promo', { code: code }).then(function (res) {
+                if (res.ok) {
+                    promo = { code: res.data.code, percent: Number(res.data.percent) || 0 };
+                    promoHint.className = 'hint ok';
+                    promoHint.textContent = '✓ ' + res.data.code + ': +' + promo.percent + '% extra credit';
+                } else {
+                    promo = { code: '', percent: 0 };
+                    promoHint.className = 'hint bad';
+                    promoHint.textContent = res.error ? res.error.message : 'That code is not valid.';
+                }
+                promoHint.hidden = false;
+                updateAmount();
+            });
+        }
+        if (promoInput) {
+            document.getElementById('promo-apply').addEventListener('click', applyPromo);
+            promoInput.addEventListener('keydown', function (event) {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    applyPromo();
+                }
+            });
+            if (promoInput.value) {
+                applyPromo();
+            }
+        }
 
         if (!username.value) {
             username.value = recall();

@@ -28,6 +28,10 @@ final class FakeServices
     ];
     /** @var array<int,array<string,mixed>> */
     public $plans = [1 => ['id' => 1, 'name' => 'Standard'], 2 => ['id' => 2, 'name' => 'Premium']];
+    /** @var array<int,array<string,mixed>> call records (pkg_cdr) */
+    public $calls = [];
+    /** @var array<int,array<string,mixed>> calls in progress (pkg_call_online) */
+    public $liveCalls = [];
     /** MagnusBilling setting "API allow multiple user/email" (default 0). */
     public $apiAllowSameEmail = false;
     /** Telegram chats that blocked the bot. */
@@ -162,6 +166,32 @@ final class FakeServices
             return ['status' => 200, 'body' => 'invalid API action'];
         }
 
+        if ($post['module'] === 'call' && $post['action'] === 'read') {
+            $rows = array_values(array_filter($this->calls, static function ($call) use ($filters) {
+                foreach ((array) $filters as $f) {
+                    if ($f['field'] === 'id_user' && (int) $call['id_user'] !== (int) $f['value']) {
+                        return false;
+                    }
+                }
+                return true;
+            }));
+            return self::json(['rows' => array_slice(array_reverse($rows), 0, (int) $post['limit']), 'count' => count($rows)]);
+        }
+
+        if ($post['module'] === 'callOnLine' && $post['action'] === 'read') {
+            return self::json(['rows' => $this->liveCalls, 'count' => count($this->liveCalls)]);
+        }
+
+        if ($post['module'] === 'user' && $post['action'] === 'save' && empty($post['createUser']) && (int) $post['id'] > 0) {
+            $id = (int) $post['id'];
+            foreach (['active', 'id_plan'] as $field) {
+                if (isset($post[$field])) {
+                    $this->users[$id][$field] = (int) $post[$field];
+                }
+            }
+            return self::json(['success' => true, 'rows' => [$this->users[$id]], 'msg' => 'Operation was successful.']);
+        }
+
         if ($post['module'] === 'plan' && $post['action'] === 'read') {
             return self::json(['rows' => array_values($this->plans), 'count' => count($this->plans)]);
         }
@@ -211,8 +241,13 @@ final class FakeServices
                 return self::json(['success' => false, 'msg' => 'Record not found.']);
             }
             // SipController::beforeSave copies callerid to cid_number.
-            $this->sips[(int) $post['id']]['callerid'] = $post['callerid'];
-            $this->sips[(int) $post['id']]['cid_number'] = $post['callerid'];
+            if (isset($post['callerid'])) {
+                $this->sips[(int) $post['id']]['callerid'] = $post['callerid'];
+                $this->sips[(int) $post['id']]['cid_number'] = $post['callerid'];
+            }
+            if (isset($post['secret'])) {
+                $this->sips[(int) $post['id']]['secret'] = $post['secret'];
+            }
             if ($this->loseNextSipReply) {
                 $this->loseNextSipReply = false;
                 throw new RuntimeException('Request to magnus.test failed: Operation timed out after 120000 milliseconds with 0 bytes received');
@@ -297,6 +332,10 @@ final class FakeServices
                 'expired_at' => time() + 3600,
                 'date' => time(),
             ], 'message' => 'Operation completed successfully!', 'error' => new stdClass(), 'status' => 200, 'version' => '1.0.0']);
+        }
+
+        if ($method === 'GET' && $path === 'payment/accepted-currencies') {
+            return self::json(['data' => ['list' => ['USDT', 'BTC', 'ETH']], 'status' => 200]);
         }
 
         if ($method === 'GET' && strpos($path, 'payment/') === 0) {

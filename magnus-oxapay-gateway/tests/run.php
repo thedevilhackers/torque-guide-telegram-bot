@@ -641,9 +641,10 @@ function findButton(array $reply, string $label): string
 test('admin panel: menu button only for admins', function () {
     [$app, $fake] = makeApp();
     $welcome = tgSay($app, $fake, 999, '/start');
-    same('🛠 Admin panel', $welcome['reply_markup']['keyboard'][1][1]['text'], 'admin menu button');
+    same('🛠 Admin panel', $welcome['reply_markup']['keyboard'][2][1]['text'], 'admin menu button');
     $customer = tgSay($app, $fake, 4242, '/start', 'customer');
-    same(1, count($customer['reply_markup']['keyboard'][1]), 'customers do not get it');
+    same('🆘 Support', $customer['reply_markup']['keyboard'][1][0]['text'], 'support button');
+    same(1, count($customer['reply_markup']['keyboard'][2]), 'customers do not get the admin button');
 
     $panel = tgSay($app, $fake, 999, '🛠 Admin panel');
     check(strpos($panel['text'], 'Admin panel') !== false, 'panel opens');
@@ -977,6 +978,201 @@ test('notifications: message one customer, and broadcast to everyone', function 
 
     $reply = tgTap($app, $fake, 601, 'adm:bc:all');
     check(empty($reply) || strpos($reply['text'] ?? '', 'Type the message') === false, 'customers cannot broadcast');
+});
+
+function linkChat(\Gateway\App $app, FakeServices $fake, $chat, string $username): void
+{
+    $invite = tgTap($app, $fake, 999, 'adm:inv:' . $username);
+    tgSay($app, $fake, $chat, '/start l_' . inviteToken($invite), 'cust' . $chat);
+}
+
+function copiesTo(FakeServices $fake, string $chatId): array
+{
+    return array_values(array_filter($fake->telegram, function ($call) use ($chatId) {
+        return $call['method'] === 'copyMessage' && (string) $call['params']['chat_id'] === $chatId;
+    }));
+}
+
+test('cron: low-balance alert once per drop, again after recovery', function () {
+    [$app, $fake] = makeApp();
+    linkChat($app, $fake, 555, 'alice');
+    $app->cron()->lowBalance();
+    $alert = messagesTo($fake, '555');
+    $alert = end($alert);
+    check(strpos($alert['text'], 'Low balance') !== false && strpos($alert['text'], '1.50') !== false, 'alert sent');
+    same('usr:alice', $alert['reply_markup']['inline_keyboard'][0][0]['callback_data'], 'top up button');
+    $before = count(messagesTo($fake, '555'));
+    $app->cron()->lowBalance();
+    same($before, count(messagesTo($fake, '555')), 'not repeated');
+    $fake->users[7]['credit'] = 50;
+    $app->cron()->lowBalance();
+    $fake->users[7]['credit'] = 0.5;
+    $app->cron()->lowBalance();
+    same($before + 1, count(messagesTo($fake, '555')), 'alerts again after recovery');
+
+    tgTap($app, $fake, 999, 'adm:setlow');
+    $confirm = tgSay($app, $fake, 999, '0');
+    tgTap($app, $fake, 999, findButton($confirm, 'Confirm'));
+    same('off', $app->cron()->lowBalance(), 'can be turned off');
+});
+
+test('cron: daily report, health alerts and missed-webhook orders', function () {
+    [$app, $fake] = makeApp(['telegram' => ['report_hour' => 0]]);
+    same('sent', $app->cron()->dailyReport());
+    $report = messagesTo($fake, '999');
+    check(strpos(end($report)['text'], 'Daily report') !== false, 'report sent');
+    same('not due', $app->cron()->dailyReport(), 'once a day');
+
+    $fake->magnusDown = true;
+    $app->cron()->health();
+    $count = count(messagesTo($fake, '999'));
+    $app->cron()->health();
+    $alerts = messagesTo($fake, '999');
+    same($count + 1, count($alerts), 'alert after the second failure');
+    check(strpos(end($alerts)['text'], 'MagnusBilling is not answering') !== false, 'down alert');
+    $app->cron()->health();
+    same($count + 1, count(messagesTo($fake, '999')), 'no repeat while down');
+    $fake->magnusDown = false;
+    $app->cron()->health();
+    $alerts = messagesTo($fake, '999');
+    check(strpos(end($alerts)['text'], 'MagnusBilling is answering again') !== false, 'recovery alert');
+
+    $order = $app->payments()->createOrder(['username' => 'alice', 'amount' => '10'], 'web');
+    $app->db()->run('UPDATE oxg_orders SET created_at = ? WHERE id = ?', [time() - 600, $order['id']]);
+    $fake->oxapayStatus($order['track_id'], 'Paid');
+    $app->cron()->run();
+    same('credited', $app->payments()->getOrder($order['id'])['status'], 'credited without a webhook');
+});
+
+test('support: customer writes, admin replies', function () {
+    [$app, $fake] = makeApp();
+    $prompt = tgSay($app, $fake, 4242, '🆘 Support', 'mike');
+    check(strpos($prompt['text'], 'Write your message') !== false, 'asks');
+    $done = tgSay($app, $fake, 4242, 'My calls drop after 1 minute', 'mike');
+    check(strpos($done['text'], 'Sent to our team') !== false, 'confirmed');
+    $admin = messagesTo($fake, '999');
+    $msg = end($admin);
+    check(strpos($msg['text'], 'My calls drop after 1 minute') !== false && strpos($msg['text'], '@mike') !== false, 'forwarded');
+    $ask = tgTap($app, $fake, 999, findButton($msg, 'Reply'));
+    tgSay($app, $fake, 999, 'Please update your app, we fixed it.');
+    $got = messagesTo($fake, '4242');
+    check(strpos(end($got)['text'], 'Please update your app') !== false, 'customer got the reply');
+
+    // A photo is copied to the admins.
+    tgTap($app, $fake, 4242, 'sup');
+    $app->bot()->handleUpdate(['message' => ['message_id' => 77, 'chat' => ['id' => 4242, 'type' => 'private'], 'from' => ['id' => 4242, 'username' => 'mike'], 'photo' => [['file_id' => 'abc']]]]);
+    same(1, count(copiesTo($fake, '999')), 'photo copied');
+});
+
+test('bank transfer: receipt, admin approval credits the account', function () {
+    [$app, $fake] = makeApp();
+    tgTap($app, $fake, 999, 'adm:setbank');
+    $confirm = tgSay($app, $fake, 999, "Bank: Example Bank\nIBAN: DE00 1234");
+    tgTap($app, $fake, 999, findButton($confirm, 'Confirm'));
+
+    $amounts = tgSay($app, $fake, 4242, '/topup alice', 'mike');
+    $ask = tgTap($app, $fake, 4242, findButton($amounts, 'Bank transfer'));
+    check(strpos($ask['text'], 'How much') !== false, 'asks amount');
+    $info = tgSay($app, $fake, 4242, '20', 'mike');
+    check(strpos($info['text'], 'IBAN: DE00 1234') !== false && preg_match('/UC-[A-F0-9]{6}/', $info['text']), 'instructions and reference');
+    $nudge = tgSay($app, $fake, 4242, 'I paid', 'mike');
+    check(strpos($nudge['text'], 'photo or PDF') !== false, 'asks for the receipt');
+    $app->bot()->handleUpdate(['message' => ['message_id' => 90, 'chat' => ['id' => 4242, 'type' => 'private'], 'from' => ['id' => 4242, 'username' => 'mike'], 'document' => ['file_id' => 'pdf1', 'mime_type' => 'application/pdf']]]);
+    $copy = copiesTo($fake, '999');
+    same(1, count($copy), 'receipt copied to admin');
+    $approve = $copy[0]['params']['reply_markup']['inline_keyboard'][0][0]['callback_data'];
+    check(strpos($approve, 'adm:bankok:') === 0, 'approve button');
+
+    $confirm = tgTap($app, $fake, 999, $approve);
+    tgTap($app, $fake, 999, findButton($confirm, 'Confirm'));
+    same(21.5, $fake->users[7]['credit'], 'credited');
+    check((bool) preg_match('/^Bank transfer #[a-f0-9]{24} ref UC-[A-F0-9]{6}/', $fake->refills[0]['description']), 'refill note');
+    $got = messagesTo($fake, '4242');
+    check(strpos(end($got)['text'], 'Payment confirmed') !== false, 'customer told');
+    $again = tgTap($app, $fake, 999, $approve);
+    check(strpos($again['text'], 'already handled') !== false, 'only once');
+});
+
+test('promo codes: created in the bot, used on the website and in the bot', function () {
+    [$app, $fake] = makeApp();
+    tgTap($app, $fake, 999, 'adm:promonew');
+    tgSay($app, $fake, 999, 'welcome10');
+    $uses = tgSay($app, $fake, 999, '10');
+    $days = tgTap($app, $fake, 999, findButton($uses, '50'));
+    $confirm = tgTap($app, $fake, 999, findButton($days, '30 days'));
+    check(strpos($confirm['text'], 'WELCOME10') !== false && strpos($confirm['text'], '+10%') !== false, 'summary');
+    tgTap($app, $fake, 999, findButton($confirm, 'Confirm'));
+
+    $order = $app->payments()->createOrder(['username' => 'alice', 'amount' => '10', 'promo' => 'welcome10'], 'web');
+    same('WELCOME10', $order['promo_code']);
+    same('11.0000', number_format((float) $order['credit'], 4, '.', ''), '10% extra credit');
+    $fake->oxapayStatus($order['track_id'], 'Paid');
+    [$body, $hmac] = $fake->webhook($order['track_id'], 'Paid');
+    $app->payments()->handleWebhook($body, $hmac);
+    same(1, (int) $app->db()->one('SELECT uses FROM oxg_promos WHERE code = ?', ['WELCOME10'])['uses'], 'use counted');
+
+    throwsUserError(function () use ($app) {
+        $app->payments()->createOrder(['username' => 'alice', 'amount' => '10', 'promo' => 'NOPE1'], 'web');
+    }, 'invalid_promo');
+
+    $amounts = tgSay($app, $fake, 4242, '/topup alice', 'mike');
+    tgTap($app, $fake, 4242, findButton($amounts, 'Promo code'));
+    $withPromo = tgSay($app, $fake, 4242, 'WELCOME10', 'mike');
+    check(strpos($withPromo['text'], 'Promo <code>WELCOME10</code>: +10% extra credit') !== false, 'promo shown');
+    $created = tgTap($app, $fake, 4242, 'amt:25');
+    check(strpos($created['text'], 'Credit: <b>27.50</b>') !== false, 'bot order has the bonus: ' . $created['text']);
+
+    $app->promos()->disable('WELCOME10', 'test');
+    throwsUserError(function () use ($app) { $app->promos()->validate('WELCOME10'); }, 'invalid_promo');
+});
+
+test('account actions: block, new SIP password, plan, calls, live calls', function () {
+    [$app, $fake] = makeApp();
+    $confirm = tgTap($app, $fake, 999, 'adm:block:alice');
+    tgTap($app, $fake, 999, findButton($confirm, 'Confirm'));
+    same(0, $fake->users[7]['active']);
+    $card = tgTap($app, $fake, 999, 'adm:account:alice');
+    check(strpos($card['text'], 'blocked') !== false, 'card shows blocked');
+    findButton($card, 'Unblock');
+
+    $ask = tgTap($app, $fake, 999, 'adm:sippw:100234');
+    $confirm = tgTap($app, $fake, 999, findButton($ask, 'Generate'));
+    preg_match('/to <code>([^<]+)<\/code>/', $confirm['text'], $m);
+    tgTap($app, $fake, 999, findButton($confirm, 'Confirm'));
+    same($m[1], $fake->sips[23]['secret'], 'new SIP password saved');
+
+    $plans = tgTap($app, $fake, 999, 'adm:plan:alice');
+    $confirm = tgTap($app, $fake, 999, findButton($plans, 'Premium'));
+    tgTap($app, $fake, 999, findButton($confirm, 'Confirm'));
+    same(2, $fake->users[7]['id_plan']);
+
+    $fake->calls = [
+        ['id_user' => 7, 'starttime' => '2026-11-05 10:00:00', 'calledstation' => '447911123456', 'sessiontime' => 125, 'sessionbill' => 0.25],
+        ['id_user' => 8, 'starttime' => '2026-11-05 10:05:00', 'calledstation' => '15550001', 'sessiontime' => 10, 'sessionbill' => 0.01],
+    ];
+    $calls = tgTap($app, $fake, 999, 'adm:calls:alice');
+    check(strpos($calls['text'], '447911123456') !== false && strpos($calls['text'], '2:05') !== false && strpos($calls['text'], '15550001') === false, 'calls of that account only');
+    linkChat($app, $fake, 555, 'alice');
+    $mine = tgTap($app, $fake, 555, 'calls');
+    check(strpos($mine['text'], '447911123456') !== false, 'customer sees own calls');
+
+    $fake->liveCalls = [['sip_account' => '100234', 'ndiscado' => '4420711', 'duration' => 61, 'status' => 'Up']];
+    $live = tgTap($app, $fake, 999, 'adm:live');
+    check(strpos($live['text'], 'Live calls</b> (1)') !== false && strpos($live['text'], '1:01') !== false, 'live calls');
+});
+
+test('view-only admins can look but not change', function () {
+    [$app, $fake] = makeApp(['telegram' => ['viewer_chat_ids' => [888]]]);
+    $welcome = tgSay($app, $fake, 888, '/start', 'viewer');
+    same('🛠 Admin panel', $welcome['reply_markup']['keyboard'][2][1]['text'], 'viewer gets the panel button');
+    $panel = tgSay($app, $fake, 888, '🛠 Admin panel', 'viewer');
+    check(strpos($panel['text'], 'View-only') !== false, 'view-only panel');
+    $recent = tgTap($app, $fake, 888, 'adm:recent');
+    check(strpos($recent['text'], 'No orders yet') !== false || strpos($recent['text'], 'Latest orders') !== false, 'can view');
+    $denied = tgTap($app, $fake, 888, 'adm:add:alice');
+    check(strpos($denied['text'], 'view-only access') !== false, 'cannot change');
+    tgSay($app, $fake, 888, '/addcredit alice 5', 'viewer');
+    same(1.5, $fake->users[7]['credit']);
 });
 
 test('telegram: unexpected errors reply politely instead of crashing', function () {

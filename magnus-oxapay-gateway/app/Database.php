@@ -45,6 +45,25 @@ final class Database
         $this->migrate();
     }
 
+    /**
+     * Small key/value store for scheduled-job state (last report date, health status, alerts sent...).
+     */
+    public function kvGet(string $key): ?string
+    {
+        $row = $this->one('SELECT v FROM ' . $this->table('kv') . ' WHERE k = ?', [$key]);
+
+        return $row === null ? null : (string) $row['v'];
+    }
+
+    public function kvSet(string $key, ?string $value): void
+    {
+        if ($value === null) {
+            $this->run('DELETE FROM ' . $this->table('kv') . ' WHERE k = ?', [$key]);
+            return;
+        }
+        $this->run('REPLACE INTO ' . $this->table('kv') . ' (k, v, updated_at) VALUES (?, ?, ?)', [$key, $value, time()]);
+    }
+
     public function table(string $name): string
     {
         return $this->prefix . $name;
@@ -120,6 +139,15 @@ final class Database
         return true;
     }
 
+    private function addColumn(string $table, string $column, string $definition): void
+    {
+        try {
+            $this->pdo->query('SELECT ' . $column . ' FROM ' . $this->table($table) . ' LIMIT 1');
+        } catch (\PDOException $e) {
+            $this->pdo->exec('ALTER TABLE ' . $this->table($table) . ' ADD COLUMN ' . $column . ' ' . $definition);
+        }
+    }
+
     private function migrate(): void
     {
         $suffix = $this->driver === 'mysql' ? ' ENGINE=InnoDB DEFAULT CHARSET=utf8mb4' : '';
@@ -179,12 +207,46 @@ final class Database
             used_at BIGINT NULL
         )' . $suffix);
 
+        $this->pdo->exec('CREATE TABLE IF NOT EXISTS ' . $this->table('kv') . ' (
+            k VARCHAR(150) NOT NULL PRIMARY KEY,
+            v VARCHAR(1000) NULL,
+            updated_at BIGINT NOT NULL
+        )' . $suffix);
+
+        $this->pdo->exec('CREATE TABLE IF NOT EXISTS ' . $this->table('promos') . ' (
+            code VARCHAR(40) NOT NULL PRIMARY KEY,
+            percent DECIMAL(6,2) NOT NULL,
+            max_uses INTEGER NOT NULL DEFAULT 0,
+            uses INTEGER NOT NULL DEFAULT 0,
+            expires_at BIGINT NULL,
+            active INTEGER NOT NULL DEFAULT 1,
+            created_by VARCHAR(100) NULL,
+            created_at BIGINT NOT NULL
+        )' . $suffix);
+
+        $this->pdo->exec('CREATE TABLE IF NOT EXISTS ' . $this->table('manual_payments') . ' (
+            id VARCHAR(16) NOT NULL PRIMARY KEY,
+            chat_id VARCHAR(32) NOT NULL,
+            username VARCHAR(100) NOT NULL,
+            amount DECIMAL(14,2) NOT NULL,
+            currency VARCHAR(10) NOT NULL,
+            reference VARCHAR(40) NOT NULL,
+            status VARCHAR(20) NOT NULL,
+            order_id VARCHAR(32) NULL,
+            decided_by VARCHAR(100) NULL,
+            created_at BIGINT NOT NULL,
+            decided_at BIGINT NULL
+        )' . $suffix);
+
         $this->pdo->exec('CREATE TABLE IF NOT EXISTS ' . $this->table('settings') . ' (
             skey VARCHAR(100) NOT NULL PRIMARY KEY,
             svalue VARCHAR(500) NOT NULL,
             updated_at BIGINT NOT NULL,
             updated_by VARCHAR(100) NULL
         )' . $suffix);
+
+        // Columns added after the first release.
+        $this->addColumn('orders', 'promo_code', 'VARCHAR(40) NULL');
 
         $this->pdo->exec('CREATE TABLE IF NOT EXISTS ' . $this->table('rate_limits') . ' (
             rkey VARCHAR(150) NOT NULL PRIMARY KEY,

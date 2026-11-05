@@ -17,6 +17,8 @@ namespace Gateway;
  */
 final class TelegramBot
 {
+    use BotExtras;
+
     /** How long a Confirm button stays valid. */
     private const CONFIRM_TTL = 300;
 
@@ -25,6 +27,7 @@ final class TelegramBot
     private const MENU_HELP = '❓ Help';
     private const MENU_ADMIN = '🛠 Admin panel';
     private const MENU_ACCOUNT = '👤 My account';
+    private const MENU_SUPPORT = '🆘 Support';
 
     /** Longest manual notification (Telegram allows 4096 characters per message). */
     private const MESSAGE_MAX = 3500;
@@ -106,12 +109,30 @@ final class TelegramBot
         $chatId = (string) $message['chat']['id'];
         $text = trim((string) ($message['text'] ?? ''));
         if ($text === '') {
+            // Photos and files: support messages and bank transfer receipts.
+            if (($message['chat']['type'] ?? 'private') === 'private') {
+                $session = $this->getSession($chatId);
+                if ($session['state'] === 'support') {
+                    $this->forwardSupport($chatId, $message);
+                } elseif ($session['state'] === 'bank_receipt') {
+                    $this->bankReceipt($chatId, $session['data'], $message);
+                }
+            }
             return;
         }
 
         if ($text[0] === '/') {
             $this->onCommand($chatId, $text);
         } elseif (($message['chat']['type'] ?? 'private') === 'private') {
+            $session = $this->getSession($chatId);
+            if ($session['state'] === 'support' && !in_array($text, [self::MENU_TOPUP, self::MENU_ORDERS, self::MENU_ACCOUNT, self::MENU_HELP, self::MENU_ADMIN, self::MENU_SUPPORT], true)) {
+                $this->forwardSupport($chatId, $message);
+                return;
+            }
+            if ($session['state'] === 'bank_receipt') {
+                $this->bankReceipt($chatId, $session['data'], $message);
+                return;
+            }
             $this->onText($chatId, $text);
         }
     }
@@ -158,6 +179,10 @@ final class TelegramBot
                 $this->sendMyAccount($chatId);
                 return;
 
+            case '/support':
+                $this->startSupport($chatId);
+                return;
+
             case '/topup':
             case '/pay':
                 $this->startTopup($chatId, $args[0] ?? null, $args[1] ?? null);
@@ -177,8 +202,28 @@ final class TelegramBot
                 return;
         }
 
+        if (!$admin && $this->app->isViewerChat($chatId)) {
+            $arg = (string) ($args[0] ?? '');
+            $viewerCommands = ['/admin' => 'panel', '/recent' => 'recent', '/stats' => 'stats', '/live' => 'live',
+                '/account' => 'account:' . $arg, '/balance' => 'account:' . $arg, '/order' => 'order:' . $arg, '/find' => 'findu:' . $arg];
+            if (isset($viewerCommands[$command])) {
+                $this->onAdminButton($chatId, $viewerCommands[$command]);
+                return;
+            }
+            if ($command === '/sip') {
+                $this->sendSipAccounts($chatId, $arg);
+                return;
+            }
+        }
+
         if ($admin) {
             switch ($command) {
+                case '/live':
+                    $this->sendLiveCalls($chatId);
+                    return;
+                case '/report':
+                    $this->dailyReport();
+                    return;
                 case '/recent':
                     $this->sendRecent($chatId);
                     return;
@@ -238,12 +283,15 @@ final class TelegramBot
             case self::MENU_ACCOUNT:
                 $this->sendMyAccount($chatId);
                 return;
+            case self::MENU_SUPPORT:
+                $this->startSupport($chatId);
+                return;
             case self::MENU_HELP:
                 $this->clearSession($chatId);
                 $this->sendWelcome($chatId, $this->app->isAdminChat($chatId));
                 return;
             case self::MENU_ADMIN:
-                if ($this->app->isAdminChat($chatId)) {
+                if ($this->app->isViewerChat($chatId)) {
                     $this->clearSession($chatId);
                     $this->sendAdminPanel($chatId);
                     return;
@@ -253,12 +301,18 @@ final class TelegramBot
 
         $session = $this->getSession($chatId);
         if (strpos($session['state'], 'adm_') === 0) {
-            if ($this->app->isAdminChat($chatId)) {
+            if ($this->app->isViewerChat($chatId)) {
                 $this->onAdminText($chatId, $session, $text);
             }
             return;
         }
         switch ($session['state']) {
+            case 'bank_amount':
+                $this->bankAmount($chatId, $session['data'], $text);
+                return;
+            case 'await_promo':
+                $this->acceptPromo($chatId, $session['data'], $text);
+                return;
             case 'await_username':
                 $this->acceptUsername($chatId, $text);
                 return;
@@ -300,6 +354,33 @@ final class TelegramBot
         if (strpos($data, 'adm:') === 0) {
             if ($this->app->isAdminChat($chatId)) {
                 $this->onAdminButton($chatId, substr($data, 4));
+            } elseif ($this->app->isViewerChat($chatId)) {
+                $command = explode(':', substr($data, 4), 2)[0];
+                if (in_array($command, self::$viewerCommands, true)) {
+                    $this->onAdminButton($chatId, substr($data, 4));
+                } else {
+                    $this->say($chatId, '👀 You have view-only access. Ask a full admin to make changes.');
+                }
+            }
+            return;
+        }
+
+        if ($data === 'sup') {
+            $this->startSupport($chatId);
+            return;
+        }
+        if ($data === 'bank') {
+            $this->startBank($chatId);
+            return;
+        }
+        if ($data === 'promo') {
+            $this->startPromo($chatId);
+            return;
+        }
+        if ($data === 'calls') {
+            $linked = $this->app->customers()->linkedUsername($chatId);
+            if ($linked !== null) {
+                $this->sendCalls($chatId, $linked, false);
             }
             return;
         }
@@ -386,9 +467,9 @@ final class TelegramBot
         return $user;
     }
 
-    private function askAmount(string $chatId, string $username): void
+    private function askAmount(string $chatId, string $username, string $promoCode = '', float $promoPercent = 0.0): void
     {
-        $this->setSession($chatId, 'await_amount', ['username' => $username]);
+        $this->setSession($chatId, 'await_amount', ['username' => $username, 'promo' => $promoCode, 'promo_percent' => $promoPercent]);
         $pay = $this->app->config['payments'];
         $payments = $this->payments();
 
@@ -397,6 +478,16 @@ final class TelegramBot
             $buttons[] = ['text' => $payments->money($preset, true), 'callback_data' => 'amt:' . $preset];
         }
         $keyboard = array_chunk($buttons, 3);
+        $extras = [];
+        if ($promoCode === '') {
+            $extras[] = ['text' => '🎟 Promo code', 'callback_data' => 'promo'];
+        }
+        if ($this->bankEnabled()) {
+            $extras[] = ['text' => '🏦 Bank transfer', 'callback_data' => 'bank'];
+        }
+        if ($extras !== []) {
+            $keyboard[] = $extras;
+        }
         $keyboard[] = [['text' => 'Cancel', 'callback_data' => 'cancel']];
 
         $this->say(
@@ -404,7 +495,8 @@ final class TelegramBot
             'Account: <code>' . self::e($username) . "</code>\n"
             . 'Choose an amount, or type one between ' . self::e($payments->money($pay['min_amount']))
             . ' and ' . self::e($payments->money($pay['max_amount'])) . '.'
-            . $this->bonusLine(),
+            . $this->bonusLine()
+            . ($promoCode !== '' ? "\n🎟 Promo <code>" . self::e($promoCode) . '</code>: +' . self::e((string) $promoPercent) . '% extra credit' : ''),
             ['reply_markup' => ['inline_keyboard' => $keyboard]]
         );
     }
@@ -415,8 +507,10 @@ final class TelegramBot
             $this->startTopup($chatId, null, null);
             return;
         }
+        $session = $this->getSession($chatId);
+        $promo = $session['state'] === 'await_amount' ? (string) ($session['data']['promo'] ?? '') : '';
         $order = $this->payments()->createOrder(
-            ['username' => $username, 'amount' => $amount],
+            ['username' => $username, 'amount' => $amount, 'promo' => $promo],
             'telegram',
             ['tg_chat_id' => $chatId]
         );
@@ -479,9 +573,10 @@ final class TelegramBot
         if ($linked !== null) {
             $keyboard[1][] = ['text' => self::MENU_ACCOUNT];
         }
-        $keyboard[1][] = ['text' => self::MENU_HELP];
-        if ($admin) {
-            $keyboard[1][] = ['text' => self::MENU_ADMIN];
+        $keyboard[1][] = ['text' => self::MENU_SUPPORT];
+        $keyboard[2] = [['text' => self::MENU_HELP]];
+        if ($admin || $this->app->isViewerChat($chatId)) {
+            $keyboard[2][] = ['text' => self::MENU_ADMIN];
         }
         if ($linked !== null) {
             array_splice($lines, 2, 0, ['🔗 Linked to account <code>' . self::e($linked) . '</code>']);
@@ -612,6 +707,8 @@ final class TelegramBot
             'Balance: <b>' . self::e(number_format((float) ($user['credit'] ?? 0), 2)) . '</b>',
             'Telegram: ' . ($linkedChats === [] ? 'not linked' : 'linked (' . count($linkedChats) . ' chat' . (count($linkedChats) === 1 ? '' : 's') . ')'),
         ];
+        $active = (int) ($user['active'] ?? 1);
+        $lines[] = 'Status: ' . ($active === 1 ? 'active' : ($active === 0 ? '⛔ blocked' : 'pending'));
         try {
             $sips = $this->app->magnus()->sipAccountsForUser((int) $user['id']);
         } catch (\Throwable $e) {
@@ -647,6 +744,11 @@ final class TelegramBot
                 $row[] = ['text' => '✉️ Message', 'callback_data' => 'adm:msgu:' . $name];
             }
             $keyboard[] = $row;
+            $keyboard[] = [
+                $active === 0 ? ['text' => '✅ Unblock', 'callback_data' => 'adm:unblock:' . $name] : ['text' => '⛔ Block', 'callback_data' => 'adm:block:' . $name],
+                ['text' => '🔑 SIP password', 'callback_data' => 'adm:sippw:' . $name],
+            ];
+            $keyboard[] = [['text' => '📦 Change plan', 'callback_data' => 'adm:plan:' . $name], ['text' => '📞 Calls', 'callback_data' => 'adm:calls:' . $name]];
             $keyboard[] = [['text' => '🔍 All orders', 'callback_data' => 'adm:findu:' . $name], ['text' => '« Admin panel', 'callback_data' => 'adm:panel']];
         }
         $this->say($chatId, implode("\n", $lines), ['reply_markup' => ['inline_keyboard' => $keyboard]]);
@@ -835,7 +937,7 @@ final class TelegramBot
 
         $action = (array) $data['action'];
         $tools = $this->app->adminTools();
-        if (in_array($action['type'] ?? '', ['callerid', 'credit', 'markpaid', 'create_user'], true)) {
+        if (in_array($action['type'] ?? '', ['callerid', 'credit', 'markpaid', 'create_user', 'user_active', 'sip_password', 'user_plan', 'bank_approve'], true)) {
             $this->say($chatId, '⏳ Saving in MagnusBilling…');
         }
         $slowNote = "\n<i>MagnusBilling took a while to answer. That is usually its customer email step: check Settings → SMTP in MagnusBilling.</i>";
@@ -874,10 +976,9 @@ final class TelegramBot
                 $this->app->settings()->set((string) $action['name'], (string) $action['value'], $this->actor);
                 $this->say($chatId, '✅ Saved.');
                 $this->sendSettings($chatId);
-                $pay = $this->app->config['payments'];
-                $this->notifyOtherAdmins($chatId, '⚙️ ' . self::e($this->actor) . ' changed settings: currency '
-                    . self::e((string) $pay['currency']) . ', minimum ' . self::e($this->payments()->money($pay['min_amount']))
-                    . ', maximum ' . self::e($this->payments()->money($pay['max_amount'])));
+                $labels = ['min_amount' => 'the minimum top-up', 'max_amount' => 'the maximum top-up', 'currency' => 'the currency',
+                    'low_balance' => 'the low-balance alert', 'report_hour' => 'the daily report time', 'bank_instructions' => 'the bank transfer details'];
+                $this->notifyOtherAdmins($chatId, '⚙️ ' . self::e($this->actor) . ' changed ' . self::e($labels[(string) $action['name']] ?? 'a setting') . '.');
                 return;
 
             case 'create_user':
@@ -909,6 +1010,10 @@ final class TelegramBot
                 $this->sendNotification($chatId, $action);
                 return;
 
+            default:
+                $this->runConfirmedExtra($chatId, $action);
+                return;
+
             case 'settings_reset':
                 $this->app->settings()->reset($this->actor);
                 $this->say($chatId, '✅ Settings reset to config.php.');
@@ -932,10 +1037,19 @@ final class TelegramBot
     {
         $payments = $this->payments();
         $today = $payments->totalsSince((int) strtotime('today'));
+        $title = "🛠 <b>Admin panel</b>\nToday: " . $today['count'] . ' payment' . ($today['count'] === 1 ? '' : 's')
+            . ' · ' . self::e($payments->money($today['amount']));
+        if (!$this->app->isAdminChat($chatId)) {
+            $this->say($chatId, $title . "\n👀 View-only access", ['reply_markup' => ['inline_keyboard' => [
+                [['text' => '📋 Recent orders', 'callback_data' => 'adm:recent'], ['text' => '📊 Stats', 'callback_data' => 'adm:stats']],
+                [['text' => '👤 Account', 'callback_data' => 'adm:account'], ['text' => '🔍 Find orders', 'callback_data' => 'adm:find']],
+                [['text' => '📞 Live calls', 'callback_data' => 'adm:live'], ['text' => '👥 Customers', 'callback_data' => 'adm:cust']],
+            ]]]);
+            return;
+        }
         $this->say(
             $chatId,
-            "🛠 <b>Admin panel</b>\nToday: " . $today['count'] . ' payment' . ($today['count'] === 1 ? '' : 's')
-            . ' · ' . self::e($payments->money($today['amount'])) . "\nChoose an action:",
+            $title . "\nChoose an action:",
             ['reply_markup' => ['inline_keyboard' => [
                 [['text' => '📋 Recent orders', 'callback_data' => 'adm:recent'], ['text' => '📊 Stats', 'callback_data' => 'adm:stats']],
                 [['text' => '👤 Account', 'callback_data' => 'adm:account'], ['text' => '🔍 Find orders', 'callback_data' => 'adm:find']],
@@ -943,7 +1057,9 @@ final class TelegramBot
                 [['text' => '☎️ SIP accounts', 'callback_data' => 'adm:sip'], ['text' => '📞 Caller ID', 'callback_data' => 'adm:cid']],
                 [['text' => '✅ Mark an order paid', 'callback_data' => 'adm:markpaid']],
                 [['text' => '👥 Customers', 'callback_data' => 'adm:cust'], ['text' => '📣 Send message', 'callback_data' => 'adm:notify']],
-                [['text' => '⚙️ Settings (minimum, currency)', 'callback_data' => 'adm:settings']],
+                [['text' => '📞 Live calls', 'callback_data' => 'adm:live'], ['text' => '🎟 Promo codes', 'callback_data' => 'adm:promos']],
+                [['text' => '🏦 Bank transfers', 'callback_data' => 'adm:banks'], ['text' => '📊 Report now', 'callback_data' => 'adm:reportnow']],
+                [['text' => '⚙️ Settings', 'callback_data' => 'adm:settings']],
             ]]]
         );
     }
@@ -1110,6 +1226,9 @@ final class TelegramBot
                 $this->clearSession($chatId);
                 $this->sendSettings($chatId);
                 return;
+            default:
+                $this->onAdminButtonExtra($chatId, $command, $arg);
+                return;
             case 'set':
                 $name = $arg === 'max' ? 'max_amount' : 'min_amount';
                 $quick = $name === 'min_amount' ? [1, 2, 5, 10, 20] : [100, 250, 500, 1000, 5000];
@@ -1156,22 +1275,29 @@ final class TelegramBot
         $payments = $this->payments();
         $overrides = $this->app->settings()->overrides();
         $changed = array_map(static function (string $name): string {
-            return ['min_amount' => 'minimum', 'max_amount' => 'maximum', 'currency' => 'currency'][$name] ?? $name;
+            return ['min_amount' => 'minimum', 'max_amount' => 'maximum', 'currency' => 'currency', 'low_balance' => 'low-balance alert',
+                'report_hour' => 'report time', 'bank_instructions' => 'bank details'][$name] ?? $name;
         }, array_keys($overrides));
+        $low = (float) ($pay['low_balance'] ?? 0);
+        $hour = (int) ($this->app->config['telegram']['report_hour'] ?? -1);
         $lines = [
             '⚙️ <b>Settings</b>',
             'Currency: <b>' . self::e((string) $pay['currency']) . '</b> (' . self::e((string) $pay['currency_symbol']) . ')',
             'Minimum top-up: <b>' . self::e($payments->money($pay['min_amount'])) . '</b>',
             'Maximum top-up: <b>' . self::e($payments->money($pay['max_amount'])) . '</b>',
             'MagnusBilling credit per 1 ' . self::e((string) $pay['currency']) . ': ' . self::e((string) $pay['credit_rate']) . ' <i>(config.php)</i>',
+            'Low-balance alert: <b>' . ($low > 0 ? 'below ' . self::e(number_format($low, 2)) : 'off') . '</b>',
+            'Daily report: <b>' . ($hour >= 0 ? sprintf('%02d:00', $hour) : 'off') . '</b>',
+            'Bank transfer: <b>' . ($this->bankEnabled() ? 'on' : 'off') . '</b>',
             '',
             $changed === [] ? 'All values come from config.php.' : 'Changed here: ' . self::e(implode(', ', $changed)) . '. Applies to the website and bot right away.',
         ];
         $keyboard = [
             [['text' => '✏️ Minimum', 'callback_data' => 'adm:set:min'], ['text' => '✏️ Maximum', 'callback_data' => 'adm:set:max']],
-            [['text' => '💱 Currency', 'callback_data' => 'adm:cur']],
+            [['text' => '💱 Currency', 'callback_data' => 'adm:cur'], ['text' => '🪫 Low-balance alert', 'callback_data' => 'adm:setlow']],
+            [['text' => '📊 Report time', 'callback_data' => 'adm:sethour'], ['text' => '🏦 Bank details', 'callback_data' => 'adm:setbank']],
         ];
-        if ($overrides !== []) {
+        if (array_intersect(array_keys($overrides), ['min_amount', 'max_amount', 'currency']) !== []) {
             $keyboard[] = [['text' => '↩️ Reset to config.php', 'callback_data' => 'adm:reset']];
         }
         $keyboard[] = [['text' => '« Admin panel', 'callback_data' => 'adm:panel']];
@@ -1193,6 +1319,14 @@ final class TelegramBot
                 . 'New invoices, the website and the bot will use ' . self::e(Settings::symbolFor($value)) . '. '
                 . 'Each ' . self::e($value) . ' paid adds ' . self::e((string) $pay['credit_rate']) . ' MagnusBilling credit, so check that your '
                 . 'MagnusBilling currency is ' . self::e($value) . ' (otherwise adjust credit_rate in config.php). Existing orders keep their currency.';
+        } elseif ($name === 'low_balance') {
+            $text = (float) $value > 0
+                ? '🪫 Alert linked customers when their balance drops below <b>' . self::e(number_format((float) $value, 2)) . '</b>?'
+                : '🪫 Turn low-balance alerts off?';
+        } elseif ($name === 'report_hour') {
+            $text = (int) $value >= 0 ? '📊 Send the daily report at <b>' . sprintf('%02d:00', (int) $value) . '</b> (server time)?' : '📊 Turn the daily report off?';
+        } elseif ($name === 'bank_instructions') {
+            $text = $value !== '' ? "🏦 Offer bank transfer with these details?\n\n" . self::e($value) : '🏦 Turn bank transfer off?';
         } else {
             $label = $name === 'min_amount' ? 'minimum' : 'maximum';
             $text = '✏️ Change the ' . $label . ' top-up from <b>' . self::e($payments->money($pay[$name])) . '</b> to <b>'
@@ -1269,6 +1403,9 @@ final class TelegramBot
                 return;
             case 'adm_msg_text':
                 $this->askMessageConfirm($chatId, $data, $text);
+                return;
+            default:
+                $this->onAdminTextExtra($chatId, $session, $text);
                 return;
         }
     }
@@ -1367,6 +1504,7 @@ final class TelegramBot
         if (strlen((string) $user['username']) <= 56) {
             $keyboard[] = [['text' => '💳 Top up this account', 'callback_data' => 'usr:' . $user['username']]];
         }
+        $keyboard[] = [['text' => '📞 My calls', 'callback_data' => 'calls'], ['text' => '🆘 Support', 'callback_data' => 'sup']];
         $keyboard[] = [['text' => '🔌 Unlink this Telegram', 'callback_data' => 'unlink']];
         $this->say($chatId, implode("\n", $lines), ['reply_markup' => ['inline_keyboard' => $keyboard]]);
     }

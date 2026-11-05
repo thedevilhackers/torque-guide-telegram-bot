@@ -474,6 +474,24 @@ label { font-weight: 600; font-size: 14px; }
 .icon-btn svg { width: 15px; height: 15px; }
 .icon-btn.done { color: var(--ok); border-color: var(--ok); }
 
+/* ------------------------------------------------------------------ promo */
+
+.promo { font-size: 14px; margin-top: -8px; }
+
+.promo summary {
+    cursor: pointer;
+    color: var(--accent);
+    list-style: none;
+    font-weight: 600;
+}
+
+.promo summary::-webkit-details-marker { display: none; }
+
+.promo-row { display: flex; gap: 8px; margin-top: 10px; }
+.promo-row .input-wrap { flex: 1; min-width: 0; }
+.promo-row input { font-size: 15px; padding: 11px 12px; text-transform: uppercase; letter-spacing: .06em; }
+.promo .hint { margin-top: 8px; }
+
 /* ------------------------------------------------------------------ track */
 
 .track {

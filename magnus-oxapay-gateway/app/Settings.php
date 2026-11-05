@@ -18,6 +18,9 @@ final class Settings
         'min_amount' => ['payments', 'min_amount'],
         'max_amount' => ['payments', 'max_amount'],
         'currency' => ['payments', 'currency'],
+        'low_balance' => ['payments', 'low_balance'],
+        'bank_instructions' => ['payments', 'bank_instructions'],
+        'report_hour' => ['telegram', 'report_hour'],
     ];
 
     /** @var App */
@@ -43,6 +46,10 @@ final class Settings
             if ($name === 'currency') {
                 $config[$section]['currency'] = $value;
                 $config[$section]['currency_symbol'] = self::CURRENCIES[$value] ?? '';
+            } elseif ($name === 'bank_instructions') {
+                $config[$section][$key] = $value;
+            } elseif ($name === 'report_hour') {
+                $config[$section][$key] = (int) $value;
             } else {
                 $config[$section][$key] = (float) $value;
             }
@@ -88,11 +95,35 @@ final class Settings
         if (!isset(self::KEYS[$name])) {
             throw new UserError('invalid_setting', 'Unknown setting.');
         }
+        if ($name === 'bank_instructions') {
+            $value = trim($value);
+            if (in_array(strtolower($value), ['-', 'off', 'none', 'disable'], true)) {
+                return '';
+            }
+            $length = function_exists('mb_strlen') ? mb_strlen($value) : strlen($value);
+            if ($length > 1000) {
+                throw new UserError('invalid_text', 'Keep the bank details under 1000 characters.');
+            }
+            return $value;
+        }
+        if ($name === 'report_hour') {
+            $value = strtolower(trim($value));
+            if (in_array($value, ['off', '-1', 'none'], true)) {
+                return '-1';
+            }
+            if (!preg_match('/^\d{1,2}$/', $value) || (int) $value > 23) {
+                throw new UserError('invalid_hour', 'Send an hour from 0 to 23, or off.');
+            }
+            return (string) (int) $value;
+        }
         $text = str_replace(',', '.', trim(ltrim(trim($value), '€$£')));
-        if (!preg_match('/^\d{1,7}(\.\d{1,2})?$/', $text) || (float) $text <= 0) {
+        if (!preg_match('/^\d{1,7}(\.\d{1,2})?$/', $text) || ((float) $text <= 0 && $name !== 'low_balance')) {
             throw new UserError('invalid_amount', 'Enter an amount greater than 0, such as 5 or 2.50.');
         }
         $amount = (float) $text;
+        if ($name === 'low_balance') {
+            return number_format($amount, 2, '.', '');
+        }
         if ($name === 'min_amount' && $amount >= (float) $pay['max_amount']) {
             throw new UserError('invalid_amount', 'The minimum must be lower than the maximum (' . number_format((float) $pay['max_amount'], 2) . ').');
         }
@@ -116,7 +147,7 @@ final class Settings
 
     public function reset(string $actor): void
     {
-        $this->app->db()->run('DELETE FROM ' . $this->app->db()->table('settings'));
+        $this->app->db()->run('DELETE FROM ' . $this->app->db()->table('settings') . " WHERE skey IN ('min_amount', 'max_amount', 'currency')");
         $this->app->refreshSettings();
         $this->app->log('info', 'Admin reset settings to config.php', ['admin' => $actor]);
     }

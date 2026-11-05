@@ -246,6 +246,9 @@ try {
     if (($admins = env('UC_TG_ADMINS')) !== '') {
         $config['telegram']['admin_chat_ids'] = array_values(array_map('intval', array_filter(array_map('trim', explode(',', $admins)), 'is_numeric')));
     }
+    if (($viewers = env('UC_TG_VIEWERS')) !== '') {
+        $config['telegram']['viewer_chat_ids'] = $viewers === 'none' ? [] : array_values(array_map('intval', array_filter(array_map('trim', explode(',', $viewers)), 'is_numeric')));
+    }
     if ((string) ($config['telegram']['webhook_secret'] ?? '') === '') {
         $config['telegram']['webhook_secret'] = bin2hex(random_bytes(24));
     }

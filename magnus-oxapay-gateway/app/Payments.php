@@ -86,7 +86,7 @@ final class Payments
     /**
      * @return array{amount:string, currency:string, bonus_percent:float, credit:string}
      */
-    public function quote(string $amount): array
+    public function quote(string $amount, float $promoPercent = 0.0): array
     {
         $pay = $this->app->config['payments'];
         $value = (float) $amount;
@@ -96,6 +96,7 @@ final class Payments
                 $bonus = max($bonus, (float) $tier['percent']);
             }
         }
+        $bonus += max(0.0, $promoPercent);
         $credit = round($value * (float) $pay['credit_rate'] * (1 + $bonus / 100), 4);
 
         return [
@@ -187,12 +188,20 @@ final class Payments
             throw new \RuntimeException('site.base_url must be set in config.php.');
         }
 
+        $promoCode = null;
+        $promoPercent = 0.0;
+        if (trim((string) ($input['promo'] ?? '')) !== '') {
+            $promo = $this->app->promos()->validate((string) $input['promo']);
+            $promoCode = (string) $promo['code'];
+            $promoPercent = (float) $promo['percent'];
+        }
+
         $user = $this->lookupUser($username);
         if ($user === null || !isset($user['id'])) {
             throw new UserError('unknown_user', 'No account found with that username.', 404);
         }
 
-        $quote = $this->quote($amount);
+        $quote = $this->quote($amount, $promoPercent);
         $id = bin2hex(random_bytes(12));
         $now = time();
 
@@ -210,6 +219,7 @@ final class Payments
             'email' => $email !== '' ? $email : null,
             'reference' => $reference !== '' ? $reference : null,
             'return_url' => $returnUrl,
+            'promo_code' => $promoCode,
             'ip' => isset($options['ip']) ? substr((string) $options['ip'], 0, 45) : null,
             'created_at' => $now,
             'updated_at' => $now,
@@ -350,6 +360,22 @@ final class Payments
         $order = $this->getOrder($orderId);
 
         return $order !== null && (string) $order['tg_chat_id'] === $chatId;
+    }
+
+    /**
+     * Credited payments in [$from, $to), in the current payment currency.
+     *
+     * @return array{count:int, amount:float}
+     */
+    public function totalsBetween(int $from, int $to): array
+    {
+        $row = $this->app->db()->one(
+            'SELECT COUNT(*) AS c, COALESCE(SUM(amount), 0) AS s FROM ' . $this->app->db()->table('orders')
+            . " WHERE status = 'credited' AND credited_at >= ? AND credited_at < ? AND currency = ?",
+            [$from, $to, (string) $this->app->config['payments']['currency']]
+        );
+
+        return ['count' => (int) ($row['c'] ?? 0), 'amount' => (float) ($row['s'] ?? 0)];
     }
 
     /**
@@ -618,6 +644,7 @@ final class Payments
             ]);
             $order = $this->getOrder($id) ?? $order;
             $this->app->log('info', 'Credit added', ['order' => $id, 'user' => $order['username'], 'credit' => $order['credit']]);
+            $this->afterCredited($order);
             $this->notify('credited', $order);
 
             return $order;
@@ -637,6 +664,7 @@ final class Payments
                     'last_error' => null,
                 ]);
                 $order = $this->getOrder($id) ?? $order;
+                $this->afterCredited($order);
                 $this->notify('credited', $order);
 
                 return $order;
@@ -651,6 +679,73 @@ final class Payments
 
             return $order;
         }
+    }
+
+    private function afterCredited(array $order): void
+    {
+        if (!empty($order['promo_code'])) {
+            $this->app->promos()->countUse((string) $order['promo_code']);
+        }
+    }
+
+    /**
+     * An order paid outside OxaPay (bank transfer), waiting for an admin to approve the receipt.
+     *
+     * @return array<string,mixed>
+     */
+    public function createManualOrder(string $username, string $amount, string $chatId, string $reference): array
+    {
+        $amount = $this->parseAmount($amount);
+        $user = $this->lookupUser($this->normalizeUsername($username));
+        if ($user === null) {
+            throw new UserError('unknown_user', 'No account found with that username.', 404);
+        }
+        $quote = $this->quote($amount);
+        $id = bin2hex(random_bytes(12));
+        $now = time();
+        $this->app->db()->insert('orders', [
+            'id' => $id,
+            'username' => (string) $user['username'],
+            'magnus_user_id' => (int) $user['id'],
+            'amount' => $quote['amount'],
+            'currency' => $quote['currency'],
+            'credit' => $quote['credit'],
+            'bonus_percent' => $quote['bonus_percent'],
+            'status' => 'pending',
+            'source' => 'bank',
+            'tg_chat_id' => $chatId,
+            'reference' => substr($reference, 0, 100),
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        return $this->getOrder($id) ?? [];
+    }
+
+    /**
+     * Re-checks unpaid OxaPay orders with OxaPay (scheduled job), so a payment whose webhook never
+     * arrived is still credited.
+     *
+     * @return int orders checked
+     */
+    public function syncOpenOrders(int $limit = 30): int
+    {
+        $now = time();
+        $orders = $this->app->db()->all(
+            'SELECT * FROM ' . $this->app->db()->table('orders')
+            . " WHERE status IN ('new', 'pending', 'paying', 'credit_failed') AND track_id IS NOT NULL"
+            . ' AND created_at BETWEEN ? AND ? AND (checked_at IS NULL OR checked_at < ?) ORDER BY created_at DESC LIMIT ' . max(1, min(100, $limit)),
+            [$now - 3 * 86400, $now - 120, $now - 240]
+        );
+        foreach ($orders as $order) {
+            try {
+                $this->sync($order);
+            } catch (\Throwable $e) {
+                $this->app->log('warning', 'Scheduled order check failed', ['order' => $order['id'], 'error' => $e->getMessage()]);
+            }
+        }
+
+        return count($orders);
     }
 
     /**
@@ -700,6 +795,9 @@ final class Payments
 
     private function refillDescription(array $order): string
     {
+        if ((string) $order['source'] === 'bank') {
+            return substr('Bank transfer #' . $order['id'] . ' ref ' . preg_replace('/[^A-Za-z0-9\-]/', '', (string) $order['reference']), 0, 200);
+        }
         $template = (string) $this->app->config['payments']['refill_description'];
         if (strpos($template, '{order}') === false) {
             $template .= ' #{order}';

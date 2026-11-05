@@ -262,6 +262,33 @@ final class MagnusBilling
     }
 
     /**
+     * Latest call records (pkg_cdr) of a customer, newest first.
+     *
+     * @return array<int,array<string,mixed>> starttime, calledstation, sessiontime, sessionbill, ...
+     */
+    public function calls(int $userId, int $limit = 10): array
+    {
+        return array_values(array_filter($this->read('call', [[
+            'type' => 'numeric',
+            'field' => 'id_user',
+            'value' => $userId,
+            'comparison' => 'eq',
+        ]], $limit), static function ($row) use ($userId): bool {
+            return !isset($row['id_user']) || (int) $row['id_user'] === $userId;
+        }));
+    }
+
+    /**
+     * Calls in progress (pkg_call_online).
+     *
+     * @return array<int,array<string,mixed>> sip_account, ndiscado, duration, status, ...
+     */
+    public function liveCalls(int $limit = 30): array
+    {
+        return $this->read('callOnLine', [], $limit);
+    }
+
+    /**
      * @return array<int,array<string,mixed>> plans (id, name)
      */
     public function plans(): array

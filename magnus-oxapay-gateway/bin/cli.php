@@ -43,6 +43,8 @@ function usage(): void
     line('  telegram:webhook   register {base_url}/telegram.php with Telegram');
     line('  telegram:unhook    remove the Telegram webhook');
     line('  telegram:poll      run the bot with long polling (no HTTPS needed)');
+    line('  cron               scheduled jobs (order checks, low-balance alerts, daily report, health alerts)');
+    line('  report             send the daily report to admins now');
 }
 
 if (in_array($command, ['help', '--help', '-h'], true)) {
@@ -146,6 +148,23 @@ try {
                 line('[SKIP] Telegram (telegram.enabled is false)');
             }
             exit($failed ? 1 : 0);
+
+        case 'cron':
+            // Runs every 5 minutes from /etc/cron.d/unitycarrier-pay; the lock stops overlapping runs.
+            $lock = fopen(GATEWAY_ROOT . '/data/cron.lock', 'c');
+            if ($lock === false || !flock($lock, LOCK_EX | LOCK_NB)) {
+                line('Another cron run is still busy.');
+                break;
+            }
+            foreach ($app->cron()->run() as $result) {
+                line($result);
+            }
+            flock($lock, LOCK_UN);
+            break;
+
+        case 'report':
+            line('report: ' . $app->cron()->dailyReport(true));
+            break;
 
         case 'orders':
             foreach ($app->payments()->recent((int) ($arg ?? 20)) as $order) {

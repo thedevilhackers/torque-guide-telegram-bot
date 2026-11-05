@@ -29,6 +29,23 @@ Features:
 - **Telegram bot**:
   - Customers get a menu (Top up · My payments · Help), one-tap repeat top-ups, and a message when the credit is added.
   - Admins get payment alerts. They can also look up orders, add or remove balance, credit an order by hand, and change SIP caller IDs, each with a Confirm button.
+- **Automatic jobs** run every 5 minutes:
+  - unpaid orders are re-checked, so a payment whose OxaPay notice was missed still gets credited
+  - **low-balance alerts** go to linked customers
+  - a **daily report** goes to admins
+  - **health alerts** fire when MagnusBilling or OxaPay stop answering
+- **Customer extras**:
+  - 🆘 support chat
+  - 🏦 bank transfer with receipt approval
+  - 🎟 promo codes on the website and in the bot
+  - 📞 call history
+- **Admin extras**:
+  - block or unblock accounts
+  - new SIP password
+  - change plan
+  - live calls
+  - promo code management
+  - view-only admins
 - **Settings in one file**: name, colours, currency, min/max, preset amounts, credit rate, bonus tiers, invoice lifetime, who pays the fee, and more.
 - **Safe crediting**: webhooks are checked with HMAC and re-checked with OxaPay's API. Each order is credited once, even if OxaPay sends the webhook several times or MagnusBilling times out mid-request.
 - No Composer and no framework: plain PHP 7.4+ with the `curl` extension and either SQLite or MySQL.
@@ -247,6 +264,48 @@ Payment alerts carry buttons too:
 
 - **New top-up**: **Account**
 - **Credit failed** and **Held for review**: **Re-check** and **Mark paid**
+
+**More admin panel buttons:**
+
+| Button | What it does |
+| --- | --- |
+| 📞 Live calls | Calls in progress: SIP account, number dialled, duration, status. Has a **Refresh** button. |
+| 🎟 Promo codes | Lists codes with how often each was used. **➕ New promo code** asks for code, percent, number of uses and days valid. Share a code as `https://…/pay/?promo=CODE`. |
+| 🏦 Bank transfers | Transfers waiting for approval, with **Approve** and **Reject**. Turn bank transfer on in ⚙️ Settings → 🏦 Bank details. |
+| 📊 Report now | Sends the daily report immediately |
+| ⚙️ Settings | Minimum, maximum, currency, 🪫 low-balance alert threshold (0 = off), 📊 daily report hour (or off), 🏦 bank details (or off) |
+
+**Account card buttons:** ⛔ Block / ✅ Unblock, 🔑 SIP password (type one or generate), 📦 Change plan, 📞 Calls, 🔗 Telegram invite, ✉️ Message.
+
+**For customers:**
+
+- 🆘 **Support**: customers write a message or send a photo or file. Admins get it with a **↩️ Reply** button, and the customer can reply back.
+- 🏦 **Bank transfer** (when bank details are set):
+  1. The customer chooses the amount.
+  2. They get your bank details and a reference code, and send a photo or PDF of the receipt.
+  3. Admins get the receipt with **Approve** and **Reject** buttons.
+  4. Approving credits the account and tells the customer.
+- 🎟 **Promo code**: entered while topping up in the bot, or on the website ("Have a promo code?"). It adds extra credit on top of the bonus tiers.
+- 📞 **My calls**: under 👤 My account, the latest calls with duration and cost.
+- 🪫 **Low-balance alert**: linked customers get a message with a **Top up now** button when their balance drops below the threshold. It is sent once per drop.
+
+**View-only admins:** to let someone see orders, accounts, stats and live calls without changing anything, run:
+
+```bash
+bash install.sh --telegram-viewers 123456789 --yes
+```
+
+**Scheduled jobs:** the installer adds `/etc/cron.d/unitycarrier-pay`, which runs `bin/cli.php cron` every 5 minutes as www-data. To run it by hand:
+
+```bash
+php /var/www/unitycarrier-pay/bin/cli.php cron
+```
+
+To send today's report now:
+
+```bash
+php /var/www/unitycarrier-pay/bin/cli.php report
+```
 
 Admin safety:
 

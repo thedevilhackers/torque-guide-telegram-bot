@@ -6,7 +6,8 @@
  *   GET  api.php?action=config
  *   GET  api.php?action=check_user&username=1001
  *   GET  api.php?action=quote&amount=25
- *   POST api.php?action=create_payment   {"username":"1001","amount":25,"email":"", "reference":"", "return_url":""}
+ *   GET  api.php?action=promo&code=WELCOME10
+ *   POST api.php?action=create_payment   {"username":"1001","amount":25,"promo":"", "email":"", "reference":"", "return_url":""}
  *   GET  api.php?action=order&order_id=...
  *   GET  api.php?action=user&username=1001          (API key required)
  *
@@ -94,7 +95,22 @@ try {
             break;
 
         case 'quote':
-            Web::json(['ok' => true, 'data' => $payments->quote($payments->parseAmount($input['amount'] ?? ''))]);
+            $promoPercent = 0.0;
+            $promoCode = null;
+            if (trim((string) ($input['promo'] ?? '')) !== '') {
+                $limit('promo');
+                $promo = $app->promos()->validate((string) $input['promo']);
+                $promoPercent = (float) $promo['percent'];
+                $promoCode = (string) $promo['code'];
+            }
+            $quote = $payments->quote($payments->parseAmount($input['amount'] ?? ''), $promoPercent);
+            Web::json(['ok' => true, 'data' => $quote + ['promo_code' => $promoCode, 'promo_percent' => $promoPercent]]);
+            break;
+
+        case 'promo':
+            $limit('promo');
+            $promo = $app->promos()->validate((string) ($input['code'] ?? ''));
+            Web::json(['ok' => true, 'data' => ['code' => (string) $promo['code'], 'percent' => (float) $promo['percent']]]);
             break;
 
         case 'create_payment':

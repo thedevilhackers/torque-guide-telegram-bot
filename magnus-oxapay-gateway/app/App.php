@@ -75,6 +75,8 @@ final class App
                 'bonus' => [],
                 'ask_email' => false,
                 'coins' => ['USDT', 'BTC', 'ETH', 'TRX', 'LTC', 'BNB', 'TON', 'DOGE'],
+                'low_balance' => 2,
+                'bank_instructions' => '',
                 'refill_description' => 'OxaPay top-up #{order} (track {track})',
             ],
             'magnus' => [
@@ -100,7 +102,9 @@ final class App
                 'bot_username' => '',
                 'webhook_secret' => '',
                 'admin_chat_ids' => [],
+                'viewer_chat_ids' => [],
                 'notify_admins' => true,
+                'report_hour' => 9,
             ],
             'api' => [
                 'keys' => [],
@@ -109,6 +113,7 @@ final class App
                     'check_user' => [60, 600],
                     'create_payment' => [10, 600],
                     'order' => [300, 600],
+                    'promo' => [30, 600],
                 ],
             ],
             'database' => [
@@ -217,6 +222,16 @@ final class App
         return new Customers($this);
     }
 
+    public function promos(): Promos
+    {
+        return new Promos($this);
+    }
+
+    public function cron(): Cron
+    {
+        return new Cron($this);
+    }
+
     /**
      * Public URL of the public/ folder without a trailing slash.
      */
@@ -272,6 +287,23 @@ final class App
     {
         foreach ((array) $this->config['telegram']['admin_chat_ids'] as $admin) {
             if ((string) $admin === (string) $chatId) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Admins plus view-only admins (who can look at orders and accounts but not change anything).
+     */
+    public function isViewerChat($chatId): bool
+    {
+        if ($this->isAdminChat($chatId)) {
+            return true;
+        }
+        foreach ((array) ($this->config['telegram']['viewer_chat_ids'] ?? []) as $viewer) {
+            if ((string) $viewer === (string) $chatId) {
                 return true;
             }
         }

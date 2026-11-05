@@ -17,6 +17,7 @@ $public = $app->publicConfig();
 
 $prefillUser = substr(preg_replace('/[^A-Za-z0-9_.@+\-]/', '', (string) ($_GET['username'] ?? '')) ?? '', 0, 64);
 $prefillAmount = preg_match('/^\d{1,9}(\.\d{1,2})?$/', (string) ($_GET['amount'] ?? '')) ? (string) $_GET['amount'] : '';
+$prefillPromo = preg_match('/^[A-Za-z0-9]{3,20}$/', (string) ($_GET['promo'] ?? '')) ? strtoupper((string) $_GET['promo']) : '';
 $title = $app->config['site']['name'] . ' · Top up';
 
 $coinColors = [
@@ -25,7 +26,7 @@ $coinColors = [
     'XMR' => '#ff6600', 'BCH' => '#8dc351', 'DAI' => '#f5ac37', 'SHIB' => '#e42d04', 'POL' => '#8247e5',
 ];
 
-$body = static function () use ($pay, $payments, $prefillUser, $prefillAmount): void {
+$body = static function () use ($pay, $payments, $prefillUser, $prefillAmount, $prefillPromo): void {
     ?>
     <div class="intro">
         <h1>Add balance</h1>
@@ -75,6 +76,18 @@ $body = static function () use ($pay, $payments, $prefillUser, $prefillAmount): 
                 </div>
             <?php endif; ?>
         </div>
+
+        <details class="promo" id="promo-box" <?= $prefillPromo !== '' ? 'open' : '' ?>>
+            <summary>Have a promo code?</summary>
+            <div class="promo-row">
+                <div class="input-wrap">
+                    <input id="promo" type="text" maxlength="20" autocomplete="off" autocapitalize="characters" spellcheck="false"
+                           placeholder="PROMO CODE" aria-label="Promo code" value="<?= Web::e($prefillPromo) ?>">
+                </div>
+                <button class="btn ghost small" type="button" id="promo-apply">Apply</button>
+            </div>
+            <p class="hint" id="promo-hint" hidden></p>
+        </details>
 
         <?php if (!empty($pay['ask_email'])): ?>
             <div class="group">
