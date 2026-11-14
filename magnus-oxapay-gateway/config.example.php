@@ -95,7 +95,13 @@ return [
         'bot_username' => '',           // without @, shown as a link on the website
         'webhook_secret' => '',         // any long random string (php bin/cli.php secret)
         'admin_chat_ids' => [],         // e.g. [123456789] - get payment alerts and admin commands
+        'viewer_chat_ids' => [],        // view-only admins: see payments and accounts, change nothing
         'notify_admins' => true,
+        // Bot profile, sent to Telegram by: php bin/cli.php telegram:profile (install.sh does it too).
+        // Admins can also change the texts under Admin panel > Settings > Bot profile.
+        'name' => '',                   // display name, e.g. 'UNITY PAY' (empty = keep the name set in @BotFather)
+        'description' => '',            // "What can this bot do?" text in an empty chat, max 512 characters (empty = standard text)
+        'short_description' => '',      // About text on the bot's profile, max 120 characters (empty = standard text)
     ],
 
     // ---------------------------------------------------------------- JSON API

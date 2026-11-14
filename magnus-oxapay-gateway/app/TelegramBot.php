@@ -977,11 +977,16 @@ final class TelegramBot
 
             case 'setting':
                 $this->app->settings()->set((string) $action['name'], (string) $action['value'], $this->actor);
-                $this->say($chatId, '✅ Saved.');
-                $this->sendSettings($chatId);
+                if (strpos((string) $action['name'], 'bot_') === 0) {
+                    $this->say($chatId, '✅ Saved. ' . $this->applyBotProfile());
+                    $this->sendBotProfile($chatId);
+                } else {
+                    $this->say($chatId, '✅ Saved.');
+                    $this->sendSettings($chatId);
+                }
                 $labels = ['min_amount' => 'the minimum top-up', 'max_amount' => 'the maximum top-up', 'currency' => 'the currency',
                     'low_balance' => 'the low-balance alert', 'report_hour' => 'the daily report time', 'bank_instructions' => 'the bank transfer details',
-                    'theme' => 'the website theme'];
+                    'theme' => 'the website theme', 'bot_description' => 'the bot description', 'bot_about' => 'the bot About text'];
                 $this->notifyOtherAdmins($chatId, '⚙️ ' . self::e($this->actor) . ' changed ' . self::e($labels[(string) $action['name']] ?? 'a setting') . '.');
                 return;
 
@@ -1280,7 +1285,8 @@ final class TelegramBot
         $overrides = $this->app->settings()->overrides();
         $changed = array_map(static function (string $name): string {
             return ['min_amount' => 'minimum', 'max_amount' => 'maximum', 'currency' => 'currency', 'low_balance' => 'low-balance alert',
-                'report_hour' => 'report time', 'bank_instructions' => 'bank details', 'theme' => 'theme'][$name] ?? $name;
+                'report_hour' => 'report time', 'bank_instructions' => 'bank details', 'theme' => 'theme',
+                'bot_description' => 'bot description', 'bot_about' => 'bot About text'][$name] ?? $name;
         }, array_keys($overrides));
         $low = (float) ($pay['low_balance'] ?? 0);
         $hour = (int) ($this->app->config['telegram']['report_hour'] ?? -1);
@@ -1301,7 +1307,7 @@ final class TelegramBot
             [['text' => '✏️ Minimum', 'callback_data' => 'adm:set:min'], ['text' => '✏️ Maximum', 'callback_data' => 'adm:set:max']],
             [['text' => '💱 Currency', 'callback_data' => 'adm:cur'], ['text' => '🪫 Low-balance alert', 'callback_data' => 'adm:setlow']],
             [['text' => '📊 Report time', 'callback_data' => 'adm:sethour'], ['text' => '🏦 Bank details', 'callback_data' => 'adm:setbank']],
-            [['text' => '🎨 Website theme', 'callback_data' => 'adm:theme']],
+            [['text' => '🎨 Website theme', 'callback_data' => 'adm:theme'], ['text' => '🤖 Bot profile', 'callback_data' => 'adm:botprofile']],
         ];
         if (array_intersect(array_keys($overrides), ['min_amount', 'max_amount', 'currency']) !== []) {
             $keyboard[] = [['text' => '↩️ Reset to config.php', 'callback_data' => 'adm:reset']];
@@ -1333,6 +1339,11 @@ final class TelegramBot
             $text = (int) $value >= 0 ? '📊 Send the daily report at <b>' . sprintf('%02d:00', (int) $value) . '</b> (server time)?' : '📊 Turn the daily report off?';
         } elseif ($name === 'theme') {
             $text = '🎨 Switch the payment website to <b>' . self::e(Settings::THEMES[$value]) . '</b>?';
+        } elseif ($name === 'bot_description' || $name === 'bot_about') {
+            $label = $name === 'bot_description' ? 'description' : 'About text';
+            $text = $value !== ''
+                ? '🤖 Use this as the bot ' . $label . "?\n<blockquote>" . self::e($value) . '</blockquote>'
+                : '🤖 Go back to the standard bot ' . $label . '?';
         } elseif ($name === 'bank_instructions') {
             $text = $value !== '' ? "🏦 Offer bank transfer with these details?\n\n" . self::e($value) : '🏦 Turn bank transfer off?';
         } else {

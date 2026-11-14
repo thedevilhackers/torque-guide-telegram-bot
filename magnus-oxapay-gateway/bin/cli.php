@@ -10,11 +10,13 @@
  *   php bin/cli.php retry <id>            re-check with OxaPay, or force a credit retry for paid orders
  *   php bin/cli.php telegram:webhook      register {base_url}/telegram.php with Telegram
  *   php bin/cli.php telegram:poll         run the bot with long polling (no public URL needed, for testing)
+ *   php bin/cli.php telegram:profile      send the bot description, About text and command menus to Telegram
  */
 
 declare(strict_types=1);
 
 use Gateway\App;
+use Gateway\BotProfile;
 use Gateway\Payments;
 
 if (PHP_SAPI !== 'cli') {
@@ -41,6 +43,7 @@ function usage(): void
     line('  order <id>         show one order');
     line('  retry <id>         re-check with OxaPay, or force a credit retry for paid orders');
     line('  telegram:webhook   register {base_url}/telegram.php with Telegram');
+    line('  telegram:profile   send the bot description, About text and command menus to Telegram');
     line('  telegram:unhook    remove the Telegram webhook');
     line('  telegram:poll      run the bot with long polling (no HTTPS needed)');
     line('  cron               scheduled jobs (order checks, low-balance alerts, daily report, health alerts)');
@@ -78,14 +81,16 @@ try {
 function registerBotCommands(App $app): void
 {
     try {
-        $app->telegram()->call('setMyCommands', ['commands' => [
-            ['command' => 'topup', 'description' => 'Add balance to an account'],
-            ['command' => 'status', 'description' => 'Check a payment'],
-            ['command' => 'cancel', 'description' => 'Stop the current step'],
-            ['command' => 'help', 'description' => 'Show help'],
-        ]]);
+        $result = (new BotProfile($app))->apply();
     } catch (\Throwable $e) {
-        line('Note: could not set the bot command menu: ' . $e->getMessage());
+        line('Note: could not update the bot profile: ' . $e->getMessage());
+        return;
+    }
+    if ($result['done'] !== []) {
+        line('Bot profile updated: ' . implode(', ', $result['done']));
+    }
+    foreach ($result['warnings'] as $warning) {
+        line('Note: bot ' . $warning);
     }
 }
 
@@ -214,6 +219,17 @@ try {
             ]);
             registerBotCommands($app);
             line("Telegram webhook set to {$url}");
+            break;
+
+        case 'telegram:profile':
+            $profile = new BotProfile($app);
+            line('Description (' . BotProfile::length($profile->description()) . '/' . BotProfile::DESCRIPTION_MAX . ' characters):');
+            line($profile->description());
+            line('');
+            line('About (' . BotProfile::length($profile->shortDescription()) . '/' . BotProfile::SHORT_DESCRIPTION_MAX . ' characters):');
+            line($profile->shortDescription());
+            line('');
+            registerBotCommands($app);
             break;
 
         case 'telegram:unhook':

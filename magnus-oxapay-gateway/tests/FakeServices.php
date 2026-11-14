@@ -34,6 +34,9 @@ final class FakeServices
     public $liveCalls = [];
     /** MagnusBilling setting "API allow multiple user/email" (default 0). */
     public $apiAllowSameEmail = false;
+    /** Chats the bot has never talked to (setMyCommands for them fails). */
+    public $unknownChats = [];
+
     /** Telegram chats that blocked the bot. */
     public $blockedChats = [];
 
@@ -71,6 +74,9 @@ final class FakeServices
         if (strpos($url, 'https://api.telegram.org/bot') === 0) {
             $methodName = substr($url, strrpos($url, '/') + 1);
             $params = json_decode((string) $body, true);
+            if ($methodName === 'setMyCommands' && in_array((string) ($params['scope']['chat_id'] ?? ''), $this->unknownChats, true)) {
+                return ['status' => 400, 'body' => json_encode(['ok' => false, 'error_code' => 400, 'description' => 'Bad Request: chat not found'])];
+            }
             if ($methodName === 'sendMessage' && in_array((string) ($params['chat_id'] ?? ''), $this->blockedChats, true)) {
                 return ['status' => 403, 'body' => json_encode(['ok' => false, 'error_code' => 403, 'description' => 'Forbidden: bot was blocked by the user'])];
             }

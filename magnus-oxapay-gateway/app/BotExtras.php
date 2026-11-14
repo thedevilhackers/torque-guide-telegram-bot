@@ -15,7 +15,7 @@ trait BotExtras
 {
     /** Admin buttons that view-only admins may use. */
     private static $viewerCommands = ['panel', 'recent', 'stats', 'order', 'account', 'find', 'findu', 'sip', 'live',
-        'linked', 'calls', 'cust', 'banks', 'promos', 'settings'];
+        'linked', 'calls', 'cust', 'banks', 'promos', 'settings', 'botprofile'];
 
     // ------------------------------------------------------------ public hooks
 
@@ -407,9 +407,74 @@ trait BotExtras
             case 'reportnow':
                 $this->dailyReport();
                 return true;
+            case 'botprofile':
+                $this->sendBotProfile($chatId);
+                return true;
+            case 'botdesc':
+            case 'botabout':
+                $name = $command === 'botdesc' ? 'bot_description' : 'bot_about';
+                $max = $command === 'botdesc' ? BotProfile::DESCRIPTION_MAX : BotProfile::SHORT_DESCRIPTION_MAX;
+                $this->setSession($chatId, 'adm_setting', ['name' => $name]);
+                $this->say($chatId, $command === 'botdesc'
+                    ? "✏️ Send the new <b>description</b>, up to {$max} characters.\nCustomers see it in an empty chat with the bot, before they press START. Line breaks and emoji are fine.\nSend <code>default</code> to go back to the standard text."
+                    : "✏️ Send the new <b>About</b> text, up to {$max} characters.\nIt is shown on the bot's profile and when someone shares the bot.\nSend <code>default</code> to go back to the standard text.", $this->cancelKeyboard());
+                return true;
+            case 'botdefault':
+                $this->askConfirm($chatId, '↩️ Go back to the standard bot description and About text?', ['type' => 'bot_default']);
+                return true;
+            case 'botsync':
+                $this->say($chatId, '🔄 ' . $this->applyBotProfile());
+                $this->sendBotProfile($chatId);
+                return true;
         }
 
         return false;
+    }
+
+    // ------------------------------------------------------------- bot profile
+
+    private function sendBotProfile(string $chatId): void
+    {
+        $profile = new BotProfile($this->app);
+        $description = $profile->description();
+        $about = $profile->shortDescription();
+        $origin = static function (bool $custom): string {
+            return $custom ? 'custom' : 'standard';
+        };
+        $lines = [
+            '🤖 <b>Bot profile</b>',
+            'What people see before they press START, and on the bot\'s profile.',
+            '',
+            '<b>Description</b> · ' . $origin($profile->isCustom('long')) . ' · ' . BotProfile::length($description) . '/' . BotProfile::DESCRIPTION_MAX,
+            '<blockquote>' . self::e($description) . '</blockquote>',
+            '<b>About</b> · ' . $origin($profile->isCustom('short')) . ' · ' . BotProfile::length($about) . '/' . BotProfile::SHORT_DESCRIPTION_MAX,
+            '<blockquote>' . self::e($about) . '</blockquote>',
+            '<b>Command menu</b>: ' . count($profile->commands('customer')) . ' commands for customers, '
+                . count($profile->commands('admin')) . ' for admins (in admin chats only).',
+        ];
+        $keyboard = [
+            [['text' => '✏️ Description', 'callback_data' => 'adm:botdesc'], ['text' => '✏️ About text', 'callback_data' => 'adm:botabout']],
+        ];
+        if ($profile->isCustom('long') || $profile->isCustom('short')) {
+            $keyboard[] = [['text' => '↩️ Standard texts', 'callback_data' => 'adm:botdefault']];
+        }
+        $keyboard[] = [['text' => '🔄 Send to Telegram again', 'callback_data' => 'adm:botsync']];
+        $keyboard[] = [['text' => '« Settings', 'callback_data' => 'adm:settings']];
+        $this->say($chatId, implode("\n", $lines), ['reply_markup' => ['inline_keyboard' => $keyboard]]);
+    }
+
+    /**
+     * Sends the profile to Telegram and describes the result in one short line.
+     */
+    private function applyBotProfile(): string
+    {
+        $result = (new BotProfile($this->app))->apply();
+        $this->app->log('info', 'Bot profile sent to Telegram', $result + ['admin' => $this->actor]);
+        if ($result['warnings'] === []) {
+            return 'Updated in Telegram. The description only shows in an empty chat, so open the bot from another account to see it.';
+        }
+
+        return "Updated in Telegram, with problems:\n• " . self::e(implode("\n• ", $result['warnings']));
     }
 
     /**
@@ -449,6 +514,14 @@ trait BotExtras
     {
         $magnus = $this->app->magnus();
         switch ($action['type'] ?? '') {
+            case 'bot_default':
+                $settings = $this->app->settings();
+                $settings->set('bot_description', '', $this->actor);
+                $settings->set('bot_about', '', $this->actor);
+                $this->say($chatId, '✅ Standard texts restored. ' . $this->applyBotProfile());
+                $this->sendBotProfile($chatId);
+                $this->notifyOtherAdmins($chatId, '🤖 ' . self::e($this->actor) . ' restored the standard bot description.');
+                return true;
             case 'user_active':
                 $user = $this->payments()->lookupUser((string) $action['username']);
                 if ($user === null) {

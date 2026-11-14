@@ -321,6 +321,46 @@ Website links that open the bot:
 
 Bot service logs: `journalctl -u unitycarrier-pay-bot -f`.
 
+### Bot profile: description, About text and command menu
+
+The gateway fills in the bot's Telegram profile for you. Every install and update sends it again, so you don't need to type anything into @BotFather.
+
+- **Description**: the "What can this bot do?" text people see in an empty chat, before they press **Start**. It can be up to 512 characters.
+- **About**: the short text on the bot's profile page and in shared links. It can be up to 120 characters.
+- **Command menu**: the **/** menu. Customers see the customer commands. Admins and view-only admins also see their own commands, but only in their own chats.
+
+The standard texts are built from your company name (without "LLC", "Ltd" and similar), your coins and your website address:
+
+```text
+⚡ Instant top-ups for your UNITY CARRIER VoIP account.
+
+💳 Pay with USDT, BTC, ETH and more. Your balance updates automatically once the payment confirms.
+🧾 Track every payment and get a message the moment your credit lands.
+👤 Link your account to check your balance, SIP lines and caller ID.
+🆘 Chat with our support team right here.
+🌐 pay.unitycarrier.com
+
+Tap START to top up.
+```
+
+```text
+Instant crypto top-ups for your UNITY CARRIER VoIP account. Balance, payments and support in one chat.
+```
+
+There are three ways to use your own texts:
+
+- **From Telegram:** open **🛠 Admin panel → ⚙️ Settings → 🤖 Bot profile**. Tap **✏️ Description** or **✏️ About text**, send the new text, then confirm. It is sent to Telegram right away. Send `default` to go back to the standard text.
+- **In `config.php`:** set `telegram.description` and `telegram.short_description`. You can also set `telegram.name` to change the bot's display name (for example `'UNITY PAY'`). Then run:
+
+  ```bash
+  php /var/www/unitycarrier-pay/bin/cli.php telegram:profile
+  ```
+
+  That command prints both texts and sends the whole profile to Telegram.
+- **By hand in @BotFather:** use `/setdescription`, `/setabouttext` and `/setcommands`. The next install or update replaces these with the gateway's texts. To keep your own text, use one of the two ways above.
+
+Telegram shows the description only in an empty chat. To check it, open the bot from an account that has never used it, or delete the chat and open it again.
+
 ## JSON API
 
 Base URL: `https://www.unitycarrier.com/pay/api.php`. Every response looks like this:
@@ -405,6 +445,7 @@ php bin/cli.php orders 20
 php bin/cli.php order <id>
 php bin/cli.php retry <id>
 php bin/cli.php check
+php bin/cli.php telegram:profile   # send the bot description, About text and command menus again
 ```
 
 When you run these as root, they switch to the `www-data` user by themselves, so the database files keep the right owner.

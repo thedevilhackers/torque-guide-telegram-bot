@@ -52,7 +52,12 @@ final class Settings
         'bank_instructions' => ['payments', 'bank_instructions'],
         'report_hour' => ['telegram', 'report_hour'],
         'theme' => ['site', 'theme'],
+        'bot_description' => ['telegram', 'description'],
+        'bot_about' => ['telegram', 'short_description'],
     ];
+
+    /** Settings stored as text (the others are numbers). */
+    private const TEXTS = ['bank_instructions', 'theme', 'bot_description', 'bot_about'];
 
     /** @var App */
     private $app;
@@ -77,7 +82,7 @@ final class Settings
             if ($name === 'currency') {
                 $config[$section]['currency'] = $value;
                 $config[$section]['currency_symbol'] = self::CURRENCIES[$value] ?? '';
-            } elseif ($name === 'bank_instructions' || $name === 'theme') {
+            } elseif (in_array($name, self::TEXTS, true)) {
                 $config[$section][$key] = $value;
             } elseif ($name === 'report_hour') {
                 $config[$section][$key] = (int) $value;
@@ -137,6 +142,18 @@ final class Settings
             }
             return $value;
         }
+        if ($name === 'bot_description' || $name === 'bot_about') {
+            $value = trim(str_replace(["\r\n", "\r"], "\n", $value));
+            if (in_array(strtolower($value), ['default', 'reset', '-'], true)) {
+                return '';
+            }
+            $max = $name === 'bot_about' ? BotProfile::SHORT_DESCRIPTION_MAX : BotProfile::DESCRIPTION_MAX;
+            $length = BotProfile::length($value);
+            if ($length > $max) {
+                throw new UserError('invalid_text', 'Telegram allows up to ' . $max . ' characters here. That text has ' . $length . '.');
+            }
+            return $value;
+        }
         if ($name === 'theme') {
             $raw = strtolower(trim($value));
             $value = self::normalizeTheme($raw);
@@ -176,10 +193,15 @@ final class Settings
     public function set(string $name, string $value, string $actor): void
     {
         $value = $this->validate($name, $value);
-        $this->app->db()->run(
-            'REPLACE INTO ' . $this->app->db()->table('settings') . ' (skey, svalue, updated_at, updated_by) VALUES (?, ?, ?, ?)',
-            [$name, $value, time(), substr($actor, 0, 100)]
-        );
+        if ($value === '' && ($name === 'bot_description' || $name === 'bot_about')) {
+            // Back to the standard text (or the one in config.php).
+            $this->app->db()->run('DELETE FROM ' . $this->app->db()->table('settings') . ' WHERE skey = ?', [$name]);
+        } else {
+            $this->app->db()->run(
+                'REPLACE INTO ' . $this->app->db()->table('settings') . ' (skey, svalue, updated_at, updated_by) VALUES (?, ?, ?, ?)',
+                [$name, $value, time(), substr($actor, 0, 100)]
+            );
+        }
         $this->app->refreshSettings();
         $this->app->log('info', 'Admin changed a setting', ['setting' => $name, 'value' => $value, 'admin' => $actor]);
     }

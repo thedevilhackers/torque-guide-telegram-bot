@@ -1192,6 +1192,93 @@ test('themes: five themes, switched from the bot with preview links', function (
     same('emerald', $app->config['site']['theme'], 'customers cannot switch');
 });
 
+function telegramCalls(FakeServices $fake, string $method): array
+{
+    return array_values(array_map(static function (array $call): array {
+        return $call['params'];
+    }, array_filter($fake->telegram, static function (array $call) use ($method): bool {
+        return $call['method'] === $method;
+    })));
+}
+
+function lastCall(FakeServices $fake, string $method): array
+{
+    $calls = telegramCalls($fake, $method);
+
+    return end($calls) ?: [];
+}
+
+function commandNames(array $params): array
+{
+    return array_column($params['commands'], 'command');
+}
+
+test('bot profile: standard description, About text and command menus', function () {
+    [$app, $fake] = makeApp(['site' => ['name' => 'Test Carrier LLC'], 'telegram' => ['viewer_chat_ids' => [777]]]);
+    $result = (new \Gateway\BotProfile($app))->apply();
+    same([], $result['warnings'], 'no warnings');
+    $description = telegramCalls($fake, 'setMyDescription')[0]['description'];
+    check(strpos($description, 'Test Carrier VoIP account') !== false, 'company name without LLC');
+    check(strpos($description, 'LLC') === false, 'no legal suffix');
+    check(strpos($description, 'pay.example.test') !== false, 'website address');
+    check(\Gateway\BotProfile::length($description) <= 512, 'description fits');
+    $about = telegramCalls($fake, 'setMyShortDescription')[0]['short_description'];
+    check(\Gateway\BotProfile::length($about) <= 120 && strpos($about, 'Test Carrier') !== false, 'about fits and names the company');
+    $menus = telegramCalls($fake, 'setMyCommands');
+    same(['topup', 'myorders', 'myaccount', 'status', 'support', 'help', 'cancel'], commandNames($menus[0]), 'customer menu');
+    check(!isset($menus[0]['scope']), 'customer menu is the default');
+    same(['type' => 'chat', 'chat_id' => 999], $menus[1]['scope'], 'admin menu in the admin chat');
+    check(in_array('addcredit', commandNames($menus[1]), true) && in_array('topup', commandNames($menus[1]), true), 'admins get both menus');
+    same(777, $menus[2]['scope']['chat_id'], 'viewer menu');
+    check(in_array('recent', commandNames($menus[2]), true) && !in_array('addcredit', commandNames($menus[2]), true), 'viewers get view commands only');
+    same([], telegramCalls($fake, 'setMyName'), 'name untouched unless configured');
+
+    // A chat removed from the admin lists goes back to the customer menu; unknown chats are reported, not fatal.
+    $app->config['telegram']['admin_chat_ids'] = [555];
+    $app->config['telegram']['viewer_chat_ids'] = [];
+    $fake->unknownChats = ['555'];
+    $result = (new \Gateway\BotProfile($app))->apply();
+    same([999, 777], array_column(array_column(telegramCalls($fake, 'deleteMyCommands'), 'scope'), 'chat_id'), 'old admin menus removed');
+    check(count($result['warnings']) === 1 && strpos($result['warnings'][0], 'press Start') !== false, 'unknown chat explained');
+
+    // Very long company names are left out rather than breaking the limits.
+    [$app] = makeApp(['site' => ['name' => str_repeat('Extremely Long Telecom Name ', 6)]]);
+    $profile = new \Gateway\BotProfile($app);
+    check(\Gateway\BotProfile::length($profile->shortDescription()) <= 120, 'long name: about fits');
+    check(\Gateway\BotProfile::length($profile->description()) <= 512, 'long name: description fits');
+});
+
+test('bot profile: texts from config.php and changed by admins in the bot', function () {
+    [$app, $fake] = makeApp(['telegram' => ['name' => 'TEST PAY', 'short_description' => 'Pay with crypto.']]);
+    (new \Gateway\BotProfile($app))->apply();
+    same('TEST PAY', telegramCalls($fake, 'setMyName')[0]['name'], 'name from config');
+    same('Pay with crypto.', telegramCalls($fake, 'setMyShortDescription')[0]['short_description'], 'about from config');
+
+    $screen = tgTap($app, $fake, 999, 'adm:botprofile');
+    check(strpos($screen['text'], 'Pay with crypto.') !== false, 'profile screen shows the About text');
+    tgTap($app, $fake, 999, 'adm:botdesc');
+    $text = "⚡ UNITY PAY\nTop up in seconds.";
+    $confirm = tgSay($app, $fake, 999, $text);
+    tgTap($app, $fake, 999, confirmButton($confirm));
+    same($text, $app->config['telegram']['description'], 'saved');
+    same($text, lastCall($fake, 'setMyDescription')['description'], 'sent to Telegram right away');
+
+    tgTap($app, $fake, 999, 'adm:botabout');
+    $tooLong = tgSay($app, $fake, 999, str_repeat('a', 121));
+    check(strpos($tooLong['text'], '120') !== false, 'about limit explained');
+
+    $confirm = tgTap($app, $fake, 999, 'adm:botdefault');
+    tgTap($app, $fake, 999, confirmButton($confirm));
+    same('', $app->config['telegram']['description'], 'description back to standard');
+    check(strpos(lastCall($fake, 'setMyDescription')['description'], 'Tap START') !== false, 'standard text sent');
+    same('Pay with crypto.', $app->config['telegram']['short_description'], 'config.php text kept');
+
+    $before = count(telegramCalls($fake, 'setMyDescription'));
+    tgTap($app, $fake, 4242, 'adm:botdesc');
+    tgTap($app, $fake, 4242, 'adm:botsync');
+    same($before, count(telegramCalls($fake, 'setMyDescription')), 'customers cannot change the profile');
+});
+
 test('telegram: unexpected errors reply politely instead of crashing', function () {
     [$app, $fake] = makeApp();
     $fake->magnusDown = true;
