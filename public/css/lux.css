@@ -55,6 +55,14 @@
   box-sizing: border-box;
 }
 
+/* Lining figures everywhere: Cormorant's default old-style numbers make "Stage 1" and "1.0 TSI 110 hp"
+   hard to read. Important, because each font shorthand below would otherwise reset it. */
+*,
+*::before,
+*::after {
+  font-variant-numeric: lining-nums !important;
+}
+
 html {
   scroll-behavior: smooth;
   scroll-padding-top: calc(var(--nav-h) + 16px);
@@ -66,8 +74,6 @@ body {
   background: var(--ink);
   color: var(--ivory);
   font: 300 16px/1.65 var(--sans);
-  /* Lining figures everywhere: Cormorant's default old-style numbers make "1.0 TSI 110 hp" hard to read. */
-  font-variant-numeric: lining-nums;
   letter-spacing: 0.005em;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -1579,7 +1585,7 @@ textarea {
 
 .ledger .num {
   text-align: right;
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: lining-nums tabular-nums !important;
 }
 
 .ledger .plus {
