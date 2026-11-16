@@ -67,6 +67,12 @@ function httpsUrl(value, label) {
   return url;
 }
 
+function upiId(value) {
+  const id = text(value, "UPI ID", { max: 80 });
+  if (id && !/^[A-Za-z0-9._-]{2,64}@[A-Za-z][A-Za-z0-9.-]{1,30}$/.test(id)) throw new InputError("UPI ID must look like name@bank, e.g. unityperformance@okaxis.");
+  return id;
+}
+
 export function validateProduct(input) {
   const price = Math.round(number(input.price, "Price", { min: 0, max: 10_000_000 }) * 100) / 100;
   const compareAtPrice = number(input.compareAtPrice, "Compare-at price", { min: 0, max: 10_000_000, optional: true });
@@ -193,6 +199,31 @@ export function validatePhoto(input) {
   };
 }
 
+// Tuning file service: options priced in credits, and the credit packs customers buy.
+export const TUNE_OPTION_KINDS = ["tune", "addon"];
+
+export function validateTuneOption(input) {
+  const kind = String(input.kind ?? "");
+  if (!TUNE_OPTION_KINDS.includes(kind)) throw new InputError("Choose whether this is a tune or an add-on.");
+  return {
+    name: text(input.name, "Name", { required: true, max: 60 }),
+    kind,
+    credits: number(input.credits, "Credits", { min: 0, max: 100, integer: true }),
+    description: text(input.description, "Description", { max: 200 }),
+    active: bool(input.active)
+  };
+}
+
+export function validateCreditPack(input) {
+  return {
+    name: text(input.name, "Name", { required: true, max: 60 }),
+    credits: number(input.credits, "Credits", { min: 1, max: 1000, integer: true }),
+    price: Math.round(number(input.price, "Price", { min: 1, max: 10_000_000 }) * 100) / 100,
+    note: text(input.note, "Note", { max: 120 }),
+    active: bool(input.active)
+  };
+}
+
 export function validateSettings(input) {
   const telegramBot = text(input.telegramBot, "Telegram bot username", { max: 40 }).replace(/^@/, "");
   if (telegramBot && !/^[A-Za-z0-9_]{5,32}$/.test(telegramBot)) throw new InputError("Telegram bot username can only contain letters, numbers and underscores.");
@@ -211,6 +242,11 @@ export function validateSettings(input) {
     stage3Note: text(input.stage3Note, "Stage 3 note", { max: 400 }),
     alertOrders: bool(input.alertOrders),
     alertEnquiries: bool(input.alertEnquiries),
+    alertFiles: bool(input.alertFiles),
+    fileServiceOpen: bool(input.fileServiceOpen),
+    fileServiceNote: text(input.fileServiceNote, "File service note", { max: 300 }),
+    upiId: upiId(input.upiId),
+    upiName: text(input.upiName, "UPI payee name", { max: 60 }),
     siteUrl: httpsUrl(input.siteUrl, "Website address").replace(/\/+$/, ""),
     announcement: text(input.announcement, "Announcement bar", { max: 140 }),
     currency,

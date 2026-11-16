@@ -135,7 +135,7 @@ test("nothing tells customers the workshop has a dyno", async (t) => {
   t.after(close);
   const claim = /on (our|the) dyno|dyno (run|sheet|power run)|confirmed on the dyno|verified on our dyno/i;
   for (const path of ["/", "/finder", "/shop", "/api/site", "/api/products"]) assert.doesNotMatch((await request(path)).data.toString(), claim, path);
-  for (const file of ["public/js/home.js", "public/js/landing.js", "public/js/common.js", "public/admin/admin.js", "src/conversation.js", "src/dyno-chart.js"]) {
+  for (const file of ["public/index.html", "public/files.html", "public/js/home.js", "public/js/home-lux.js", "public/js/files.js", "public/js/common.js", "public/admin/admin.js", "src/conversation.js", "src/dyno-chart.js"]) {
     assert.doesNotMatch(readFileSync(new URL(`../${file}`, import.meta.url), "utf8").replace(/dyno-chart|dynoChart|dyno-\w+/g, ""), claim, file);
   }
 });
@@ -514,29 +514,30 @@ test("settings, uploads and backups", async (t) => {
   assert.equal(db().nextOrderNumber, highest + 1);
 });
 
-test("the home page is the landing page, served within the site's security policy, and the car finder moved to /finder", async (t) => {
+test("the home page is simple and served within the site's security policy, and the car finder is at /finder", async (t) => {
   const { request, close } = await startApp();
   t.after(close);
   const home = (await request("/")).data.toString();
-  assert.match(home, /data-site="live"/);
-  assert.match(home, /Unleash every horsepower/i);
+  assert.match(home, /Performance,<br><em>refined\.<\/em>/);
   assert.match(home, /L-12, Argora Housing Colony, Ranchi/);
-  for (const path of ["/finder", "/tools", "/shop"]) assert.match(home, new RegExp(`href="${path}"`), `links to ${path}`);
+  for (const path of ["/files", "/finder", "/tools", "/shop"]) assert.match(home, new RegExp(`href="${path}"`), `links to ${path}`);
   // script-src 'self': every script is a file on this site; the only inline one is the structured data.
   const scripts = [...home.matchAll(/<script([^>]*)>/g)].map((match) => match[1]);
   assert.ok(scripts.every((attrs) => /src="\/[^/]/.test(attrs) || /application\/ld\+json/.test(attrs)), scripts.join(" | "));
   assert.doesNotMatch(home, /https:\/\/(cdn|fonts)\./, "no outside scripts or fonts");
-  // The 3D car is CC BY 4.0, so the page credits it.
-  assert.match(home, /<meta name="car-model" content="\/models\/unity-car\.glb">/);
-  assert.match(home, /Car Concept[\s\S]*creativecommons\.org\/licenses\/by\/4\.0/);
-  // The loader shares the page's copy of three.js instead of fetching its own.
-  const loader = (await request("/vendor/three-gltf-loader.module.js")).data.toString();
-  assert.deepEqual([...new Set([...loader.matchAll(/\bimport\s*\{[^}]*\}\s*from\s*"([^"]+)"/g)].map((match) => match[1]))], ["./three.module.min.js"]);
-  for (const [path, type] of [["/js/landing.js", "javascript"], ["/css/landing.css", "css"], ["/vendor/three.module.min.js", "javascript"], ["/vendor/three-gltf-loader.module.js", "javascript"], ["/vendor/gsap.min.js", "javascript"], ["/fonts/anton-400.woff2", "font/woff2"], ["/models/unity-car.glb", "model/gltf-binary"]]) {
+  assert.doesNotMatch(home, /landing\.(css|js)|\/vendor\/|unity-car\.glb/, "nothing left of the old page");
+  for (const [path, type] of [["/js/home-lux.js", "javascript"], ["/js/lux.js", "javascript"], ["/css/lux.css", "css"], ["/fonts/cormorant-garamond-500.woff2", "font/woff2"], ["/fonts/inter-variable.woff2", "font/woff2"]]) {
     const response = await request(path);
     assert.equal(response.status, 200, path);
     assert.match(response.headers.get("content-type"), new RegExp(type), path);
   }
+  for (const gone of ["/js/landing.js", "/vendor/three.module.min.js", "/models/unity-car.glb"]) assert.equal((await request(gone)).status, 404, gone);
+
+  const files = await request("/files");
+  assert.equal(files.status, 200);
+  assert.match(files.data.toString(), /<link rel="canonical" href="http:\/\/127\.0\.0\.1:\d+\/files">/);
+  assert.match((await request("/sitemap.xml")).data.toString(), /\/files<\/loc>/);
+  for (const path of ["/finder", "/shop", "/tools"]) assert.match((await request(path)).data.toString(), /href="\/files">File service</, `${path} links to the file service`);
 
   const finder = await request("/finder");
   assert.equal(finder.status, 200);
@@ -545,10 +546,10 @@ test("the home page is the landing page, served within the site's security polic
   for (const path of ["/finder", "/shop", "/tools"]) assert.doesNotMatch((await request(path)).data.toString(), /href="\/#/, `${path} has no links to the old home page sections`);
   assert.match((await request("/sitemap.xml")).data.toString(), /\/finder<\/loc>/);
 
-  // The booking form's request is saved as an enquiry for the admin panel and the Telegram alert.
-  const booking = await request("/api/enquiries", { method: "POST", body: { name: "Asha", phone: "98765 43210", message: "Booking from the home page. Car: VW Polo 1.0 TSI. Service: Turbo kit." } });
+  // The visit form's request is saved as an enquiry for the admin panel and the Telegram alert.
+  const booking = await request("/api/enquiries", { method: "POST", body: { name: "Asha", phone: "98765 43210", message: "Visit request from the home page. Car: VW Polo 1.0 TSI. Service: Ethanol tune." } });
   assert.equal(booking.status, 200);
   const saved = db().enquiries.find((enquiry) => enquiry.id === booking.data.id);
   assert.equal(saved.customer.phone, "98765 43210");
-  assert.match(saved.message, /Car: VW Polo 1\.0 TSI\. Service: Turbo kit/);
+  assert.match(saved.message, /Car: VW Polo 1\.0 TSI\. Service: Ethanol tune/);
 });

@@ -633,18 +633,21 @@ table.data {
   background: currentColor;
 }
 
-.pill-new {
+.pill-new,
+.pill-submitted {
   background: var(--info-soft);
   color: var(--info);
 }
 
 .pill-confirmed,
-.pill-contacted {
+.pill-contacted,
+.pill-in_progress {
   background: var(--violet-soft);
   color: var(--violet);
 }
 
 .pill-ready,
+.pill-awaiting_payment,
 .pill-booked,
 .pill-on_request,
 .pill-low {
@@ -653,6 +656,7 @@ table.data {
 }
 
 .pill-completed,
+.pill-paid,
 .pill-supported,
 .pill-active {
   background: var(--good-soft);
@@ -660,6 +664,7 @@ table.data {
 }
 
 .pill-cancelled,
+.pill-rejected,
 .pill-not_supported,
 .pill-out {
   background: var(--bad-soft);

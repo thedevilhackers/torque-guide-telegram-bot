@@ -1,5 +1,6 @@
-// Admin panel: full access to orders, enquiries, products, vehicles, ECUs, brands, services,
-// photos, settings and backups. All text is inserted with textContent (see h()), never as HTML.
+// Admin panel: full access to orders, enquiries, the tuning file service (file orders, customers,
+// payments, tune options and credit packs), products, vehicles, ECUs, brands, services, photos,
+// settings and backups. All text is inserted with textContent (see h()), never as HTML.
 import { h, money } from "/js/common.js";
 import { productArt } from "/js/icons.js";
 
@@ -11,6 +12,11 @@ const SECTIONS = [
   ["dashboard", "Dashboard"],
   ["orders", "Orders"],
   ["enquiries", "Enquiries"],
+  ["files", "File orders"],
+  ["payments", "Payments"],
+  ["customers", "Customers"],
+  ["tuneOptions", "Tune options"],
+  ["creditPacks", "Credit packs"],
   ["products", "Products"],
   ["vehicles", "Vehicles"],
   ["ecus", "ECUs"],
@@ -372,6 +378,10 @@ async function viewDashboard(main) {
       tile("Orders, last 30 days", String(data.orders30), `${data.openOrders} open`),
       tile("New enquiries", String(data.newEnquiries), `${data.enquiries30} in the last 30 days`),
       tile("Catalogue", `${data.counts.vehicles} vehicles`, `${data.counts.products} products · ${data.counts.ecus} ECUs`)
+    ),
+    h("div", { class: "grid grid-4", style: { marginTop: "16px" } },
+      tile("New file orders", String(data.newFileOrders), "Waiting to be started"),
+      tile("Payments to check", String(data.paymentsToCheck), "UPI references sent by customers")
     ),
     h("div", { class: "grid grid-main", style: { marginTop: "16px" } },
       h("section", { class: "card" }, h("div", { class: "card-head" }, h("h2", { text: "Revenue, last 14 days" }), h("p", { text: `${state.currency}, excluding cancelled orders` })), barChart(data.daily)),
@@ -784,6 +794,50 @@ const COLLECTION_VIEWS = {
       { label: "Visibility", cell: (service) => pill(service.active ? "active" : "hidden", service.active ? "Shown" : "Hidden") }
     ]
   },
+  tuneOptions: {
+    name: "tuneOptions",
+    title: "Tune options",
+    singular: "tune option",
+    subtitle: "What a file order can include on the file service, and its cost in credits. Customers choose one tune and any add-ons.",
+    label: (option) => option.name,
+    defaults: { kind: "tune", credits: 1, active: true },
+    search: (option) => `${option.name} ${option.description}`,
+    fields: () => [
+      { name: "name", label: "Name", full: true, placeholder: "Stage 1" },
+      { name: "kind", label: "Type", type: "select", options: [["tune", "Tune (customers choose one)"], ["addon", "Add-on (optional extras)"]] },
+      { name: "credits", label: "Credits", type: "number", step: "1", min: "0" },
+      { name: "description", label: "Description", type: "textarea", full: true, help: "One short line shown under the name." },
+      { name: "active", label: "Offer on the file service", type: "checkbox" }
+    ],
+    columns: () => [
+      { label: "Option", cell: (option) => [option.name, h("span", { class: "sub", text: option.description })] },
+      { label: "Type", cell: (option) => (option.kind === "tune" ? "Tune" : "Add-on") },
+      { label: "Credits", class: "num", cell: (option) => String(option.credits) },
+      { label: "Visibility", cell: (option) => pill(option.active ? "active" : "hidden", option.active ? "Offered" : "Hidden") }
+    ]
+  },
+  creditPacks: {
+    name: "creditPacks",
+    title: "Credit packs",
+    singular: "credit pack",
+    subtitle: "What customers pay for credits on the file service. Until you add a pack, they're asked to buy credits on WhatsApp.",
+    label: (pack) => pack.name,
+    defaults: { credits: 5, active: true },
+    search: (pack) => `${pack.name} ${pack.note}`,
+    fields: () => [
+      { name: "name", label: "Name", full: true, placeholder: "Tuner" },
+      { name: "credits", label: "Credits", type: "number", step: "1", min: "1" },
+      { name: "price", label: `Price (${state.currency})`, type: "number", step: "0.01", min: "1" },
+      { name: "note", label: "Note", full: true, placeholder: "Best value for busy workshops", help: "Optional, shown under the price." },
+      { name: "active", label: "Sell on the file service", type: "checkbox" }
+    ],
+    columns: () => [
+      { label: "Pack", cell: (pack) => [pack.name, pack.note ? h("span", { class: "sub", text: pack.note }) : null] },
+      { label: "Credits", class: "num", cell: (pack) => String(pack.credits) },
+      { label: "Price", class: "num", cell: (pack) => [cash(pack.price), pack.credits > 1 ? h("span", { class: "sub", text: `${cash(Math.round((pack.price / pack.credits) * 100) / 100)} each` }) : null] },
+      { label: "Visibility", cell: (pack) => pill(pack.active ? "active" : "hidden", pack.active ? "On sale" : "Hidden") }
+    ]
+  },
   photos: {
     name: "photos",
     title: "Photos",
@@ -831,6 +885,13 @@ const SETTINGS_SECTIONS = [
     { name: "currency", label: "Currency", help: "3-letter code, e.g. USD, EUR, LKR, AED." },
     { name: "deliveryFee", label: "Delivery fee", type: "number", step: "0.01", min: "0" },
     { name: "shopNote", label: "Payment note", type: "textarea", full: true }
+  ]],
+  ["File service", [
+    { name: "fileServiceOpen", label: "Take new file orders", type: "checkbox", full: true },
+    { name: "fileServiceNote", label: "Note on the customer's file list", type: "textarea", full: true, help: "For example your usual turnaround, or that you're away." },
+    { name: "upiId", label: "UPI ID for credit payments", placeholder: "yourname@okaxis", help: "Customers pay this ID and send you the reference; you confirm in Payments. Needs the currency set to INR." },
+    { name: "upiName", label: "UPI payee name", placeholder: "Unity Performance" },
+    { name: "alertFiles", label: "Alert me about new file orders and UPI payments", type: "checkbox", full: true }
   ]],
   ["Stage 2 & 3 descriptions", [
     { name: "stage2Note", label: "Stage 2: what's included", type: "textarea", full: true, help: "Shown with Stage 2 graphs on the website and in the bot." },
@@ -956,7 +1017,7 @@ async function viewSettings(main) {
       save.disabled = false;
     }
   });
-  main.replaceChildren(pageHead("Settings", "Business details, home page, contact, shop, alerts and social links."), alerts, form);
+  main.replaceChildren(pageHead("Settings", "Business details, home page, contact, shop, file service, alerts and social links."), alerts, form);
 }
 
 function viewBackup(main) {
@@ -980,18 +1041,350 @@ function viewBackup(main) {
   main.replaceChildren(
     pageHead("Backup", "Download everything, or restore a previous download."),
     h("div", { class: "grid grid-2" },
-      h("section", { class: "card" }, h("h2", { text: "Download a backup" }), h("p", { style: { margin: "8px 0 16px", color: "var(--muted)" }, text: "Saves orders, enquiries, products, vehicles, ECUs, brands, services, the photo list and settings as one JSON file. The uploaded image files themselves are not included." }), h("a", { class: "btn btn-primary", href: "/api/admin/export", download: "", text: "Download backup" })),
+      h("section", { class: "card" }, h("h2", { text: "Download a backup" }), h("p", { style: { margin: "8px 0 16px", color: "var(--muted)" }, text: "Saves orders, enquiries, file service accounts (with their password hashes, so keep it private), credits, payments, file orders, products, vehicles, ECUs, brands, services, the photo list and settings as one JSON file. Uploaded images and ECU files themselves are not included." }), h("a", { class: "btn btn-primary", href: "/api/admin/export", download: "", text: "Download backup" })),
       h("section", { class: "card" }, h("h2", { text: "Restore" }), h("p", { style: { margin: "8px 0 16px", color: "var(--muted)" }, text: "Replaces all current data with a backup file from this panel. Download a fresh backup first." }), restore, file)
     )
   );
 }
 
+// ---------- Tuning file service ----------
+
+const FILE_LABELS = { submitted: "New", in_progress: "In progress", completed: "Ready", rejected: "Rejected", cancelled: "Cancelled" };
+const PAYMENT_LABELS = { awaiting_payment: "Awaiting payment", submitted: "To check", paid: "Paid", cancelled: "Cancelled" };
+const LEDGER_LABELS = { purchase: "Credits bought", order: "File order", refund: "Refund", admin: "Adjustment" };
+const plural = (count, word) => `${count} ${word}${count === 1 ? "" : "s"}`;
+const fileSize = (bytes) => (bytes >= 1_048_576 ? `${(bytes / 1_048_576).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`);
+const vehicleLine = (vehicle) => `${vehicle.make} ${vehicle.model} ${vehicle.engine}`;
+const customerName = (record) => record.customer?.name ?? "Deleted customer";
+
+// Files go up as the raw request body with their name in a header.
+async function uploadFile(path, file) {
+  const response = await fetch(path, {
+    method: "POST",
+    headers: { "X-Requested-With": "unity-admin", "Content-Type": "application/octet-stream", "X-File-Name": encodeURIComponent(file.name) },
+    body: file
+  });
+  const data = await response.json().catch(() => ({}));
+  if (response.status === 401) {
+    showLogin(data.error);
+    throw new SignedOut(data.error);
+  }
+  if (!response.ok) throw new Error(data.error || "The upload didn't finish.");
+  return data;
+}
+
+function whatsappCustomer(customer, text) {
+  const phone = digits(customer?.phone);
+  return phone.length >= 6 ? h("a", { href: `https://wa.me/${phone}?text=${encodeURIComponent(text)}`, target: "_blank", rel: "noopener", text: "WhatsApp" }) : null;
+}
+
+async function viewFileOrders(main, id) {
+  const [{ items }, service] = await Promise.all([api("/api/admin/file-orders"), api("/api/admin/file-service")]);
+  const label = (map, key) => map[key] ?? key;
+  const detail = (order) => {
+    const { vehicle, customer } = order;
+    const closed = ["rejected", "cancelled"].includes(order.status);
+    const status = h("select", { "aria-label": "Status", disabled: closed }, ...Object.entries(FILE_LABELS).map(([key, text]) => h("option", { value: key, text, selected: key === order.status })));
+    const reference = h("input", { type: "text", maxlength: 60, placeholder: "e.g. 123456", "aria-label": "Their order number" });
+    reference.value = order.provider?.reference ?? "";
+    const message = h("textarea", { rows: 2, maxlength: 500, "aria-label": "Message to the customer" });
+    message.value = order.message ?? "";
+    const notes = h("textarea", { rows: 2, maxlength: 1000, "aria-label": "Private notes" });
+    notes.value = order.adminNotes ?? "";
+    const tunedInput = h("input", { type: "file", class: "visually-hidden" });
+    const tunedButton = h("button", { class: "btn btn-primary btn-small", type: "button", text: order.tuned ? "Replace tuned file…" : "Upload tuned file…", disabled: closed });
+    tunedButton.addEventListener("click", () => tunedInput.click());
+    tunedInput.addEventListener("change", async () => {
+      const file = tunedInput.files?.[0];
+      tunedInput.value = "";
+      if (!file) return;
+      tunedButton.disabled = true;
+      tunedButton.textContent = "Uploading…";
+      try {
+        await uploadFile(`/api/admin/file-orders/${order.id}/tuned`, file);
+        toast(`${order.number} is ready for the customer`);
+        dialog.close();
+        viewFileOrders(main, order.id);
+        refreshBadges();
+      } catch (error) {
+        reportError(error);
+        tunedButton.disabled = false;
+        tunedButton.textContent = "Upload tuned file…";
+      }
+    });
+    const readyText = `Hi ${customer?.name?.split(" ")[0] ?? ""}, your tuned file ${order.number} (${vehicleLine(vehicle)}) is ready to download: ${location.origin}/files`;
+    const body = h("div", {},
+      h("dl", { class: "detail-grid" },
+        h("dt", { text: "Placed" }), h("dd", { text: dateTime(order.createdAt) }),
+        h("dt", { text: "Customer" }), h("dd", {}, customer ? h("a", { href: `#customers/${customer.id}`, text: customer.name }) : "Deleted customer", customer?.company ? ` · ${customer.company}` : ""),
+        customer ? [h("dt", { text: "Contact" }), h("dd", {}, h("a", { href: `mailto:${customer.email}`, text: customer.email }), " · ", h("a", { href: `tel:${digits(customer.phone)}`, text: customer.phone }), " · ", whatsappCustomer(customer, `Hi ${customer.name.split(" ")[0]}, about your file ${order.number}: `))] : null,
+        h("dt", { text: "Vehicle" }), h("dd", { text: `${vehicleLine(vehicle)} · ${vehicle.year} · ${label(service.fuels, vehicle.fuel)}${vehicle.gearbox ? ` · ${label(service.gearboxes, vehicle.gearbox)}` : ""}` }),
+        h("dt", { text: "ECU" }), h("dd", { text: `${order.ecu}${order.ecuNumbers ? ` · ${order.ecuNumbers}` : ""}` }),
+        h("dt", { text: "Read with" }), h("dd", { text: `${label(service.tools, order.tool)} (${label(service.toolModes, order.toolMode)}) · ${label(service.readMethods, order.readMethod)}` }),
+        h("dt", { text: "Tune" }), h("dd", { text: `${order.options.map((option) => `${option.name} (${option.credits})`).join(" + ")} = ${plural(order.credits, "credit")}${order.refunded ? " · refunded" : ""}` }),
+        order.notes ? [h("dt", { text: "Customer notes" }), h("dd", { text: order.notes })] : null,
+        h("dt", { text: "Original" }), h("dd", {}, h("a", { href: `/api/admin/file-orders/${order.id}/download`, download: "", text: `${order.original.name}` }), ` · ${fileSize(order.original.size)} · SHA-256 ${order.original.sha256.slice(0, 12)}…`),
+        h("dt", { text: "Tuned file" }), h("dd", {}, order.tuned ? [h("a", { href: `/api/admin/file-orders/${order.id}/download?file=tuned`, download: "", text: order.tuned.name }), ` · ${fileSize(order.tuned.size)} · uploaded ${dateTime(order.tuned.uploadedAt)} `] : "Not yet ", tunedButton, tunedInput)
+      ),
+      h("section", { class: "card", style: { marginTop: "18px", background: "var(--surface-2)" } },
+        h("h3", { style: { margin: "0 0 6px", fontSize: "15px" }, text: `Send to ${service.provider.name}` }),
+        h("p", { class: "help", style: { margin: "0 0 10px", color: "var(--muted)", fontSize: "13px" }, text: service.provider.note }),
+        h("ol", { style: { margin: "0 0 12px", paddingLeft: "18px", fontSize: "13px", lineHeight: "1.7" } },
+          h("li", {}, "Download the original above."),
+          h("li", {}, "Upload it on ", h("a", { href: service.provider.site, target: "_blank", rel: "noopener", text: service.provider.name }), " with the same vehicle and tune."),
+          h("li", {}, "Enter their order number below and save: the order shows as In progress."),
+          h("li", {}, "When their file comes back, upload it here with “Upload tuned file”. The customer can then download it.")
+        ),
+        h("label", { class: "field" }, h("span", { text: "Their order number" }), reference)
+      ),
+      h("div", { class: "form-grid", style: { marginTop: "18px" } },
+        h("label", { class: "field" }, h("span", { text: "Status" }), status, h("span", { class: "help", text: closed ? "Closed: the credits went back to the customer." : "Rejecting or cancelling returns the credits to the customer." })),
+        h("label", { class: "field full" }, h("span", { text: "Message to the customer (shown with the order)" }), message),
+        h("label", { class: "field full" }, h("span", { text: "Private notes (only admins see these)" }), notes)
+      )
+    );
+    const tell = order.status === "completed" ? whatsappCustomer(customer, readyText) : null;
+    if (tell) {
+      tell.className = "btn spacer";
+      tell.textContent = "Tell the customer on WhatsApp";
+    }
+    const save = h("button", { class: "btn btn-primary", type: "button", text: "Save" });
+    const dialog = modal({ title: `File ${order.number}`, body, footer: [tell, save].filter(Boolean), wide: true });
+    save.addEventListener("click", async () => {
+      const changes = { message: message.value, adminNotes: notes.value, providerReference: reference.value };
+      if (!closed && status.value !== order.status) {
+        if (["rejected", "cancelled"].includes(status.value) && !(await confirmDialog(`${FILE_LABELS[status.value]} ${order.number}? ${plural(order.credits, "credit")} go back to ${customerName(order)}, and the order can't be reopened.`, { confirmLabel: FILE_LABELS[status.value] }))) return;
+        changes.status = status.value;
+      }
+      try {
+        await api(`/api/admin/file-orders/${order.id}`, { method: "PATCH", body: changes });
+        toast(`${order.number} saved`);
+        dialog.close();
+        viewFileOrders(main);
+        refreshBadges();
+      } catch (error) {
+        reportError(error);
+      }
+    });
+  };
+  listView({
+    main,
+    title: "File orders",
+    subtitle: "Tuning files ordered with credits on the file service (/files).",
+    items,
+    labels: FILE_LABELS,
+    empty: "No file orders yet.",
+    search: (order) => `${order.number} ${customerName(order)} ${order.customer?.company ?? ""} ${vehicleLine(order.vehicle)} ${order.ecu} ${order.provider?.reference ?? ""}`,
+    detail,
+    columns: [
+      { label: "File", cell: (order) => [order.number, h("span", { class: "sub", text: dateTime(order.createdAt) })] },
+      { label: "Customer", cell: (order) => [customerName(order), h("span", { class: "sub", text: order.customer?.company || order.customer?.phone || "" })] },
+      { label: "Vehicle", cell: (order) => [vehicleLine(order.vehicle), h("span", { class: "sub", text: `${order.vehicle.year} · ${order.ecu}` })] },
+      { label: "Tune", cell: (order) => [order.options.map((option) => option.name).join(" + "), h("span", { class: "sub", text: plural(order.credits, "credit") })] },
+      { label: "Status", cell: (order) => [pill(order.status, FILE_LABELS[order.status]), order.provider ? h("span", { class: "sub", text: `Sent · ${order.provider.reference}` }) : null] }
+    ]
+  });
+  const open = items.find((order) => order.id === id);
+  if (open) detail(open);
+}
+
+async function viewCustomers(main, id) {
+  const { items } = await api("/api/admin/customers");
+  const detail = async (summary) => {
+    let data;
+    try {
+      data = await api(`/api/admin/customers/${summary.id}`);
+    } catch (error) {
+      reportError(error);
+      return;
+    }
+    const customer = data.item;
+    const name = h("input", { maxlength: 80 });
+    name.value = customer.name;
+    const phone = h("input", { type: "tel", maxlength: 30 });
+    phone.value = customer.phone;
+    const company = h("input", { maxlength: 80 });
+    company.value = customer.company;
+    const active = h("input", { type: "checkbox", checked: customer.active });
+    const change = h("input", { type: "number", step: "1", placeholder: "e.g. 5 or -1", "aria-label": "Credits to add or take away" });
+    const reason = h("input", { maxlength: 200, placeholder: "e.g. Paid cash at the workshop", "aria-label": "Reason" });
+    const apply = h("button", { class: "btn btn-small", type: "button", text: "Apply" });
+    apply.addEventListener("click", async () => {
+      try {
+        const { item } = await api(`/api/admin/customers/${customer.id}/credits`, { method: "POST", body: { change: Number(change.value), note: reason.value } });
+        toast(`${item.name} now has ${plural(item.credits, "credit")}`);
+        dialog.close();
+        viewCustomers(main, customer.id);
+      } catch (error) {
+        reportError(error);
+      }
+    });
+    const resetOut = h("div", { class: "help", style: { marginTop: "8px", wordBreak: "break-all" } });
+    const reset = h("button", { class: "btn btn-small", type: "button", text: "Make a password reset link" });
+    reset.addEventListener("click", async () => {
+      try {
+        const { url, expiresAt } = await api(`/api/admin/customers/${customer.id}/reset-link`, { method: "POST" });
+        const send = whatsappCustomer(customer, `Hi ${customer.name.split(" ")[0]}, here's your link to set a new password for the file service (it works once, until ${dateTime(expiresAt)}): ${url}`);
+        resetOut.replaceChildren(h("code", { text: url }), h("br"), `Works once, until ${dateTime(expiresAt)}. `, ...(send ? [send, " it to them."] : ["Send it to them."]));
+      } catch (error) {
+        reportError(error);
+      }
+    });
+    const ledgerTable = dataTable(
+      [
+        { label: "Date", cell: (entry) => dateTime(entry.createdAt) },
+        { label: "What", cell: (entry) => [LEDGER_LABELS[entry.reason] ?? entry.reason, h("span", { class: "sub", text: [entry.ref, entry.note].filter(Boolean).join(" · ") })] },
+        { label: "Change", class: "num", cell: (entry) => (entry.change > 0 ? `+${entry.change}` : String(entry.change)) },
+        { label: "Balance", class: "num", cell: (entry) => String(entry.balance) }
+      ],
+      data.ledger,
+      { empty: "No credit changes yet." }
+    );
+    const body = h("div", {},
+      h("dl", { class: "detail-grid" },
+        h("dt", { text: "Email" }), h("dd", {}, h("a", { href: `mailto:${customer.email}`, text: customer.email })),
+        h("dt", { text: "Joined" }), h("dd", { text: dateTime(customer.createdAt) }),
+        h("dt", { text: "Credits" }), h("dd", {}, h("b", { text: String(customer.credits) })),
+        h("dt", { text: "Files" }), h("dd", {}, ...(data.orders.length ? data.orders.slice(0, 8).flatMap((order, index) => [index ? " · " : "", h("a", { href: `#files/${order.id}`, text: `${order.number} (${FILE_LABELS[order.status]})` })]) : ["None yet"]))
+      ),
+      h("div", { class: "form-grid", style: { marginTop: "18px" } },
+        h("label", { class: "field" }, h("span", { text: "Name" }), name),
+        h("label", { class: "field" }, h("span", { text: "Workshop" }), company),
+        h("label", { class: "field" }, h("span", { text: "WhatsApp number" }), phone),
+        h("label", { class: "check" }, active, "Account switched on (off signs them out and stops sign-ins)")
+      ),
+      h("section", { class: "card", style: { marginTop: "18px", background: "var(--surface-2)" } },
+        h("h3", { style: { margin: "0 0 10px", fontSize: "15px" }, text: "Add or take away credits" }),
+        h("div", { class: "toolbar" }, change, reason, apply),
+        h("p", { class: "help", style: { margin: "8px 0 0", color: "var(--muted)", fontSize: "12px" }, text: "For payments made outside the website, goodwill, or corrections. The reason is kept in the credit history below; the customer sees the change as an adjustment." })
+      ),
+      h("section", { class: "card", style: { marginTop: "12px", background: "var(--surface-2)" } },
+        h("h3", { style: { margin: "0 0 10px", fontSize: "15px" }, text: "Forgot their password?" }),
+        reset,
+        resetOut
+      ),
+      h("h3", { style: { margin: "22px 0 8px", fontSize: "15px" }, text: "Credit history" }),
+      ledgerTable
+    );
+    const save = h("button", { class: "btn btn-primary", type: "button", text: "Save" });
+    const dialog = modal({ title: customer.name, body, footer: [save], wide: true });
+    save.addEventListener("click", async () => {
+      try {
+        await api(`/api/admin/customers/${customer.id}`, { method: "PATCH", body: { name: name.value, phone: phone.value, company: company.value, active: active.checked } });
+        toast("Customer saved");
+        dialog.close();
+        viewCustomers(main);
+      } catch (error) {
+        reportError(error);
+      }
+    });
+  };
+  const input = h("input", { type: "search", placeholder: "Search", "aria-label": "Search customers" });
+  const holder = h("div");
+  const draw = () => {
+    const query = input.value.trim().toLowerCase();
+    const rows = items.filter((customer) => !query || `${customer.name} ${customer.email} ${customer.phone} ${customer.company}`.toLowerCase().includes(query));
+    holder.replaceChildren(
+      dataTable(
+        [
+          { label: "Customer", cell: (customer) => [customer.name, h("span", { class: "sub", text: customer.company || customer.email })] },
+          { label: "Contact", cell: (customer) => [customer.email, h("span", { class: "sub", text: customer.phone })] },
+          { label: "Credits", class: "num", cell: (customer) => String(customer.credits) },
+          { label: "Files", class: "num", cell: (customer) => String(customer.orders) },
+          { label: "Account", cell: (customer) => pill(customer.active ? "active" : "cancelled", customer.active ? "On" : "Off") }
+        ],
+        rows,
+        { onRowClick: detail, empty: "No customers yet. Tuners create accounts on /files." }
+      )
+    );
+  };
+  input.addEventListener("input", draw);
+  main.replaceChildren(pageHead("Customers", "File service accounts, their credits and history."), h("div", { class: "toolbar" }, input), holder);
+  draw();
+  const open = items.find((customer) => customer.id === id);
+  if (open) detail(open);
+}
+
+async function viewPayments(main, id) {
+  const [{ items }, service] = await Promise.all([api("/api/admin/purchases"), api("/api/admin/file-service")]);
+  const act = (purchase, action, done) => async () => {
+    try {
+      const { item } = await api(`/api/admin/purchases/${purchase.id}/${action}`, { method: "POST" });
+      toast(done(item));
+      viewPayments(main);
+      refreshBadges();
+    } catch (error) {
+      reportError(error);
+    }
+  };
+  const detail = (purchase) => {
+    const open = ["awaiting_payment", "submitted"].includes(purchase.status);
+    const footer = [];
+    if (open) {
+      const cancel = h("button", { class: "btn btn-danger spacer", type: "button", text: "Cancel payment" });
+      cancel.addEventListener("click", async () => {
+        if (await confirmDialog(`Cancel ${purchase.number}? No credits are added.`, { confirmLabel: "Cancel payment" })) act(purchase, "cancel", () => `${purchase.number} cancelled`)().then(() => dialog.close());
+      });
+      footer.push(cancel);
+      if (purchase.method === "razorpay") {
+        const check = h("button", { class: "btn", type: "button", text: "Check with Razorpay" });
+        check.addEventListener("click", () => act(purchase, "check", (item) => (item.status === "paid" ? `Paid: ${plural(item.credits, "credit")} added` : "Razorpay hasn't received it yet"))().then(() => dialog.close()));
+        footer.push(check);
+      }
+      const confirm = h("button", { class: "btn btn-primary", type: "button", text: `Payment received · add ${plural(purchase.credits, "credit")}` });
+      confirm.addEventListener("click", async () => {
+        if (await confirmDialog(`Only confirm once ${cash(purchase.amount)} has arrived${purchase.utr ? ` with reference ${purchase.utr}` : ""}. Add ${plural(purchase.credits, "credit")} to ${customerName(purchase)}?`, { confirmLabel: "Add credits", danger: false }))
+          act(purchase, "confirm", (item) => `${plural(item.credits, "credit")} added for ${customerName(item)}`)().then(() => dialog.close());
+      });
+      footer.push(confirm);
+    }
+    const dialog = modal({
+      title: `Payment ${purchase.number}`,
+      wide: true,
+      footer,
+      body: h("dl", { class: "detail-grid" },
+        h("dt", { text: "Started" }), h("dd", { text: dateTime(purchase.createdAt) }),
+        h("dt", { text: "Customer" }), h("dd", {}, purchase.customer ? h("a", { href: `#customers/${purchase.customer.id}`, text: purchase.customer.name }) : "Deleted customer", purchase.customer ? [" · ", whatsappCustomer(purchase.customer, `Hi ${purchase.customer.name.split(" ")[0]}, about your payment ${purchase.number}: `)] : null),
+        h("dt", { text: "Pack" }), h("dd", { text: `${purchase.packName} · ${plural(purchase.credits, "credit")}` }),
+        h("dt", { text: "Amount" }), h("dd", { text: money(purchase.amount, purchase.currency) }),
+        h("dt", { text: "Method" }), h("dd", { text: purchase.method === "razorpay" ? `Razorpay${purchase.gateway?.paymentId ? ` · ${purchase.gateway.paymentId}` : ""}` : `UPI${purchase.utr ? ` · reference ${purchase.utr}` : " · no reference yet"}` }),
+        h("dt", { text: "Status" }), h("dd", {}, pill(purchase.status, PAYMENT_LABELS[purchase.status]), purchase.paidAt ? ` ${dateTime(purchase.paidAt)}${purchase.confirmedBy === "admin" ? " · confirmed by you" : " · confirmed by Razorpay"}` : "")
+      )
+    });
+  };
+  listView({
+    main,
+    title: "Payments",
+    subtitle: service.upi || service.razorpay
+      ? `Credit pack purchases. UPI payments need you to check the money arrived, then confirm.${service.razorpay ? " Razorpay payments confirm themselves." : ""}`
+      : "Credit pack purchases. Set a UPI ID in Settings (with the currency set to INR) so customers can buy credits.",
+    items,
+    labels: PAYMENT_LABELS,
+    empty: "No payments yet.",
+    search: (purchase) => `${purchase.number} ${customerName(purchase)} ${purchase.utr} ${purchase.packName}`,
+    detail,
+    columns: [
+      { label: "Payment", cell: (purchase) => [purchase.number, h("span", { class: "sub", text: dateTime(purchase.createdAt) })] },
+      { label: "Customer", cell: (purchase) => [customerName(purchase), h("span", { class: "sub", text: purchase.customer?.phone ?? "" })] },
+      { label: "Pack", cell: (purchase) => [purchase.packName, h("span", { class: "sub", text: plural(purchase.credits, "credit") })] },
+      { label: "Amount", class: "num", cell: (purchase) => money(purchase.amount, purchase.currency) },
+      { label: "Method", cell: (purchase) => [purchase.method === "razorpay" ? "Razorpay" : "UPI", purchase.utr ? h("span", { class: "sub", text: `Ref ${purchase.utr}` }) : null] },
+      { label: "Status", cell: (purchase) => pill(purchase.status, PAYMENT_LABELS[purchase.status]) }
+    ]
+  });
+  const open = items.find((purchase) => purchase.id === id);
+  if (open) detail(open);
+}
+
 // ---------- Shell, routing and sign-in ----------
+
+// Sections whose menu entry shows how many new items wait.
+const BADGES = ["orders", "enquiries", "files", "payments"];
 
 async function refreshBadges() {
   try {
     const data = await api("/api/admin/dashboard");
-    state.badges = { orders: data.newOrders, enquiries: data.newEnquiries };
+    state.badges = { orders: data.newOrders, enquiries: data.newEnquiries, files: data.newFileOrders, payments: data.paymentsToCheck };
     for (const [section, count] of Object.entries(state.badges)) {
       const badge = document.querySelector(`[data-badge="${section}"]`);
       if (badge) {
@@ -1024,7 +1417,7 @@ function renderShell() {
       h("aside", { class: "sidebar" },
         h("div", { class: "brand", text: state.businessName }),
         h("nav", { class: "side-nav", "aria-label": "Admin sections" },
-          ...SECTIONS.map(([id, label]) => h("a", { href: `#${id}`, dataset: { section: id } }, label, id === "orders" || id === "enquiries" ? h("span", { class: "count", dataset: { badge: id }, hidden: true }) : null))
+          ...SECTIONS.map(([id, label]) => h("a", { href: `#${id}`, dataset: { section: id } }, label, BADGES.includes(id) ? h("span", { class: "count", dataset: { badge: id }, hidden: true }) : null))
         ),
         h("div", { class: "sidebar-foot" }, h("a", { href: "/", target: "_blank", rel: "noopener", text: "View website ↗" }), signOut)
       ),
@@ -1051,6 +1444,9 @@ async function route() {
     if (known === "dashboard") await viewDashboard(main);
     else if (known === "orders") await viewOrders(main, id);
     else if (known === "enquiries") await viewEnquiries(main, id);
+    else if (known === "files") await viewFileOrders(main, id);
+    else if (known === "customers") await viewCustomers(main, id);
+    else if (known === "payments") await viewPayments(main, id);
     else if (known === "settings") await viewSettings(main);
     else if (known === "backup") viewBackup(main);
     else await collectionView(main, id, COLLECTION_VIEWS[known]);

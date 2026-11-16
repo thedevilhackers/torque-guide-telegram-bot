@@ -441,8 +441,27 @@ export const DEFAULT_SETTINGS = {
   stage3Note: "Stage 3 is a bigger build: an upgraded turbocharger with matching fuelling and a clutch or gearbox rated for the extra torque, finished with a custom calibration checked by data-logged road tests.",
   alertOrders: true,
   alertEnquiries: true,
-  siteUrl: ""
+  alertFiles: true,
+  siteUrl: "",
+  // Tuning file service (/files).
+  fileServiceOpen: true,
+  fileServiceNote: "Every file is checked by hand before it goes back to you. You'll see it here as soon as it's ready.",
+  upiId: "",
+  upiName: ""
 };
+
+// What a tuning file order can include, priced in credits. The owner edits these in the admin panel.
+// Emissions equipment (DPF, EGR, AdBlue, catalyst, lambda) and immobiliser removal are deliberately
+// not offered.
+export const SEED_TUNE_OPTIONS = [
+  { id: "stage-1", name: "Stage 1", kind: "tune", credits: 1, description: "Software only, for a standard car.", active: true },
+  { id: "stage-2", name: "Stage 2", kind: "tune", credits: 2, description: "For cars with supporting hardware: intake, intercooler, downpipe with catalyst.", active: true },
+  { id: "ethanol", name: "Ethanol tune (E20–E85)", kind: "tune", credits: 2, description: "Fuelling and timing for the ethanol blend you name in the notes.", active: true },
+  { id: "economy", name: "Economy", kind: "tune", credits: 1, description: "More low-down torque for better fuel economy.", active: true },
+  { id: "pops-bangs", name: "Pops & bangs", kind: "addon", credits: 1, description: "Overrun crackle, petrol cars only.", active: true },
+  { id: "launch-control", name: "Launch control", kind: "addon", credits: 1, description: "", active: true },
+  { id: "start-stop-off", name: "Start-stop off", kind: "addon", credits: 1, description: "Engine start-stop disabled by default.", active: true }
+];
 
 // The "Our work" gallery's first photos, from the workshop's Instagram (newest first). Each opens the
 // Instagram page, since no post link is set.
@@ -519,6 +538,16 @@ export function seedData(envSettings = {}) {
     orders: [],
     enquiries: [],
     alertChats: [],
-    nextOrderNumber: 1001
+    nextOrderNumber: 1001,
+    // Tuning file service: options and credit packs (edited in the admin panel), customer accounts,
+    // their credit history, credit purchases and file orders.
+    tuneOptions: clone(SEED_TUNE_OPTIONS),
+    creditPacks: [],
+    customers: [],
+    creditLedger: [],
+    creditPurchases: [],
+    fileOrders: [],
+    nextFileOrderNumber: 1001,
+    nextPurchaseNumber: 1001
   };
 }

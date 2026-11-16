@@ -1,0 +1,621 @@
+// The tuning file service: sign in or create an account, upload an original ECU read and order a
+// tune with credits, buy credits, and download finished files. Screens follow the address's hash:
+// #files (default), #new, #credits, #account, #signin, #register and #reset=<token>.
+import { $, applySettings, h, observeReveals, setupNav, toast, whatsappUrl } from "./lux.js";
+
+setupNav();
+applySettings();
+
+const app = $("[data-app]");
+const accountSlot = $("[data-account]");
+const state = { catalog: null, customer: null, overview: null, upload: null };
+
+const STATUS = {
+  submitted: ["Waiting", "wait"],
+  in_progress: ["In progress", "work"],
+  completed: ["Ready", "done"],
+  rejected: ["Rejected · refunded", "stop"],
+  cancelled: ["Cancelled · refunded", "stop"]
+};
+const PAYMENT_STATUS = { awaiting_payment: ["Awaiting payment", "wait"], submitted: ["Checking payment", "work"], paid: ["Paid", "done"], cancelled: ["Cancelled", "stop"] };
+const LEDGER_REASONS = { purchase: "Credits bought", order: "File order", refund: "Refund", admin: "Adjustment" };
+
+class SignedOut extends Error {}
+
+// Shows a screen: changing the hash redraws through hashchange; the same hash redraws directly.
+function go(hash) {
+  if (location.hash === hash) route();
+  else location.hash = hash;
+}
+
+// Every change carries the page's header; the server refuses requests without it.
+async function api(path, { method = "GET", body, raw, fileName, onProgress } = {}) {
+  if (raw) return upload(path, raw, fileName, onProgress);
+  const response = await fetch(path, {
+    method,
+    headers: { "X-Requested-With": "unity-portal", ...(body !== undefined && { "Content-Type": "application/json" }) },
+    body: body !== undefined ? JSON.stringify(body) : undefined
+  });
+  const data = await response.json().catch(() => ({}));
+  if (response.status === 401 && !/\/(login|register|reset)$/.test(path)) throw new SignedOut(data.error);
+  if (!response.ok) throw new Error(data.error || "Something went wrong. Please try again.");
+  return data;
+}
+
+// Files go up as the raw body; XHR reports progress, which fetch can't.
+function upload(path, file, fileName, onProgress) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", path);
+    xhr.setRequestHeader("X-Requested-With", "unity-portal");
+    xhr.setRequestHeader("Content-Type", "application/octet-stream");
+    xhr.setRequestHeader("X-File-Name", encodeURIComponent(fileName));
+    xhr.upload.onprogress = (event) => event.lengthComputable && onProgress?.(event.loaded / event.total);
+    xhr.onload = () => {
+      let data = {};
+      try {
+        data = JSON.parse(xhr.responseText);
+      } catch {
+        // Not JSON.
+      }
+      if (xhr.status === 401) reject(new SignedOut(data.error));
+      else if (xhr.status >= 200 && xhr.status < 300) resolve(data);
+      else reject(new Error(data.error || "The upload didn't finish. Please try again."));
+    };
+    xhr.onerror = () => reject(new Error("The upload was interrupted. Check your connection and try again."));
+    xhr.send(file);
+  });
+}
+
+const money = (amount) => {
+  const currency = state.catalog?.currency || "INR";
+  try {
+    return new Intl.NumberFormat(currency === "INR" ? "en-IN" : undefined, { style: "currency", currency, maximumFractionDigits: amount % 1 ? 2 : 0 }).format(amount);
+  } catch {
+    return `${currency} ${amount}`;
+  }
+};
+const credits = (count) => `${count} credit${count === 1 ? "" : "s"}`;
+const date = (iso) => new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+const dateTime = (iso) => new Date(iso).toLocaleString(undefined, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
+const size = (bytes) => (bytes >= 1_048_576 ? `${(bytes / 1_048_576).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`);
+const pill = ([label, kind]) => h("span", { class: `pill pill--${kind}`, text: label });
+const whatsapp = (text) => whatsappUrl(state.catalog?.whatsappNumber || "918709647229", text);
+
+function report(error) {
+  if (error instanceof SignedOut) {
+    state.customer = null;
+    go("#signin");
+    toast("Please sign in again.");
+    return;
+  }
+  toast(error.message, "error");
+}
+
+// Runs a button's action with the button disabled; errors show in the form's message line, or as a toast.
+async function busy(button, action, message = null) {
+  button.disabled = true;
+  if (message) {
+    message.hidden = true;
+    message.textContent = "";
+  }
+  try {
+    await action();
+  } catch (error) {
+    if (message && !(error instanceof SignedOut)) {
+      message.textContent = error.message;
+      message.hidden = false;
+    } else report(error);
+  } finally {
+    button.disabled = false;
+  }
+}
+
+function head(eyebrow, title, lead) {
+  return h("header", { class: "portal__head" }, h("p", { class: "eyebrow", text: eyebrow }), h("h1", { class: "title" }, ...title), lead ? h("p", { class: "lead", text: lead }) : null);
+}
+
+function field(label, control, { full = false, hint = "" } = {}) {
+  return h("label", { class: `field${full ? " full" : ""}` }, h("span", {}, label, hint ? h("small", { text: ` ${hint}` }) : null), control);
+}
+
+const input = (name, props = {}) => h("input", { name, autocomplete: "off", ...props });
+
+function select(name, choices, { placeholder = "Choose", value = "" } = {}) {
+  const element = h("select", { name, required: true }, h("option", { value: "", text: placeholder }), ...Object.entries(choices).map(([key, label]) => h("option", { value: key, text: label })));
+  element.value = value;
+  return element;
+}
+
+const formError = () => h("p", { class: "form__status full is-error", role: "alert", hidden: true });
+
+// ---------- Signed out: about the service, sign in, create an account, reset ----------
+
+function aboutPanel() {
+  const { options = [], packs = [] } = state.catalog ?? {};
+  const tunes = options.filter((option) => option.kind === "tune");
+  const addons = options.filter((option) => option.kind === "addon");
+  return h("section", { class: "portal__about" },
+    head("Tuning file service", ["Files for tuners, ", h("em", { text: "made to measure." })], "Upload an original read from your tool, choose the tune, and download a calibration written for that car. Every file shows its cost in credits before you order."),
+    h("div", { class: "price-list" },
+      h("h2", { class: "price-list__title", text: "Tunes" }),
+      h("ul", {}, ...tunes.map((option) => h("li", {}, h("span", {}, option.name, option.description ? h("small", { text: option.description }) : null), h("b", { text: credits(option.credits) })))),
+      addons.length ? h("h2", { class: "price-list__title", text: "Add-ons" }) : null,
+      addons.length ? h("ul", {}, ...addons.map((option) => h("li", {}, h("span", {}, option.name, option.description ? h("small", { text: option.description }) : null), h("b", { text: `+${credits(option.credits)}` })))) : null,
+      packs.length
+        ? [h("h2", { class: "price-list__title", text: "Credit packs" }), h("ul", {}, ...packs.map((pack) => h("li", {}, h("span", {}, pack.name, h("small", { text: credits(pack.credits) })), h("b", { text: money(pack.price) }))))]
+        : null
+    ),
+    h("p", { class: "fineprint", text: "We don't remove emissions equipment (DPF, EGR, AdBlue, catalysts) or immobilisers." })
+  );
+}
+
+function authPanel(mode) {
+  const tabs = h("div", { class: "tabs", role: "tablist" },
+    h("a", { class: "tab", href: "#signin", role: "tab", "aria-selected": String(mode === "signin"), text: "Sign in" }),
+    h("a", { class: "tab", href: "#register", role: "tab", "aria-selected": String(mode === "register"), text: "Create account" })
+  );
+  const error = formError();
+  const submit = h("button", { class: "btn btn--gold", type: "submit", text: mode === "signin" ? "Sign in" : "Create account" });
+  const form = h("form", { class: "form", novalidate: true },
+    mode === "register" ? field("Your name", input("name", { autocomplete: "name", maxlength: 80, required: true })) : null,
+    mode === "register" ? field("Workshop", input("company", { autocomplete: "organization", maxlength: 80 }), { hint: "(optional)" }) : null,
+    field("Email", input("email", { type: "email", autocomplete: "email", maxlength: 120, required: true }), { full: true }),
+    mode === "register" ? field("WhatsApp number", input("phone", { type: "tel", autocomplete: "tel", maxlength: 30, required: true, placeholder: "+91 …" }), { full: true }) : null,
+    field("Password", input("password", { type: "password", autocomplete: mode === "signin" ? "current-password" : "new-password", minlength: 8, required: true }), { full: true, hint: mode === "register" ? "(at least 8 characters)" : "" }),
+    h("div", { class: "full" }, submit),
+    error,
+    mode === "signin"
+      ? h("p", { class: "full fineprint" }, "Forgot your password? ", h("a", { href: whatsapp("Hi, I need a password reset link for the tuning file service."), target: "_blank", rel: "noopener", text: "Message us on WhatsApp" }), " for a reset link.")
+      : null
+  );
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const values = Object.fromEntries(new FormData(form));
+    busy(submit, async () => {
+      const { customer } = await api(`/api/portal/${mode === "signin" ? "login" : "register"}`, { method: "POST", body: values });
+      state.customer = customer;
+      toast(mode === "signin" ? `Welcome back, ${customer.name.split(" ")[0]}.` : "Your account is ready.");
+      go(mode === "register" ? "#credits" : "#files");
+    }, error);
+  });
+  return h("section", { class: "card auth" }, tabs, form);
+}
+
+function resetPanel(token) {
+  const error = formError();
+  const submit = h("button", { class: "btn btn--gold", type: "submit", text: "Set password" });
+  const form = h("form", { class: "form", novalidate: true },
+    field("New password", input("password", { type: "password", autocomplete: "new-password", minlength: 8, required: true }), { full: true, hint: "(at least 8 characters)" }),
+    h("div", { class: "full" }, submit),
+    error
+  );
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    busy(submit, async () => {
+      const { customer } = await api("/api/portal/reset", { method: "POST", body: { token, password: form.elements.password.value } });
+      state.customer = customer;
+      toast("Your new password is set.");
+      go("#files");
+    }, error);
+  });
+  return h("section", { class: "card auth" }, h("h2", { class: "card__title", text: "Choose a new password" }), form);
+}
+
+function signedOut(mode, token) {
+  accountSlot.hidden = false;
+  accountSlot.replaceChildren(h("a", { class: "btn btn--small", href: mode === "signin" ? "#register" : "#signin", text: mode === "signin" ? "Create account" : "Sign in" }));
+  app.replaceChildren(h("div", { class: "portal__split" }, aboutPanel(), mode === "reset" ? resetPanel(token) : authPanel(mode)));
+}
+
+// ---------- Signed in ----------
+
+function shell(active, ...content) {
+  const { customer } = state;
+  accountSlot.hidden = false;
+  accountSlot.replaceChildren(h("a", { class: "nav__credits", href: "#credits", title: "Your credits" }, h("b", { text: String(customer.credits) }), ` credit${customer.credits === 1 ? "" : "s"}`));
+  const sections = [["files", "My files"], ["new", "New file"], ["credits", "Credits"], ["account", "Account"]];
+  app.replaceChildren(
+    h("div", { class: "portal__bar" },
+      h("div", {}, h("p", { class: "eyebrow", text: customer.company || "Tuning file service" }), h("h1", { class: "title portal__hello" }, "Welcome, ", h("em", { text: customer.name.split(" ")[0] }))),
+      h("div", { class: "balance" }, h("span", { class: "balance__value", text: String(customer.credits) }), h("span", { class: "balance__label", text: customer.credits === 1 ? "credit" : "credits" }))
+    ),
+    h("nav", { class: "tabs tabs--wide", "aria-label": "File service" }, ...sections.map(([id, label]) => h("a", { class: "tab", href: `#${id}`, "aria-current": id === active ? "page" : undefined, text: label }))),
+    ...content
+  );
+}
+
+async function refresh() {
+  state.overview = await api("/api/portal/overview");
+  state.customer = state.overview.customer;
+}
+
+function orderCard(order) {
+  const { vehicle } = order;
+  const actions = [];
+  if (order.tuned) actions.push(h("a", { class: "btn btn--gold btn--small", href: `/api/portal/orders/${order.id}/download`, download: "", text: "Download tuned file" }));
+  actions.push(h("a", { class: "link", href: `/api/portal/orders/${order.id}/download?file=original`, download: "", text: "Original" }));
+  if (order.status === "submitted") {
+    const cancel = h("button", { class: "link", type: "button", text: "Cancel & refund" });
+    cancel.addEventListener("click", () => {
+      if (!confirm(`Cancel ${order.number}? Its ${credits(order.credits)} go back to your balance.`)) return;
+      busy(cancel, async () => {
+        await api(`/api/portal/orders/${order.id}/cancel`, { method: "POST" });
+        toast(`${order.number} cancelled. ${credits(order.credits)} refunded.`);
+        route();
+      });
+    });
+    actions.push(cancel);
+  }
+  return h("article", { class: "order" },
+    h("div", { class: "order__main" },
+      h("p", { class: "order__meta" }, h("span", { text: order.number }), h("span", { text: date(order.createdAt) }), pill(STATUS[order.status])),
+      h("h3", { class: "order__car", text: `${vehicle.make} ${vehicle.model} ${vehicle.engine}` }),
+      h("p", { class: "order__detail", text: `${vehicle.year} · ${order.ecu} · ${state.catalog.tools[order.tool] ?? order.tool} ${state.catalog.toolModes[order.toolMode] ?? ""}` }),
+      h("p", { class: "order__detail", text: `${order.options.map((option) => option.name).join(" + ")} · ${credits(order.credits)}` }),
+      order.message ? h("p", { class: "order__message" }, h("b", { text: "From the workshop: " }), order.message) : null
+    ),
+    h("div", { class: "order__actions" }, ...actions)
+  );
+}
+
+async function viewFiles() {
+  await refresh();
+  const { orders } = state.overview;
+  const open = orders.filter((order) => ["submitted", "in_progress"].includes(order.status)).length;
+  shell("files",
+    h("section", { class: "portal__section" },
+      h("div", { class: "section-row" }, h("h2", { class: "card__title", text: orders.length ? `${orders.length} file${orders.length === 1 ? "" : "s"}${open ? ` · ${open} in the workshop` : ""}` : "No files yet" }), h("a", { class: "btn btn--gold btn--small", href: "#new", text: "New file" })),
+      state.catalog.note ? h("p", { class: "fineprint", text: state.catalog.note }) : null,
+      orders.length
+        ? h("div", { class: "orders" }, ...orders.map(orderCard))
+        : h("div", { class: "empty" }, h("p", { text: "Upload your first original read to get started." }), h("a", { class: "link", href: state.customer.credits ? "#new" : "#credits", text: state.customer.credits ? "Upload a file →" : "Buy credits first →" }))
+    )
+  );
+}
+
+function choice(type, name, option, checked = false) {
+  const control = h("input", { type, name, value: option.id, checked });
+  return h("label", { class: "choice" }, control, h("span", { class: "choice__body" }, h("span", { class: "choice__name", text: option.name }), option.description ? h("small", { text: option.description }) : null), h("b", { class: "choice__cost", text: type === "checkbox" ? `+${option.credits}` : String(option.credits) }));
+}
+
+async function viewNew() {
+  await refresh();
+  const { catalog, customer } = state;
+  if (!catalog.open) {
+    shell("new", h("section", { class: "portal__section empty" }, h("p", { text: "We aren't taking new files right now." }), h("a", { class: "link", href: whatsapp("Hi, when will the tuning file service reopen?"), target: "_blank", rel: "noopener", text: "Ask us on WhatsApp →" })));
+    return;
+  }
+  const tunes = catalog.options.filter((option) => option.kind === "tune");
+  const addons = catalog.options.filter((option) => option.kind === "addon");
+
+  // 1. The original file uploads as soon as it's chosen.
+  const fileInput = h("input", { type: "file", class: "visually-hidden", "aria-label": "Original ECU file" });
+  const dropText = h("span", { class: "drop__text" });
+  const bar = h("span", { class: "drop__bar" });
+  const drop = h("label", { class: "drop" }, fileInput, h("span", { class: "drop__icon", "aria-hidden": "true", text: "↑" }), dropText, h("span", { class: "drop__progress" }, bar));
+  const drawDrop = (text, sub = "") => dropText.replaceChildren(h("b", { text }), sub ? h("small", { text: sub }) : null);
+  drawDrop(state.upload ? state.upload.name : "Choose the original read", state.upload ? `${size(state.upload.size)} · uploaded · choose again to replace` : `Drop it here or tap to choose · up to ${catalog.maxFileMb} MB`);
+  drop.classList.toggle("is-done", Boolean(state.upload));
+  const sendFile = async (file) => {
+    if (!file) return;
+    if (file.size > catalog.maxFileMb * 1_048_576) {
+      toast(`That file is over ${catalog.maxFileMb} MB.`, "error");
+      return;
+    }
+    drop.classList.remove("is-done");
+    drop.classList.add("is-busy");
+    drawDrop(file.name, "Uploading…");
+    try {
+      const { upload: uploaded } = await api("/api/portal/uploads", { raw: file, fileName: file.name, onProgress: (share) => (bar.style.width = `${Math.round(share * 100)}%`) });
+      state.upload = uploaded;
+      drawDrop(uploaded.name, `${size(uploaded.size)} · uploaded · choose again to replace`);
+      drop.classList.add("is-done");
+    } catch (error) {
+      state.upload = null;
+      drawDrop("Choose the original read", "The upload didn't finish. Try again.");
+      report(error);
+    } finally {
+      drop.classList.remove("is-busy");
+      bar.style.width = "0";
+    }
+  };
+  fileInput.addEventListener("change", () => sendFile(fileInput.files?.[0]));
+  for (const type of ["dragenter", "dragover"]) drop.addEventListener(type, (event) => (event.preventDefault(), drop.classList.add("is-over")));
+  for (const type of ["dragleave", "drop"]) drop.addEventListener(type, () => drop.classList.remove("is-over"));
+  drop.addEventListener("drop", (event) => {
+    event.preventDefault();
+    sendFile(event.dataTransfer?.files?.[0]);
+  });
+
+  const year = new Date().getFullYear();
+  const total = h("b", { class: "summary__total" });
+  const after = h("span", { class: "summary__after" });
+  const submit = h("button", { class: "btn btn--gold", type: "submit" });
+  const error = formError();
+  const form = h("form", { class: "form order-form", novalidate: true },
+    h("fieldset", { class: "step-box full" }, h("legend", { text: "1 · Original file" }), drop),
+    h("fieldset", { class: "step-box full" }, h("legend", { text: "2 · Vehicle" }),
+      h("div", { class: "form" },
+        field("Make", input("make", { maxlength: 40, placeholder: "Volkswagen", required: true })),
+        field("Model", input("model", { maxlength: 60, placeholder: "Polo", required: true })),
+        field("Engine", input("engine", { maxlength: 60, placeholder: "1.0 TSI 110 hp", required: true })),
+        field("Model year", input("year", { type: "number", inputmode: "numeric", min: 1990, max: year + 1, placeholder: String(year - 3), required: true })),
+        field("Fuel", select("fuel", catalog.fuels)),
+        field("Gearbox", select("gearbox", catalog.gearboxes, { placeholder: "Not sure" }))
+      )
+    ),
+    h("fieldset", { class: "step-box full" }, h("legend", { text: "3 · ECU and tool" }),
+      h("div", { class: "form" },
+        field("ECU", input("ecu", { maxlength: 80, placeholder: "Bosch MED17.5.25", required: true })),
+        field("ECU numbers", input("ecuNumbers", { maxlength: 120, placeholder: "Hardware / software numbers" }), { hint: "(optional)" }),
+        field("Tool", select("tool", catalog.tools)),
+        field("Tool type", select("toolMode", catalog.toolModes)),
+        field("Read by", select("readMethod", catalog.readMethods))
+      )
+    ),
+    h("fieldset", { class: "step-box full" }, h("legend", { text: "4 · Tune" }),
+      h("div", { class: "choices" }, ...tunes.map((option, index) => choice("radio", "tuneId", option, index === 0))),
+      addons.length ? h("p", { class: "choices__label", text: "Add-ons" }) : null,
+      addons.length ? h("div", { class: "choices" }, ...addons.map((option) => choice("checkbox", "addonIds", option))) : null
+    ),
+    h("fieldset", { class: "step-box full" }, h("legend", { text: "5 · Notes" }),
+      field("Anything we should know", h("textarea", { name: "notes", maxlength: 1000, rows: 3, placeholder: "Fuel used (e.g. E20), modifications, gearbox, special requests" }), { full: true })
+    ),
+    h("div", { class: "summary full" }, h("div", {}, h("span", { class: "summary__label", text: "Total" }), total, after), submit),
+    error
+  );
+
+  const cost = () => {
+    const chosen = new Set(new FormData(form).getAll("addonIds"));
+    const tune = tunes.find((option) => option.id === form.elements.tuneId?.value);
+    return (tune?.credits ?? 0) + addons.filter((option) => chosen.has(option.id)).reduce((sum, option) => sum + option.credits, 0);
+  };
+  const drawSummary = () => {
+    const needed = cost();
+    total.textContent = credits(needed);
+    after.textContent = needed > customer.credits ? `You have ${customer.credits}. Buy ${needed - customer.credits} more to order.` : `You have ${customer.credits}; ${customer.credits - needed} left after this file.`;
+    submit.textContent = needed > customer.credits ? "Buy credits" : `Place order · ${credits(needed)}`;
+  };
+  form.addEventListener("change", drawSummary);
+  drawSummary();
+
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    if (cost() > state.customer.credits) {
+      location.hash = "#credits";
+      return;
+    }
+    const data = new FormData(form);
+    const body = { ...Object.fromEntries(data), addonIds: data.getAll("addonIds"), uploadId: state.upload?.id };
+    busy(submit, async () => {
+      if (!state.upload) throw new Error("Upload the original file first (step 1).");
+      for (const name of ["make", "model", "engine", "year", "fuel", "ecu", "tool", "toolMode", "readMethod"]) {
+        if (!String(body[name] ?? "").trim()) {
+          form.elements[name].focus();
+          throw new Error("Please fill in the vehicle, ECU and tool details.");
+        }
+      }
+      const { order } = await api("/api/portal/orders", { method: "POST", body });
+      state.upload = null;
+      toast(`${order.number} is with the workshop. We'll prepare it and it will appear here.`);
+      go("#files");
+    }, error);
+  });
+
+  shell("new",
+    h("section", { class: "portal__section" },
+      h("h2", { class: "card__title", text: "New file" }),
+      h("p", { class: "fineprint", text: "Send the untouched original read. The credits are taken when you place the order and returned if we can't do the file." }),
+      form
+    )
+  );
+}
+
+function paymentPanel(purchase) {
+  if (purchase.status !== "awaiting_payment") return null;
+  if (purchase.payUrl) {
+    const check = h("button", { class: "link", type: "button", text: "I've paid · check now" });
+    check.addEventListener("click", () =>
+      busy(check, async () => {
+        const result = await api(`/api/portal/purchases/${purchase.id}/check`, { method: "POST" });
+        toast(result.purchase.status === "paid" ? "Payment received. Your credits are added." : "We don't see the payment yet. Give it a minute and check again.");
+        route();
+      })
+    );
+    return h("div", { class: "pay" }, h("a", { class: "btn btn--gold btn--small", href: purchase.payUrl, text: `Pay ${money(purchase.amount)} online` }), check);
+  }
+  if (!purchase.upi) return null;
+  const reference = input("reference", { inputmode: "numeric", maxlength: 40, placeholder: "12-digit UPI reference (UTR)", required: true });
+  const send = h("button", { class: "btn btn--gold btn--small", type: "submit", text: "I've paid" });
+  const error = formError();
+  const copy = h("button", { class: "link", type: "button", text: "Copy UPI ID" });
+  copy.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(purchase.upi.id);
+      toast("UPI ID copied.");
+    } catch {
+      toast(purchase.upi.id);
+    }
+  });
+  const form = h("form", { class: "pay__form", novalidate: true }, field("Transaction reference", reference), send, error);
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    busy(send, async () => {
+      await api(`/api/portal/purchases/${purchase.id}/reference`, { method: "POST", body: { reference: reference.value } });
+      toast("Thanks. We'll check the payment and add your credits.");
+      route();
+    }, error);
+  });
+  return h("div", { class: "pay" },
+    h("ol", { class: "pay__steps" },
+      h("li", {}, "Pay ", h("b", { text: money(purchase.amount) }), " to ", h("b", { text: purchase.upi.id }), ` (${purchase.upi.name}). `, h("a", { class: "link", href: purchase.upi.url, text: "Open UPI app" }), " ", copy),
+      h("li", {}, "Add ", h("b", { text: purchase.number }), " to the payment note."),
+      h("li", { text: "Enter the transaction reference from your payment app below." })
+    ),
+    form
+  );
+}
+
+async function viewCredits() {
+  await refresh();
+  const { catalog } = state;
+  const { purchases, ledger } = state.overview;
+  const params = new URLSearchParams(location.search);
+  if (params.get("payment")) {
+    toast(params.get("payment") === "paid" ? "Payment received. Your credits are added." : "The payment didn't go through. You can try again.", params.get("payment") === "paid" ? "" : "error");
+    history.replaceState(null, "", "/files#credits");
+  }
+  const canPay = catalog.payments.upi || catalog.payments.online;
+  const buy = (pack, method, button) =>
+    busy(button, async () => {
+      const { purchase } = await api("/api/portal/purchases", { method: "POST", body: { packId: pack.id, method } });
+      if (purchase.payUrl) location.href = purchase.payUrl;
+      else {
+        toast(`${purchase.number} created. Follow the steps to pay.`);
+        route();
+      }
+    });
+  const packCard = (pack) => {
+    const buttons = [];
+    if (catalog.payments.upi) {
+      const upi = h("button", { class: "btn btn--gold btn--small", type: "button", text: "Pay by UPI" });
+      upi.addEventListener("click", () => buy(pack, "upi", upi));
+      buttons.push(upi);
+    }
+    if (catalog.payments.online) {
+      const online = h("button", { class: `btn btn--small${catalog.payments.upi ? "" : " btn--gold"}`, type: "button", text: "Card / UPI online" });
+      online.addEventListener("click", () => buy(pack, "online", online));
+      buttons.push(online);
+    }
+    if (!canPay) buttons.push(h("a", { class: "btn btn--small", href: whatsapp(`Hi, I'd like to buy the ${pack.name} credit pack (${pack.credits} credits).`), target: "_blank", rel: "noopener", text: "Buy on WhatsApp" }));
+    return h("article", { class: "pack" },
+      h("p", { class: "pack__name", text: pack.name }),
+      h("p", { class: "pack__credits" }, h("b", { text: String(pack.credits) }), credits(pack.credits).replace(/^\d+ /, "")),
+      h("p", { class: "pack__price", text: money(pack.price) }),
+      h("p", { class: "pack__each", text: pack.credits > 1 ? `${money(Math.round((pack.price / pack.credits) * 100) / 100)} per credit` : " " }),
+      pack.note ? h("p", { class: "fineprint", text: pack.note }) : null,
+      h("div", { class: "pack__buy" }, ...buttons)
+    );
+  };
+  const purchaseRow = (purchase) => {
+    const cancel = ["awaiting_payment"].includes(purchase.status) ? h("button", { class: "link", type: "button", text: "Cancel" }) : null;
+    cancel?.addEventListener("click", () =>
+      busy(cancel, async () => {
+        await api(`/api/portal/purchases/${purchase.id}/cancel`, { method: "POST" });
+        route();
+      })
+    );
+    return h("article", { class: "purchase" },
+      h("div", { class: "purchase__head" },
+        h("p", { class: "order__meta" }, h("span", { text: purchase.number }), h("span", { text: dateTime(purchase.createdAt) }), pill(PAYMENT_STATUS[purchase.status])),
+        h("p", { class: "purchase__what" }, h("b", { text: purchase.packName }), ` · ${credits(purchase.credits)} · ${money(purchase.amount)}`, purchase.utr ? ` · UTR ${purchase.utr}` : ""),
+        cancel
+      ),
+      paymentPanel(purchase)
+    );
+  };
+  shell("credits",
+    h("section", { class: "portal__section" },
+      h("h2", { class: "card__title", text: "Buy credits" }),
+      catalog.packs.length
+        ? h("div", { class: "packs" }, ...catalog.packs.map(packCard))
+        : h("div", { class: "empty" }, h("p", { text: "Credit packs will be listed here soon. Until then, buy credits from us directly." }), h("a", { class: "link", href: whatsapp("Hi, I'd like to buy credits for the tuning file service."), target: "_blank", rel: "noopener", text: "Message us on WhatsApp →" })),
+      catalog.packs.length && !canPay ? h("p", { class: "fineprint", text: "Online payment isn't set up yet, so packs are bought on WhatsApp for now." }) : null
+    ),
+    purchases.length ? h("section", { class: "portal__section" }, h("h2", { class: "card__title", text: "Payments" }), h("div", { class: "purchases" }, ...purchases.map(purchaseRow))) : null,
+    h("section", { class: "portal__section" },
+      h("h2", { class: "card__title", text: "Credit history" }),
+      ledger.length
+        ? h("div", { class: "table-wrap" },
+            h("table", { class: "ledger" },
+              h("thead", {}, h("tr", {}, h("th", { text: "Date" }), h("th", { text: "What" }), h("th", { class: "num", text: "Change" }), h("th", { class: "num", text: "Balance" }))),
+              h("tbody", {}, ...ledger.map((entry) => h("tr", {}, h("td", { text: date(entry.createdAt) }), h("td", { text: `${LEDGER_REASONS[entry.reason] ?? entry.reason}${entry.ref ? ` · ${entry.ref}` : ""}` }), h("td", { class: `num ${entry.change > 0 ? "plus" : "minus"}`, text: entry.change > 0 ? `+${entry.change}` : String(entry.change) }), h("td", { class: "num", text: String(entry.balance) }))))
+            )
+          )
+        : h("p", { class: "fineprint", text: "No credit changes yet." })
+    )
+  );
+}
+
+async function viewAccount() {
+  await refresh();
+  const { customer } = state;
+  const detailsError = formError();
+  const save = h("button", { class: "btn btn--small", type: "submit", text: "Save details" });
+  const details = h("form", { class: "form", novalidate: true },
+    field("Name", input("name", { value: customer.name, maxlength: 80, autocomplete: "name" })),
+    field("Workshop", input("company", { value: customer.company, maxlength: 80, autocomplete: "organization" })),
+    field("WhatsApp number", input("phone", { value: customer.phone, maxlength: 30, type: "tel", autocomplete: "tel" })),
+    field("Email", input("email", { value: customer.email, disabled: true }), { hint: "(message us to change it)" }),
+    h("div", { class: "full" }, save),
+    detailsError
+  );
+  details.addEventListener("submit", (event) => {
+    event.preventDefault();
+    busy(save, async () => {
+      await api("/api/portal/account", { method: "POST", body: Object.fromEntries(new FormData(details)) });
+      toast("Details saved.");
+      route();
+    }, detailsError);
+  });
+  const passwordError = formError();
+  const change = h("button", { class: "btn btn--small", type: "submit", text: "Change password" });
+  const password = h("form", { class: "form", novalidate: true },
+    field("Current password", input("current", { type: "password", autocomplete: "current-password" })),
+    field("New password", input("password", { type: "password", autocomplete: "new-password", minlength: 8 }), { hint: "(at least 8 characters)" }),
+    h("div", { class: "full" }, change),
+    passwordError
+  );
+  password.addEventListener("submit", (event) => {
+    event.preventDefault();
+    busy(change, async () => {
+      await api("/api/portal/password", { method: "POST", body: Object.fromEntries(new FormData(password)) });
+      password.reset();
+      toast("Password changed. Other devices are signed out.");
+    }, passwordError);
+  });
+  const signOut = h("button", { class: "link", type: "button", text: "Sign out" });
+  signOut.addEventListener("click", async () => {
+    await api("/api/portal/logout", { method: "POST" }).catch(() => {});
+    state.customer = null;
+    go("#signin");
+  });
+  shell("account",
+    h("section", { class: "portal__section" }, h("h2", { class: "card__title", text: "Your details" }), details),
+    h("section", { class: "portal__section" }, h("h2", { class: "card__title", text: "Password" }), password),
+    h("section", { class: "portal__section" }, signOut)
+  );
+}
+
+// ---------- Routing ----------
+
+async function route() {
+  const hash = location.hash.slice(1);
+  try {
+    state.catalog ??= await api("/api/portal/catalog");
+    if (hash.startsWith("reset=")) return signedOut("reset", hash.slice(6));
+    state.customer ??= (await api("/api/portal/session")).customer;
+    if (!state.customer) return signedOut(hash === "register" ? "register" : "signin");
+    if (hash === "signin" || hash === "register") {
+      history.replaceState(null, "", "#files");
+      return viewFiles();
+    }
+    const views = { new: viewNew, credits: viewCredits, account: viewAccount };
+    await (views[hash] ?? viewFiles)();
+  } catch (error) {
+    if (error instanceof SignedOut) {
+      state.customer = null;
+      return signedOut("signin");
+    }
+    app.replaceChildren(h("p", { class: "error", text: error.message }));
+  } finally {
+    observeReveals(app);
+  }
+}
+
+addEventListener("hashchange", () => {
+  route();
+  scrollTo({ top: 0 });
+});
+route();

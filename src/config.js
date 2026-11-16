@@ -28,7 +28,13 @@ export const config = {
   adminUsername: process.env.ADMIN_USERNAME || "admin",
   adminPassword: process.env.ADMIN_PASSWORD ?? "",
   // Most AI requests a day across all customers, so a flood of messages can't run up the OpenAI bill.
-  aiDailyLimit: Number(process.env.AI_DAILY_LIMIT) || 400
+  aiDailyLimit: Number(process.env.AI_DAILY_LIMIT) || 400,
+  // Online card/UPI payments for credit packs through Razorpay payment links (optional). Without
+  // them customers pay by UPI and the admin confirms the payment.
+  razorpayKeyId: process.env.RAZORPAY_KEY_ID ?? "",
+  razorpayKeySecret: process.env.RAZORPAY_KEY_SECRET ?? "",
+  // Largest ECU file a customer can upload, in megabytes.
+  maxEcuFileMb: Number(process.env.MAX_ECU_FILE_MB) || 40
 };
 
 export const MIN_ADMIN_PASSWORD_LENGTH = 10;

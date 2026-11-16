@@ -1,5 +1,7 @@
-import { createReadStream, statSync } from "node:fs";
-import { extname, resolve, sep } from "node:path";
+import { createHash, randomBytes } from "node:crypto";
+import { createReadStream, createWriteStream, mkdirSync, renameSync, rmSync, statSync } from "node:fs";
+import { extname, join, resolve, sep } from "node:path";
+import { pipeline } from "node:stream/promises";
 
 export class HttpError extends Error {
   constructor(status, message) {
@@ -19,7 +21,6 @@ export const CONTENT_TYPES = {
   ".webp": "image/webp",
   ".ico": "image/x-icon",
   ".woff2": "font/woff2",
-  ".glb": "model/gltf-binary",
   ".txt": "text/plain; charset=utf-8",
   ".webmanifest": "application/manifest+json"
 };
@@ -76,6 +77,56 @@ export async function readJson(req, limit = 1_000_000) {
   } catch {
     throw new HttpError(400, "The request wasn't valid JSON.");
   }
+}
+
+// Streams a raw request body (an ECU file) into dir as name, refusing an empty body or one over
+// limit bytes. Returns its size and SHA-256. A half-written file is removed if anything fails.
+export async function saveBody(req, dir, name, limit) {
+  const declared = Number(req.headers["content-length"]);
+  if (declared > limit) throw new HttpError(413, `Files must be ${Math.round(limit / 1_048_576)} MB or smaller.`);
+  mkdirSync(dir, { recursive: true });
+  const temp = join(dir, `.${randomBytes(8).toString("hex")}.part`);
+  const hash = createHash("sha256");
+  let size = 0;
+  try {
+    await pipeline(
+      req,
+      async function* (chunks) {
+        for await (const chunk of chunks) {
+          size += chunk.length;
+          if (size > limit) throw new HttpError(413, `Files must be ${Math.round(limit / 1_048_576)} MB or smaller.`);
+          hash.update(chunk);
+          yield chunk;
+        }
+      },
+      createWriteStream(temp)
+    );
+    if (!size) throw new HttpError(400, "That file is empty.");
+    renameSync(temp, join(dir, name));
+  } catch (error) {
+    rmSync(temp, { force: true });
+    throw error;
+  }
+  return { size, sha256: hash.digest("hex") };
+}
+
+// Sends a stored file as a download with the name the customer gave it.
+export function sendDownload(req, res, path, name) {
+  let stats;
+  try {
+    stats = statSync(path);
+  } catch {
+    throw new HttpError(404, "That file is no longer available.");
+  }
+  const ascii = name.replace(/[^\x20-\x7e]|["\\]/g, "_");
+  res.writeHead(200, {
+    "Content-Type": "application/octet-stream",
+    "Content-Length": stats.size,
+    "Content-Disposition": `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(name)}`,
+    "Cache-Control": "private, no-store"
+  });
+  if (req.method === "HEAD") res.end();
+  else createReadStream(path).on("error", () => res.destroy()).pipe(res);
 }
 
 export function sameOrigin(req) {

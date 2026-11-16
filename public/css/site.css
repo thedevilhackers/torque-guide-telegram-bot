@@ -1,7 +1,8 @@
-/* Unity Performance website. Dark by default; .theme-light switches a page or section to light. */
+/* Unity Performance website (car finder, tool support and shop). Dark by default; .theme-light switches
+   a page or section to light. The accent is the champagne gold of the home page (lux.css). */
 
 :root {
-  --bg: #000;
+  --bg: #0b0b0c;
   --bg-raised: #0b0b0d;
   --surface: #141418;
   --surface-2: #1d1d22;
@@ -9,14 +10,14 @@
   --text: #f5f5f7;
   --text-2: #a1a1a6;
   --muted: #86868b;
-  --accent: #ff2d26;
-  --accent-fill: #d81b16;
-  --accent-fill-hover: #e3201a;
-  --on-accent: #fff;
+  --accent: #d6b37a;
+  --accent-fill: #c8a46a;
+  --accent-fill-hover: #e0c38f;
+  --on-accent: #14110b;
   --link: #2997ff;
   --stock: #3987e5;
-  --stage1: #ff2d26;
-  --glow: 230, 28, 22;
+  --stage1: #d6b37a;
+  --glow: 200, 164, 106;
   --good: #30d158;
   --warn: #ffb020;
   --bad: #ff6961;
@@ -41,9 +42,9 @@
   --text-2: #6e6e73;
   --muted: #6e6e73;
   --link: #0066cc;
-  --accent: #c8150f;
-  --accent-fill: #c8150f;
-  --accent-fill-hover: #a8110c;
+  --accent: #8a6a36;
+  --accent-fill: #8a6a36;
+  --accent-fill-hover: #6f5429;
   --good: #1f8a3b;
   --warn: #a15c00;
   --bad: #c9302c;
@@ -616,7 +617,7 @@ p {
   line-height: 1;
   font-weight: 800;
   letter-spacing: -0.045em;
-  background: linear-gradient(100deg, #fff 30%, #ffb8b4 58%, var(--stage1) 82%);
+  background: linear-gradient(100deg, #fff 30%, #f1dcb4 58%, var(--stage1) 82%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;

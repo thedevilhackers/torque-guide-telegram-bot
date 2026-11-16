@@ -2,6 +2,7 @@ import { randomInt } from "node:crypto";
 import { ecuById } from "./catalog.js";
 import { db, settings, transact } from "./db.js";
 import { events } from "./events.js";
+import { FUELS, READ_METHODS, TOOL_MODES, TOOLS } from "./file-service.js";
 import { escapeHtml as h, sendText } from "./telegram.js";
 
 // Instant Telegram alerts for new orders and enquiries. The owner links a chat from the admin
@@ -97,6 +98,34 @@ export function enquiryAlert(enquiry) {
   return { text: fit(lines.filter((line) => line !== null).join("\n")), buttons: contactButtons(customer, `enquiries/${enquiry.id}`) };
 }
 
+export function fileOrderAlert(order) {
+  const customer = db().customers.find((entry) => entry.id === order.customerId) ?? { name: "Customer", phone: "" };
+  const { vehicle } = order;
+  const lines = [
+    `📁 <b>New tuning file ${h(order.number)}</b> · ${order.credits} credit${order.credits === 1 ? "" : "s"}`,
+    `🚗 ${h(`${vehicle.make} ${vehicle.model} ${vehicle.engine}`)} (${vehicle.year}, ${FUELS[vehicle.fuel] ?? h(vehicle.fuel)})`,
+    `🧾 ${h(order.ecu)} · ${TOOLS[order.tool] ?? h(order.tool)} ${TOOL_MODES[order.toolMode] ?? ""} · ${READ_METHODS[order.readMethod] ?? ""} read`,
+    `⚙️ ${order.options.map((option) => h(option.name)).join(", ")}`,
+    "",
+    `👤 ${h(customer.name)}${customer.company ? ` · ${h(customer.company)}` : ""}${customer.phone ? ` · ${h(customer.phone)}` : ""}`,
+    order.notes ? `📝 ${h(order.notes)}` : null
+  ];
+  return { text: fit(lines.filter((line) => line !== null).join("\n")), buttons: contactButtons(customer, `files/${order.id}`) };
+}
+
+export function paymentAlert(purchase) {
+  const customer = db().customers.find((entry) => entry.id === purchase.customerId) ?? { name: "Customer", phone: "" };
+  const lines = [
+    `💳 <b>UPI payment to check ${h(purchase.number)}</b> · ${h(money(purchase.amount, purchase.currency))}`,
+    `${h(purchase.packName)}: ${purchase.credits} credits`,
+    `🔎 UTR ${h(purchase.utr)}`,
+    "",
+    `👤 ${h(customer.name)}${customer.phone ? ` · ${h(customer.phone)}` : ""}`,
+    "Check it arrived in your bank or UPI app, then confirm it in the admin panel to add the credits."
+  ];
+  return { text: fit(lines.join("\n")), buttons: contactButtons(customer, `payments/${purchase.id}`) };
+}
+
 // Sends to every linked chat. One failing chat (e.g. the bot was blocked) doesn't stop the others.
 export async function broadcast({ text, buttons }, send = sendText) {
   let sent = 0;
@@ -123,14 +152,20 @@ function safely(enabled, build, send) {
   };
 }
 
-// Subscribes to new orders and enquiries. Returns a function that stops the alerts.
+// Subscribes to new orders, enquiries, file orders and UPI payments. Returns a function that stops the alerts.
 export function startAlerts({ send = sendText } = {}) {
   const onOrder = safely(() => settings().alertOrders, orderAlert, send);
   const onEnquiry = safely(() => settings().alertEnquiries, enquiryAlert, send);
+  const onFileOrder = safely(() => settings().alertFiles, fileOrderAlert, send);
+  const onPayment = safely(() => settings().alertFiles, paymentAlert, send);
   events.on("order", onOrder);
   events.on("enquiry", onEnquiry);
+  events.on("fileOrder", onFileOrder);
+  events.on("creditPayment", onPayment);
   return () => {
     events.off("order", onOrder);
     events.off("enquiry", onEnquiry);
+    events.off("fileOrder", onFileOrder);
+    events.off("creditPayment", onPayment);
   };
 }

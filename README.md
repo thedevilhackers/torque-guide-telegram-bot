@@ -1,20 +1,30 @@
-# Unity Performance: website, shop, admin panel and Telegram bot
+# Unity Performance: website, tuning file service, shop, admin panel and Telegram bot
 
 One Node.js app runs four things that share one database:
 
-- **Home page** (`/`): a dark, fiery, scroll-animated landing page: a 3D car drifting in front of a wall of flames, a rev counter, services, a before/after power curve, customer builds, testimonials and a booking form.
+- **Home page** (`/`): a simple, quiet page in black, ivory and champagne gold: what the workshop does, the tuning file service, and a form to request a visit.
+- **Tuning file service** (`/files`): tuners and workshops open an account, buy credits, upload an original ECU read, choose a tune and add-ons priced in credits, and download the finished file.
 - **Car finder** (`/finder`): a live "Find your car" search with interactive Stage 1 power and torque charts, Stage 1 booking, services, an "Our work" photo gallery, supported ECUs and a visit section.
 - **Tool support** (`/tools`): customers search their car to see its usual ECU and how Autotuner and KESS3 read it (OBD, bench or boot), with the full support list by ECU family.
 - **Shop** (`/shop`): products with categories, search and sorting, a bag and checkout. Orders are saved, and the customer sends the order to you on WhatsApp in one tap.
-- **Admin panel** (`/admin`): full access to orders, enquiries, products (with photo upload), the Stage 1 vehicle database, ECUs, brands, services, gallery photos, site settings and backups.
+- **Admin panel** (`/admin`): full access to orders, enquiries, file orders, customers and their credits, payments, tune options, credit packs, products (with photo upload), the Stage 1 vehicle database, ECUs, brands, services, gallery photos, site settings and backups.
 - **Telegram bot**: vehicle search, Stage 1, 2 and 3 graphs, location, ECU check and a WhatsApp summary. Every customer who reaches the summary appears under Admin → Enquiries.
-- **Instant alerts**: the bot messages you on Telegram the moment an order or enquiry arrives.
+- **Instant alerts**: the bot messages you on Telegram the moment an order, enquiry, file order or UPI payment arrives.
 
 It has no npm dependencies. The Stage 1 graphs are drawn in plain JavaScript, so there's nothing native to install.
 
 ## What customers see
 
-**Home page.** A red placeholder car drifts in circles in front of a wall of fire, with tyre smoke, rubber marks on the floor, exhaust flames and backfires, while a "Live power" readout climbs from 115 to 140 hp. Embers and smoke drift behind the whole page, which scrolls smoothly; headings lean as you scroll, and fast scrolling adds speed streaks. Below it: count-up numbers, a rev counter that sweeps to the redline (with a power meter, shift lights and sparks at the limiter), six services, the Polo 1.0 TSI before/after power curve, your builds (photos from Admin → Photos), testimonials, the booking form, and a footer standing in flames. The booking form saves an enquiry (it appears in Admin → Enquiries and alerts you on Telegram), then opens WhatsApp with the customer's name, phone, car and the service they chose. The address, phone, hours and Instagram come from the admin settings. Old links to sections of the previous home page (such as `/#car=…`) forward to `/finder`.
+**Home page.** A calm, typographic page: a large serif headline (“Performance, refined.”), the five services, how the tuning file service works in four steps, and a **Visit** section with the address, hours, phone, WhatsApp, Instagram and a **Request a visit** form. The form saves an enquiry (it appears in Admin → Enquiries and alerts you on Telegram), then offers WhatsApp with the customer's name, phone, car and service. The address, phone, hours and Instagram come from the admin settings. Old links to sections of the earlier home page (such as `/#car=…`) forward to `/finder`.
+
+**Tuning file service** (`/files`). For tuners and workshops who read ECUs themselves:
+
+1. **Account.** Name, workshop, email, WhatsApp number and a password. Signed-in sessions last 30 days. There's no email sending, so a customer who forgets their password asks you on WhatsApp, and you send them a one-time link from **Admin → Customers**.
+2. **Credits.** Customers buy a credit pack (Admin → Credit packs). By **UPI**: they pay your UPI ID (the page opens their UPI app on a phone), then enter the transaction reference (UTR); you check it arrived and confirm it in **Admin → Payments**, which adds the credits. **Online** (optional): with Razorpay keys on the server, a "Card / UPI online" button sends them to Razorpay's payment page, and the credits are added automatically when Razorpay confirms the payment. Until you add a pack, the page asks them to buy credits on WhatsApp, and you add credits by hand in Admin → Customers.
+3. **New file.** They upload the untouched original read (up to 40 MB), enter the vehicle, ECU, the tool they read it with (master or slave) and how it was read, choose one tune and any add-ons, and see the total in credits before ordering. The credits are taken when the order is placed.
+4. **Download.** When you upload the tuned file to the order, it shows as **Ready** with a download button, along with any message you wrote. Customers can cancel an order (and get the credits back) until you start on it; if you reject or cancel an order, the credits go back automatically.
+
+Every credit change (purchase, order, refund, adjustment) is recorded in the customer's credit history. Tune options don't include, and the page says the workshop doesn't do, removal of emissions equipment (DPF, EGR, AdBlue, catalysts) or immobilisers.
 
 **Car finder.** The hero and the "Read. Calibrate. Verify." story animate as you scroll, with a live power counter and a curve that draws itself. **Find your car** searches the database as you type, or browses by brand. It shows Stage 1 figures and an interactive chart, where you hover or use the arrow keys to read values; power and torque are separate panels on a shared rpm axis, and there's also a table view. A **Stage 1 / 2 / 3** switch shows each stage's figures, chart, the hardware it needs and a downloadable power graph. **Book Stage 1** saves an enquiry and hands it to WhatsApp. If a car isn't listed and AI is on, "Ask AI to identify it" estimates it; the estimate is clearly labelled and kept within your gain limits.
 
@@ -61,20 +71,28 @@ Open http://localhost:3000 for the site and http://localhost:3000/admin for the 
 | `OPENAI_MODEL` | No | Defaults to `gpt-5.6-terra`. |
 | `AI_DAILY_LIMIT` | No | Most AI requests a day across all customers (default 400). Each customer also gets 20 an hour; past either limit the bot uses its built-in answers. |
 | `BUSINESS_NAME`, `WHATSAPP_NUMBER`, `WORKSHOP_ADDRESS`, `WORKSHOP_LATITUDE`, `WORKSHOP_LONGITUDE` | No | Starting values for your business details. After the first run, manage them in **Admin → Settings**; empty settings fall back to these. |
-| `DATA_DIR` | No | Where the database and uploads live (default `./data`). |
+| `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET` | No | Online payments for credit packs through [Razorpay payment links](https://razorpay.com/docs/api/payments/payment-links/). Without them customers pay by UPI and you confirm. |
+| `MAX_ECU_FILE_MB` | No | Largest ECU file a customer can upload (default 40). |
+| `FCF_API_URL`, `FCF_API_KEY` | No | fast-chiptuningfiles.com API details, for when automatic sending is written (see Admin panel below). |
+| `DATA_DIR` | No | Where the database, uploads and ECU files live (default `./data`). |
 | `PORT` | No | Web port (default 3000). |
 
 ## Admin panel
 
-- **Dashboard**: revenue and orders for the last 30 days, open orders, new enquiries, a 14-day revenue chart, low stock, and recent orders and enquiries.
+- **Dashboard**: revenue and orders for the last 30 days, open orders, new enquiries, new file orders, UPI payments to check, a 14-day revenue chart, low stock, and recent orders and enquiries.
+- **File orders**: every tuning file order with the customer, vehicle, ECU, tool, tune and notes. Download the original, upload the tuned file (the order becomes Ready for the customer), write a message the customer sees, keep private notes, and reject or cancel (which refunds the credits). A **Tell the customer on WhatsApp** button opens a ready-made message.
+- **Sending files to fast-chiptuningfiles.com.** Their reseller API isn't publicly documented, so for now each file goes by hand, and the order screen lists the steps: download the original, upload it on fast-chiptuningfiles.com, type their order number into the order (it then shows In progress), and upload the file they send back. To send files automatically, get the API documentation and an API key from fast-chiptuningfiles.com; the key goes in the server's env file as `FCF_API_URL` and `FCF_API_KEY` (never in the code or a chat), and `src/providers/fast-chiptuningfiles.js` is where the sending is written from their documentation.
+- **Payments**: credit purchases. Confirm a UPI payment once the money has arrived (check the reference in your bank or UPI app), cancel one, or ask Razorpay about an online one.
+- **Customers**: accounts with their credits and history. Add or take away credits with a reason (for cash payments, goodwill or corrections), edit details, switch an account off, or make a one-time password reset link to send on WhatsApp.
+- **Tune options and Credit packs**: what a file order can include and its cost in credits (customers pick one tune and any add-ons), and the packs customers buy, with their prices. The starting options are Stage 1, Stage 2, Ethanol (E20–E85) and Economy, with pops & bangs, launch control and start-stop off as add-ons; **there are no credit packs until you add them with your own prices.**
 - **Orders**: filter, search, change status (New → Confirmed → Ready → Completed) and keep private notes. You can call or WhatsApp the customer from the order. **Cancelling an order returns its items to stock**; reopening takes them out again.
 - **Enquiries**: Stage 1 requests from the website and the Telegram bot, with vehicle, figures, ECU and location, plus status and notes.
 - **Products**: name, category, price, compare-at (offer) price, stock (empty = unlimited), description, features, photo, featured, and shown/hidden.
 - **Vehicles**: the Stage 1, 2 and 3 database used by the website, the bot and the graphs, with a graph preview for each stage. Stage 2 and 3 are optional per vehicle. Validation keeps the figures realistic (Stage 1 at least 3% above stock, each later stage at least 2% above the one before, torque between 0.8× and 3.5× the power), so every graph is exact. Stage 3 graphs build peak torque a little later, like a bigger turbo.
 - **ECUs, Brands, Services**: the ECU support list (including how Autotuner and KESS3 read each ECU family), brands and search aliases, and the service cards. The tool support that ships with the site is typical for each ECU family; adjust it to what you see on your own tools.
 - **Photos**: the Our work gallery. Upload a photo, add a caption and, optionally, the link to its Instagram post. New photos go first; untick **Show on the website** to hide one. The website shows the newest 24.
-- **Settings**: business name, headline, hero photo, announcement bar, contact details, WhatsApp number, map location, opening hours, currency, delivery fee, social links, the Stage 2 and 3 descriptions, and Telegram alerts.
-- **Backup**: download everything as one JSON file, or restore a backup. Uploaded photos are separate files in `DATA_DIR/uploads`.
+- **Settings**: business name, headline, hero photo, announcement bar, contact details, WhatsApp number, map location, opening hours, currency, delivery fee, the file service (open or closed, a note for customers, your UPI ID and payee name), social links, the Stage 2 and 3 descriptions, and Telegram alerts. UPI and online payments need the currency set to **INR**.
+- **Backup**: download everything as one JSON file, or restore a backup. It includes file service accounts with their password hashes, so keep it private. Uploaded photos (`DATA_DIR/uploads`) and ECU files (`DATA_DIR/ecu-files`) are separate files; the VPS's daily backup includes them.
 
 **The included vehicles, Stage 1, 2 and 3 figures, ECU statuses and products are sample data.** Replace them with your own figures, ECU statuses, prices and photos before launch.
 
@@ -86,6 +104,9 @@ Open http://localhost:3000 for the site and http://localhost:3000/admin for the 
 - AI requests are limited to 20 an hour per customer and `AI_DAILY_LIMIT` (default 400) a day in total; Stage 1 reports for a car are reused for a week. Past a limit, the bot uses its built-in answers.
 - A Telegram chat raises at most 5 new enquiries (and alerts) a day; after that its latest enquiry is updated.
 - Backups are checked with the same rules as the admin forms before they replace anything.
+- File service passwords are stored only as scrypt hashes. The customer's sign-in is an HttpOnly cookie (SameSite=Lax, so it survives the return from Razorpay); every change must carry the file page's own header from this site. Failed sign-ins are limited per address and per account, sign-ups to 5 an hour per address, uploads to 30 an hour per customer.
+- Credit prices always come from the server, balances can't go below zero, and every change to a balance is written to the history in the same step. A Razorpay payment only adds credits when Razorpay's signature checks out (or Razorpay's API says the link was paid in full), and only once.
+- ECU files are stored under random names outside the website folder and only sent, as downloads, to the customer who uploaded them and to the admin. Files nobody ordered with are deleted after a day.
 - Uploads are checked to be real PNG, JPEG or WebP files, saved under random names, and served with a strict content type.
 - Every page is sent with a strict Content Security Policy, all customer-entered text is inserted as text, never as HTML, and links that would run script are dropped.
 
@@ -171,17 +192,13 @@ Web services with disks need a paid instance type (the blueprint uses Starter). 
 ## Customise
 
 - **Content and catalogue**: use the admin panel. The first-run defaults live in `src/seed-data.js`.
-- **Look**: `public/css/site.css` (colour tokens at the top) and `public/admin/admin.css`.
+- **Look**: `public/css/lux.css` (the home page and file service; colour tokens at the top), `public/css/site.css` (car finder, tool support and shop) and `public/admin/admin.css`.
 - **Telegram PNG graph**: `THEME` in `src/dyno-chart.js`.
 - **AI gain limits**: `STAGE1_GAINS` in `src/vehicles.js`.
 
 ## Home page
 
-The home page is `public/index.html`, with its styles in `public/css/landing.css` and its script in `public/js/landing.js`. Three.js, GSAP and Lenis are in `public/vendor/` and the fonts (Anton and Barlow, under the SIL Open Font License) in `public/fonts/`, so everything comes from your own server, as the site's security settings require.
-
-- Before it goes live, set the first three numbers in the stats section (500+, +30%, 10+ years) to your real figures, and replace the three sample testimonials with real customers.
-- The car is a real 3D model, `public/models/unity-car.glb` (1.8 MB, about 53,000 triangles). It's based on the Khronos "Car Concept" sample model, which is CC BY 4.0, so the footer credits it; keep that credit while the model is used. `landing/prepare-car.mjs` made it from the original: it takes out the Khronos and 3D Commerce logos the licence excludes, simplifies the shapes and shrinks the textures. If the model can't load, the page falls back to the simple car drawn by `buildCar()`. To use a different car, replace the file (glTF binary, built without Draco or Meshopt compression, which the site's security settings would block) and check the wheel names `fitRealCar()` looks for.
-- `node landing/build.mjs` makes `landing/dist/unity-performance.html`: the same page as one self-contained file to open anywhere or host elsewhere. That copy loads the libraries from public CDNs and links to unityperformance.co for the other pages. Run it again after changing the home page.
+The home page is `public/index.html` with `public/css/lux.css` and `public/js/home-lux.js`; the file service is `public/files.html` with `public/js/files.js`, sharing `public/js/lux.js`. The fonts, Cormorant Garamond for headings and Inter for text (SIL Open Font License, in `public/fonts/`), come from your own server, as the site's security settings require. The earlier fiery home page, its 3D car and its animation libraries were removed; they remain in the git history.
 
 ## Brand
 
@@ -206,19 +223,19 @@ To change the logo later, replace `public/brand/logo.webp` and `public/brand/log
 
 ```
 src/server.js           starts the website + bot
-src/web/                HTTP router, public API, admin API, auth
+src/web/                HTTP router, public API, file service API, admin API, auth
 src/db.js               JSON database (DATA_DIR/db.json)
 src/seed-data.js        first-run vehicles, ECUs, brands, services, products, settings
 src/records.js          orders and enquiries
+src/file-service.js     tuning file service: accounts, credits, ECU files, file orders, payments
+src/razorpay.js         Razorpay payment links (optional online payments)
+src/providers/          fast-chiptuningfiles.com (sending by hand for now)
 src/alerts.js           Telegram alerts: link codes, alert chats, messages
 src/validation.js       admin input validation
 src/conversation.js     Telegram conversation flow
 src/dyno-chart.js       Stage 1 curves + PNG graph
 public/                 website, shop and admin panel (no build step)
 public/brand/           logo, icons and link-preview picture used by the site and the power graphs
-public/vendor/          Three.js (with its model loader), GSAP and Lenis for the home page
-public/models/          the home page's 3D car and its licence
-landing/                builds the home page as one self-contained file (landing/dist/)
 deploy/vps/             VPS installer and updater (systemd, Caddy, firewall, backups)
 brand/                  brand kit: originals, transparent logo, Telegram pictures, employee ID card
 test/                   node --test suites

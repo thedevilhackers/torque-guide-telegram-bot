@@ -5,8 +5,9 @@ import { alertChats, broadcast, createLinkCode, unlinkChat } from "../alerts.js"
 import { DATA_DIR, db, replaceData, settings, transact } from "../db.js";
 import { DEFAULT_SETTINGS } from "../seed-data.js";
 import { ENQUIRY_STATUSES, InputError, ORDER_STATUSES } from "../records.js";
-import { slugify, validateBrand, validateEcu, validatePhoto, validateProduct, validateService, validateSettings, validateVehicle, vehicleFormValues } from "../validation.js";
+import { slugify, validateBrand, validateCreditPack, validateEcu, validatePhoto, validateProduct, validateService, validateSettings, validateTuneOption, validateVehicle, vehicleFormValues } from "../validation.js";
 import { adminEnabled, checkCredentials, currentAdmin, endSession, startSession } from "./auth.js";
+import { registerFileAdminRoutes } from "./file-admin-api.js";
 import { HttpError, rateLimiter, readJson, sameOrigin, sendJson } from "./http.js";
 
 export const UPLOAD_DIR = join(DATA_DIR, "uploads");
@@ -29,7 +30,9 @@ const COLLECTIONS = {
   ecus: { validate: (input) => validateEcu(input), id: (entry) => slugify(entry.title, "_") },
   brands: { validate: (input) => validateBrand(input), id: (entry) => slugify(entry.title, "_") },
   services: { validate: (input) => validateService(input), id: (entry) => slugify(entry.title) },
-  photos: { validate: (input) => validatePhoto(input), id: (entry) => slugify(entry.caption) || "photo", prepend: true }
+  photos: { validate: (input) => validatePhoto(input), id: (entry) => slugify(entry.caption) || "photo", prepend: true },
+  tuneOptions: { validate: (input) => validateTuneOption(input), id: (entry) => slugify(entry.name) },
+  creditPacks: { validate: (input) => validateCreditPack(input), id: (entry) => slugify(entry.name) || "pack" }
 };
 
 function uniqueId(base, taken) {
@@ -79,6 +82,8 @@ function dashboard(data) {
     openOrders: data.orders.filter((order) => ["new", "confirmed", "ready"].includes(order.status)).length,
     newOrders: data.orders.filter((order) => order.status === "new").length,
     newEnquiries: data.enquiries.filter((enquiry) => enquiry.status === "new").length,
+    newFileOrders: data.fileOrders.filter((order) => order.status === "submitted").length,
+    paymentsToCheck: data.creditPurchases.filter((purchase) => purchase.status === "submitted").length,
     enquiries30: data.enquiries.filter((enquiry) => Date.parse(enquiry.createdAt) >= now - 30 * day).length,
     lowStock: data.products.filter((product) => product.active && product.stock !== null && product.stock <= 3).map(({ id, name, stock }) => ({ id, name, stock })),
     daily,
@@ -89,6 +94,9 @@ function dashboard(data) {
 }
 
 const ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,59}$/;
+// Lists that older backups may not have.
+const LATER_LISTS = new Set(["photos", "tuneOptions", "creditPacks", "customers", "creditLedger", "creditPurchases", "fileOrders"]);
+const FILE_SERVICE_LISTS = ["customers", "creditLedger", "creditPurchases", "fileOrders"];
 const isDate = (value) => typeof value === "string" && !Number.isNaN(Date.parse(value));
 const isText = (value) => typeof value === "string";
 const dates = ({ createdAt, updatedAt }) => ({ ...(isDate(createdAt) && { createdAt }), ...(isDate(updatedAt) && { updatedAt }) });
@@ -113,15 +121,16 @@ function validEnquiry(enquiry) {
 // leave the site or the admin panel unable to load. Returns the cleaned data to store.
 function cleanBackup(backup) {
   if (!backup || typeof backup !== "object" || !backup.settings || typeof backup.settings !== "object") throw new InputError("That file isn't a backup from this admin panel.");
-  // Backups made before the photo gallery existed have no photos list; restoring one adds the
-  // gallery's first photos, as for any older database.
-  const hasPhotos = backup.photos !== undefined;
-  for (const name of [...Object.keys(COLLECTIONS), "orders", "enquiries"].filter((list) => list !== "photos" || hasPhotos)) {
+  // Lists added after launch (the photo gallery, the tuning file service) may be missing from an older
+  // backup; restoring one gives those lists their starting contents, as for any older database.
+  const present = (name) => backup[name] !== undefined || !LATER_LISTS.has(name);
+  for (const name of [...Object.keys(COLLECTIONS), "orders", "enquiries", ...FILE_SERVICE_LISTS].filter(present)) {
     const list = backup[name];
     if (!Array.isArray(list) || list.some((item) => !item || typeof item !== "object" || !ID.test(String(item.id)))) throw new InputError(`The backup's ${name} list is damaged.`);
     if (new Set(list.map((item) => item.id)).size !== list.length) throw new InputError(`The backup has duplicate ${name}.`);
   }
   const each = (name, label, clean) =>
+    present(name) &&
     backup[name].map((item) => {
       try {
         return { id: item.id, ...clean(item), ...dates(item) };
@@ -143,8 +152,10 @@ function cleanBackup(backup) {
   } catch (error) {
     throw new InputError(`Settings in the backup: ${error.message}`);
   }
-  // The order counter must stay ahead of every order number, or new orders would reuse one.
+  const fileService = cleanFileService(backup);
+  // The order counters must stay ahead of every number used, or new orders would reuse one.
   const highest = Math.max(1000, ...backup.orders.map((order) => Number(/^UP-(\d+)$/.exec(order.number)?.[1]) || 0));
+  const counter = (key, list, prefix) => Math.max(Number.isInteger(backup[key]) ? backup[key] : 0, 1 + Math.max(1000, ...(fileService[list] ?? []).map((item) => Number(new RegExp(`^${prefix}-(\\d+)$`).exec(item.number)?.[1]) || 0)));
   const alertChats = (Array.isArray(backup.alertChats) ? backup.alertChats : []).filter((chat) => /^-?\d+$/.test(String(chat?.chatId)));
   return {
     ...(Number.isInteger(backup.version) && { version: backup.version }),
@@ -155,25 +166,50 @@ function cleanBackup(backup) {
     vehicles,
     services: each("services", "Service", validateService),
     products: each("products", "Product", validateProduct),
-    ...(hasPhotos && { photos: each("photos", "Photo", validatePhoto) }),
+    ...(present("photos") && { photos: each("photos", "Photo", validatePhoto) }),
+    ...(present("tuneOptions") && { tuneOptions: each("tuneOptions", "Tune option", validateTuneOption) }),
+    ...(present("creditPacks") && { creditPacks: each("creditPacks", "Credit pack", validateCreditPack) }),
+    ...fileService,
     orders: backup.orders,
     enquiries: backup.enquiries,
     alertChats,
-    nextOrderNumber: Math.max(Number.isInteger(backup.nextOrderNumber) ? backup.nextOrderNumber : 0, highest + 1)
+    nextOrderNumber: Math.max(Number.isInteger(backup.nextOrderNumber) ? backup.nextOrderNumber : 0, highest + 1),
+    nextFileOrderNumber: counter("nextFileOrderNumber", "fileOrders", "TF"),
+    nextPurchaseNumber: counter("nextPurchaseNumber", "creditPurchases", "CR")
   };
 }
 
+// Customer accounts, credit history, payments and file orders: checked enough that balances and
+// links between them hold. The ECU files themselves live in DATA_DIR/ecu-files, outside the backup.
+function cleanFileService(backup) {
+  const lists = Object.fromEntries(FILE_SERVICE_LISTS.filter((name) => backup[name] !== undefined).map((name) => [name, backup[name]]));
+  const customers = lists.customers ?? [];
+  const isHex = (value, length) => typeof value === "string" && value.length === length && /^[a-f0-9]+$/.test(value);
+  const badCustomer = customers.find(
+    (customer) => !isText(customer.email) || !isText(customer.name) || !Number.isInteger(customer.credits) || customer.credits < 0 || !isHex(customer.password?.salt, 32) || !isHex(customer.password?.hash, 64)
+  );
+  if (badCustomer) throw new InputError(`Customer "${badCustomer.id}" in the backup is damaged.`);
+  const ids = new Set(customers.map((customer) => customer.id));
+  for (const [name, label] of [["creditLedger", "Credit entry"], ["creditPurchases", "Payment"], ["fileOrders", "File order"]]) {
+    const bad = (lists[name] ?? []).find((item) => !ids.has(item.customerId) || !isDate(item.createdAt));
+    if (bad) throw new InputError(`${label} "${bad.number ?? bad.id}" in the backup is damaged or belongs to a missing customer.`);
+  }
+  return lists;
+}
+
 // sendAlert delivers a Telegram message; it is null when the bot isn't configured.
-export function registerAdminRoutes(route, { botUsername = () => "", sendAlert = null } = {}) {
+// fetchImpl replaces Razorpay's API in tests.
+export function registerAdminRoutes(route, { botUsername = () => "", sendAlert = null, fetchImpl } = {}) {
   const loginFailures = rateLimiter({ windowMs: 15 * 60_000, max: 5 });
 
   // Every admin request needs a session; changes also need the admin panel's header and origin,
   // which a page on another site can't send.
-  const admin = (method, path, handler, { bodyLimit } = {}) =>
+  // raw leaves the body unread, for file uploads.
+  const admin = (method, path, handler, { bodyLimit, raw = false } = {}) =>
     route(method, path, async (context) => {
       if (!currentAdmin(context.req)) throw new HttpError(401, "Please sign in.");
       if (method !== "GET" && (context.req.headers["x-requested-with"] !== "unity-admin" || !sameOrigin(context.req))) throw new HttpError(403, "Request blocked.");
-      if (method === "POST" || method === "PUT" || method === "PATCH") context.body = await readJson(context.req, bodyLimit);
+      if (!raw && (method === "POST" || method === "PUT" || method === "PATCH")) context.body = await readJson(context.req, bodyLimit);
       return handler(context);
     });
 
@@ -203,6 +239,8 @@ export function registerAdminRoutes(route, { botUsername = () => "", sendAlert =
   });
 
   admin("GET", "/api/admin/dashboard", () => dashboard(db()));
+
+  registerFileAdminRoutes(admin, { fetchImpl });
 
   for (const [name, collection] of Object.entries(COLLECTIONS)) {
     const label = name.replace(/s$/, "");

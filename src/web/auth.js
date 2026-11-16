@@ -24,7 +24,7 @@ export function checkCredentials(username, password) {
   return usernameMatches && passwordMatches;
 }
 
-function parseCookies(header = "") {
+export function parseCookies(header = "") {
   return Object.fromEntries(
     header
       .split(";")
