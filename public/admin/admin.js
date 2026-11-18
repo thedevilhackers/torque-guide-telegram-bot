@@ -805,14 +805,14 @@ const COLLECTION_VIEWS = {
     fields: () => [
       { name: "name", label: "Name", full: true, placeholder: "Stage 1" },
       { name: "kind", label: "Type", type: "select", options: [["tune", "Tune (customers choose one)"], ["addon", "Add-on (optional extras)"]] },
-      { name: "credits", label: "Credits", type: "number", step: "1", min: "0" },
+      { name: "credits", label: "Credits", type: "number", step: "0.01", min: "0", help: "Up to two decimals, e.g. 1.20." },
       { name: "description", label: "Description", type: "textarea", full: true, help: "One short line shown under the name." },
       { name: "active", label: "Offer on the file service", type: "checkbox" }
     ],
     columns: () => [
       { label: "Option", cell: (option) => [option.name, h("span", { class: "sub", text: option.description })] },
       { label: "Type", cell: (option) => (option.kind === "tune" ? "Tune" : "Add-on") },
-      { label: "Credits", class: "num", cell: (option) => String(option.credits) },
+      { label: "Credits", class: "num", cell: (option) => creditNumber(option.credits) },
       { label: "Visibility", cell: (option) => pill(option.active ? "active" : "hidden", option.active ? "Offered" : "Hidden") }
     ]
   },
@@ -1053,8 +1053,11 @@ const FILE_LABELS = { submitted: "New", in_progress: "In progress", completed: "
 const PAYMENT_LABELS = { awaiting_payment: "Awaiting payment", submitted: "To check", paid: "Paid", cancelled: "Cancelled" };
 const LEDGER_LABELS = { purchase: "Credits bought", order: "File order", refund: "Refund", admin: "Adjustment" };
 const plural = (count, word) => `${count} ${word}${count === 1 ? "" : "s"}`;
+// Credits can have two decimals: "1 credit", "1.20 credits".
+const creditNumber = (amount) => (Number.isInteger(amount) ? String(amount) : amount.toFixed(2));
+const creditText = (amount) => `${creditNumber(amount)} credit${amount === 1 ? "" : "s"}`;
 const fileSize = (bytes) => (bytes >= 1_048_576 ? `${(bytes / 1_048_576).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`);
-const vehicleLine = (vehicle) => `${vehicle.make} ${vehicle.model} ${vehicle.engine}`;
+const vehicleLine = (vehicle) => [vehicle.make, vehicle.model, vehicle.generation, vehicle.engine].filter(Boolean).join(" ");
 const customerName = (record) => record.customer?.name ?? "Deleted customer";
 
 // Files go up as the raw request body with their name in a header.
@@ -1118,12 +1121,17 @@ async function viewFileOrders(main, id) {
         h("dt", { text: "Placed" }), h("dd", { text: dateTime(order.createdAt) }),
         h("dt", { text: "Customer" }), h("dd", {}, customer ? h("a", { href: `#customers/${customer.id}`, text: customer.name }) : "Deleted customer", customer?.company ? ` · ${customer.company}` : ""),
         customer ? [h("dt", { text: "Contact" }), h("dd", {}, h("a", { href: `mailto:${customer.email}`, text: customer.email }), " · ", h("a", { href: `tel:${digits(customer.phone)}`, text: customer.phone }), " · ", whatsappCustomer(customer, `Hi ${customer.name.split(" ")[0]}, about your file ${order.number}: `))] : null,
-        h("dt", { text: "Vehicle" }), h("dd", { text: `${vehicleLine(vehicle)} · ${vehicle.year} · ${label(service.fuels, vehicle.fuel)}${vehicle.gearbox ? ` · ${label(service.gearboxes, vehicle.gearbox)}` : ""}` }),
-        h("dt", { text: "ECU" }), h("dd", { text: `${order.ecu}${order.ecuNumbers ? ` · ${order.ecuNumbers}` : ""}` }),
+        h("dt", { text: "Vehicle" }), h("dd", { text: [vehicleLine(vehicle), vehicle.type && vehicle.type !== "car" ? label(service.vehicleTypes, vehicle.type) : "", vehicle.year, vehicle.fuel ? label(service.fuels, vehicle.fuel) : "", vehicle.octane ? label(service.octanes, vehicle.octane) : "", vehicle.gearbox ? label(service.gearboxes, vehicle.gearbox) : "", vehicle.powerHp ? `${vehicle.powerHp} hp` : ""].filter(Boolean).join(" · ") }),
+        vehicle.vin || vehicle.plate ? [h("dt", { text: "VIN / plate" }), h("dd", { text: [vehicle.vin, vehicle.plate].filter(Boolean).join(" · ") })] : null,
+        vehicle.catalogId ? [h("dt", { text: "From our list" }), h("dd", {}, h("a", { href: `#vehicles/${vehicle.catalogId}`, text: vehicle.catalogId }))] : null,
+        h("dt", { text: "ECU" }), h("dd", { text: [order.ecu || "Not given", order.hardwareNumber ? `HW ${order.hardwareNumber}` : "", order.softwareNumber ? `SW ${order.softwareNumber}` : "", order.ecuNumbers].filter(Boolean).join(" · ") }),
         h("dt", { text: "Read with" }), h("dd", { text: `${label(service.tools, order.tool)} (${label(service.toolModes, order.toolMode)}) · ${label(service.readMethods, order.readMethod)}` }),
-        h("dt", { text: "Tune" }), h("dd", { text: `${order.options.map((option) => `${option.name} (${option.credits})`).join(" + ")} = ${plural(order.credits, "credit")}${order.refunded ? " · refunded" : ""}` }),
-        order.notes ? [h("dt", { text: "Customer notes" }), h("dd", { text: order.notes })] : null,
+        order.timeFrame ? [h("dt", { text: "Time frame" }), h("dd", {}, h("b", { text: label(service.timeFrames, order.timeFrame) }))] : null,
+        order.modifiedParts ? [h("dt", { text: "Modified parts" }), h("dd", { text: label(service.modifiedParts, order.modifiedParts) })] : null,
+        h("dt", { text: "Tune" }), h("dd", { text: `${order.options.map((option) => `${option.name} (${creditNumber(option.credits)})`).join(" + ")} = ${creditText(order.credits)}${order.refunded ? " · refunded" : ""}` }),
+        order.notes ? [h("dt", { text: "Customer info" }), h("dd", { text: order.notes })] : null,
         h("dt", { text: "Original" }), h("dd", {}, h("a", { href: `/api/admin/file-orders/${order.id}/download`, download: "", text: `${order.original.name}` }), ` · ${fileSize(order.original.size)} · SHA-256 ${order.original.sha256.slice(0, 12)}…`),
+        order.extras?.length ? [h("dt", { text: "Extra files" }), h("dd", {}, ...order.extras.flatMap((extra, index) => [index ? " · " : "", h("a", { href: `/api/admin/file-orders/${order.id}/download?file=extra&index=${index}`, download: "", text: extra.name })]))] : null,
         h("dt", { text: "Tuned file" }), h("dd", {}, order.tuned ? [h("a", { href: `/api/admin/file-orders/${order.id}/download?file=tuned`, download: "", text: order.tuned.name }), ` · ${fileSize(order.tuned.size)} · uploaded ${dateTime(order.tuned.uploadedAt)} `] : "Not yet ", tunedButton, tunedInput)
       ),
       h("section", { class: "card", style: { marginTop: "18px", background: "var(--surface-2)" } },
@@ -1153,7 +1161,7 @@ async function viewFileOrders(main, id) {
     save.addEventListener("click", async () => {
       const changes = { message: message.value, adminNotes: notes.value, providerReference: reference.value };
       if (!closed && status.value !== order.status) {
-        if (["rejected", "cancelled"].includes(status.value) && !(await confirmDialog(`${FILE_LABELS[status.value]} ${order.number}? ${plural(order.credits, "credit")} go back to ${customerName(order)}, and the order can't be reopened.`, { confirmLabel: FILE_LABELS[status.value] }))) return;
+        if (["rejected", "cancelled"].includes(status.value) && !(await confirmDialog(`${FILE_LABELS[status.value]} ${order.number}? ${creditText(order.credits)} go back to ${customerName(order)}, and the order can't be reopened.`, { confirmLabel: FILE_LABELS[status.value] }))) return;
         changes.status = status.value;
       }
       try {
@@ -1177,10 +1185,10 @@ async function viewFileOrders(main, id) {
     search: (order) => `${order.number} ${customerName(order)} ${order.customer?.company ?? ""} ${vehicleLine(order.vehicle)} ${order.ecu} ${order.provider?.reference ?? ""}`,
     detail,
     columns: [
-      { label: "File", cell: (order) => [order.number, h("span", { class: "sub", text: dateTime(order.createdAt) })] },
+      { label: "File", cell: (order) => [order.number, h("span", { class: "sub", text: [dateTime(order.createdAt), order.timeFrame ? label(service.timeFrames, order.timeFrame) : ""].filter(Boolean).join(" · ") })] },
       { label: "Customer", cell: (order) => [customerName(order), h("span", { class: "sub", text: order.customer?.company || order.customer?.phone || "" })] },
       { label: "Vehicle", cell: (order) => [vehicleLine(order.vehicle), h("span", { class: "sub", text: `${order.vehicle.year} · ${order.ecu}` })] },
-      { label: "Tune", cell: (order) => [order.options.map((option) => option.name).join(" + "), h("span", { class: "sub", text: plural(order.credits, "credit") })] },
+      { label: "Tune", cell: (order) => [order.options.map((option) => option.name).join(" + "), h("span", { class: "sub", text: creditText(order.credits) })] },
       { label: "Status", cell: (order) => [pill(order.status, FILE_LABELS[order.status]), order.provider ? h("span", { class: "sub", text: `Sent · ${order.provider.reference}` }) : null] }
     ]
   });
@@ -1206,13 +1214,13 @@ async function viewCustomers(main, id) {
     const company = h("input", { maxlength: 80 });
     company.value = customer.company;
     const active = h("input", { type: "checkbox", checked: customer.active });
-    const change = h("input", { type: "number", step: "1", placeholder: "e.g. 5 or -1", "aria-label": "Credits to add or take away" });
+    const change = h("input", { type: "number", step: "0.01", placeholder: "e.g. 5 or -1.20", "aria-label": "Credits to add or take away" });
     const reason = h("input", { maxlength: 200, placeholder: "e.g. Paid cash at the workshop", "aria-label": "Reason" });
     const apply = h("button", { class: "btn btn-small", type: "button", text: "Apply" });
     apply.addEventListener("click", async () => {
       try {
         const { item } = await api(`/api/admin/customers/${customer.id}/credits`, { method: "POST", body: { change: Number(change.value), note: reason.value } });
-        toast(`${item.name} now has ${plural(item.credits, "credit")}`);
+        toast(`${item.name} now has ${creditText(item.credits)}`);
         dialog.close();
         viewCustomers(main, customer.id);
       } catch (error) {
@@ -1234,8 +1242,8 @@ async function viewCustomers(main, id) {
       [
         { label: "Date", cell: (entry) => dateTime(entry.createdAt) },
         { label: "What", cell: (entry) => [LEDGER_LABELS[entry.reason] ?? entry.reason, h("span", { class: "sub", text: [entry.ref, entry.note].filter(Boolean).join(" · ") })] },
-        { label: "Change", class: "num", cell: (entry) => (entry.change > 0 ? `+${entry.change}` : String(entry.change)) },
-        { label: "Balance", class: "num", cell: (entry) => String(entry.balance) }
+        { label: "Change", class: "num", cell: (entry) => (entry.change > 0 ? `+${creditNumber(entry.change)}` : creditNumber(entry.change)) },
+        { label: "Balance", class: "num", cell: (entry) => creditNumber(entry.balance) }
       ],
       data.ledger,
       { empty: "No credit changes yet." }
@@ -1244,7 +1252,7 @@ async function viewCustomers(main, id) {
       h("dl", { class: "detail-grid" },
         h("dt", { text: "Email" }), h("dd", {}, h("a", { href: `mailto:${customer.email}`, text: customer.email })),
         h("dt", { text: "Joined" }), h("dd", { text: dateTime(customer.createdAt) }),
-        h("dt", { text: "Credits" }), h("dd", {}, h("b", { text: String(customer.credits) })),
+        h("dt", { text: "Credits" }), h("dd", {}, h("b", { text: creditNumber(customer.credits) })),
         h("dt", { text: "Files" }), h("dd", {}, ...(data.orders.length ? data.orders.slice(0, 8).flatMap((order, index) => [index ? " · " : "", h("a", { href: `#files/${order.id}`, text: `${order.number} (${FILE_LABELS[order.status]})` })]) : ["None yet"]))
       ),
       h("div", { class: "form-grid", style: { marginTop: "18px" } },
@@ -1289,7 +1297,7 @@ async function viewCustomers(main, id) {
         [
           { label: "Customer", cell: (customer) => [customer.name, h("span", { class: "sub", text: customer.company || customer.email })] },
           { label: "Contact", cell: (customer) => [customer.email, h("span", { class: "sub", text: customer.phone })] },
-          { label: "Credits", class: "num", cell: (customer) => String(customer.credits) },
+          { label: "Credits", class: "num", cell: (customer) => creditNumber(customer.credits) },
           { label: "Files", class: "num", cell: (customer) => String(customer.orders) },
           { label: "Account", cell: (customer) => pill(customer.active ? "active" : "cancelled", customer.active ? "On" : "Off") }
         ],

@@ -208,7 +208,8 @@ export function validateTuneOption(input) {
   return {
     name: text(input.name, "Name", { required: true, max: 60 }),
     kind,
-    credits: number(input.credits, "Credits", { min: 0, max: 100, integer: true }),
+    // Up to two decimals, e.g. 1.20 credits.
+    credits: Math.round(number(input.credits, "Credits", { min: 0, max: 100 }) * 100) / 100,
     description: text(input.description, "Description", { max: 200 }),
     active: bool(input.active)
   };

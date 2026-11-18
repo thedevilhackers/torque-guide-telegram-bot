@@ -75,7 +75,9 @@ const money = (amount) => {
     return `${currency} ${amount}`;
   }
 };
-const credits = (count) => `${count} credit${count === 1 ? "" : "s"}`;
+// Credits can have two decimals: "1 credit", "3 credits", "1.20 credits".
+const creditNumber = (amount) => (Number.isInteger(amount) ? String(amount) : amount.toFixed(2));
+const credits = (amount) => `${creditNumber(amount)} credit${amount === 1 ? "" : "s"}`;
 const date = (iso) => new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
 const dateTime = (iso) => new Date(iso).toLocaleString(undefined, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
 const size = (bytes) => (bytes >= 1_048_576 ? `${(bytes / 1_048_576).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`);
@@ -213,12 +215,12 @@ function signedOut(mode, token) {
 function shell(active, ...content) {
   const { customer } = state;
   accountSlot.hidden = false;
-  accountSlot.replaceChildren(h("a", { class: "nav__credits", href: "#credits", title: "Your credits" }, h("b", { text: String(customer.credits) }), ` credit${customer.credits === 1 ? "" : "s"}`));
+  accountSlot.replaceChildren(h("a", { class: "nav__credits", href: "#credits", title: "Your credits" }, h("b", { text: creditNumber(customer.credits) }), ` credit${customer.credits === 1 ? "" : "s"}`));
   const sections = [["files", "My files"], ["new", "New file"], ["credits", "Credits"], ["account", "Account"]];
   app.replaceChildren(
     h("div", { class: "portal__bar" },
       h("div", {}, h("p", { class: "eyebrow", text: customer.company || "Tuning file service" }), h("h1", { class: "title portal__hello" }, "Welcome, ", h("em", { text: customer.name.split(" ")[0] }))),
-      h("div", { class: "balance" }, h("span", { class: "balance__value", text: String(customer.credits) }), h("span", { class: "balance__label", text: customer.credits === 1 ? "credit" : "credits" }))
+      h("div", { class: "balance" }, h("span", { class: "balance__value", text: creditNumber(customer.credits) }), h("span", { class: "balance__label", text: customer.credits === 1 ? "credit" : "credits" }))
     ),
     h("nav", { class: "tabs tabs--wide", "aria-label": "File service" }, ...sections.map(([id, label]) => h("a", { class: "tab", href: `#${id}`, "aria-current": id === active ? "page" : undefined, text: label }))),
     ...content
@@ -250,8 +252,8 @@ function orderCard(order) {
   return h("article", { class: "order" },
     h("div", { class: "order__main" },
       h("p", { class: "order__meta" }, h("span", { text: order.number }), h("span", { text: date(order.createdAt) }), pill(STATUS[order.status])),
-      h("h3", { class: "order__car", text: `${vehicle.make} ${vehicle.model} ${vehicle.engine}` }),
-      h("p", { class: "order__detail", text: `${vehicle.year} · ${order.ecu} · ${state.catalog.tools[order.tool] ?? order.tool} ${state.catalog.toolModes[order.toolMode] ?? ""}` }),
+      h("h3", { class: "order__car", text: [vehicle.make, vehicle.model, vehicle.generation, vehicle.engine].filter(Boolean).join(" ") }),
+      h("p", { class: "order__detail", text: [vehicle.year, order.ecu, `${state.catalog.tools[order.tool] ?? order.tool} ${state.catalog.toolModes[order.toolMode] ?? ""}`.trim(), order.timeFrame ? state.catalog.timeFrames[order.timeFrame] : ""].filter(Boolean).join(" · ") }),
       h("p", { class: "order__detail", text: `${order.options.map((option) => option.name).join(" + ")} · ${credits(order.credits)}` }),
       order.message ? h("p", { class: "order__message" }, h("b", { text: "From the workshop: " }), order.message) : null
     ),
@@ -274,9 +276,40 @@ async function viewFiles() {
   );
 }
 
-function choice(type, name, option, checked = false) {
-  const control = h("input", { type, name, value: option.id, checked });
-  return h("label", { class: "choice" }, control, h("span", { class: "choice__body" }, h("span", { class: "choice__name", text: option.name }), option.description ? h("small", { text: option.description }) : null), h("b", { class: "choice__cost", text: type === "checkbox" ? `+${option.credits}` : String(option.credits) }));
+// ---------- New file: tuning file, vehicle, tuning and service, with a bar showing what's left ----------
+
+const MAX_EXTRA_FILES = 5;
+
+function panel(icon, title, ...content) {
+  return h("section", { class: "panel" }, h("h2", { class: "panel__title" }, h("span", { class: "panel__icon", "aria-hidden": "true", text: icon }), title), ...content);
+}
+
+const group = (title) => h("p", { class: "group-title", text: title });
+const optional = (label) => [label, h("small", { text: " (optional)" })];
+
+function labelled(label, control, { hint = "", full = false } = {}) {
+  return h("label", { class: `field${full ? " full" : ""}` }, h("span", {}, ...(Array.isArray(label) ? label : [label])), control, hint ? h("small", { class: "field__hint", text: hint }) : null);
+}
+
+function choiceSelect(name, choices, placeholder = "Choose") {
+  return h("select", { name }, h("option", { value: "", text: placeholder }), ...Object.entries(choices).map(([key, label]) => h("option", { value: key, text: label })));
+}
+
+// A drop zone: click or drop. onFiles gets the chosen files.
+function dropZone({ title, text, multiple = false, tall = false, onFiles }) {
+  const picker = h("input", { type: "file", class: "visually-hidden", multiple });
+  const zone = h("label", { class: `drop${tall ? " drop--tall" : ""}` }, picker, h("span", { class: "drop__icon", "aria-hidden": "true", text: "+" }), h("span", { class: "drop__text" }, h("b", { text: title }), h("small", { text })), h("span", { class: "drop__progress" }, h("span", { class: "drop__bar" })));
+  picker.addEventListener("change", () => {
+    onFiles([...(picker.files ?? [])]);
+    picker.value = "";
+  });
+  for (const type of ["dragenter", "dragover"]) zone.addEventListener(type, (event) => (event.preventDefault(), zone.classList.add("is-over")));
+  for (const type of ["dragleave", "drop"]) zone.addEventListener(type, () => zone.classList.remove("is-over"));
+  zone.addEventListener("drop", (event) => {
+    event.preventDefault();
+    onFiles([...(event.dataTransfer?.files ?? [])]);
+  });
+  return { zone, picker, bar: zone.querySelector(".drop__bar") };
 }
 
 async function viewNew() {
@@ -286,130 +319,303 @@ async function viewNew() {
     shell("new", h("section", { class: "portal__section empty" }, h("p", { text: "We aren't taking new files right now." }), h("a", { class: "link", href: whatsapp("Hi, when will the tuning file service reopen?"), target: "_blank", rel: "noopener", text: "Ask us on WhatsApp →" })));
     return;
   }
+  state.extras ??= [];
   const tunes = catalog.options.filter((option) => option.kind === "tune");
   const addons = catalog.options.filter((option) => option.kind === "addon");
+  const tooBig = (file) => file.size > catalog.maxFileMb * 1_048_576;
+  const form = h("form", { class: "order-form", novalidate: true });
+  const draw = () => form.dispatchEvent(new Event("change"));
 
-  // 1. The original file uploads as soon as it's chosen.
-  const fileInput = h("input", { type: "file", class: "visually-hidden", "aria-label": "Original ECU file" });
-  const dropText = h("span", { class: "drop__text" });
-  const bar = h("span", { class: "drop__bar" });
-  const drop = h("label", { class: "drop" }, fileInput, h("span", { class: "drop__icon", "aria-hidden": "true", text: "↑" }), dropText, h("span", { class: "drop__progress" }, bar));
-  const drawDrop = (text, sub = "") => dropText.replaceChildren(h("b", { text }), sub ? h("small", { text: sub }) : null);
-  drawDrop(state.upload ? state.upload.name : "Choose the original read", state.upload ? `${size(state.upload.size)} · uploaded · choose again to replace` : `Drop it here or tap to choose · up to ${catalog.maxFileMb} MB`);
-  drop.classList.toggle("is-done", Boolean(state.upload));
-  const sendFile = async (file) => {
+  // ---- Tuning file: the original read and how it was read ----
+  const original = dropZone({ title: "Drop your file here or click to browse", text: "The complete original read from your tool, e.g. flash and EEPROM.", tall: true, onFiles: ([file]) => sendOriginal(file) });
+  const originalStatus = h("p", { class: "file-status" });
+  const drawOriginal = (text = "") => {
+    original.zone.classList.toggle("is-done", Boolean(state.upload));
+    originalStatus.replaceChildren(
+      state.upload ? h("span", { class: "file-status__name", text: `✓ ${state.upload.name}` }) : h("span", { text: text || "No file selected yet." }),
+      h("span", { class: "file-status__size", text: state.upload ? size(state.upload.size) : `${catalog.maxFileMb} MB max` })
+    );
+  };
+  async function sendOriginal(file) {
     if (!file) return;
-    if (file.size > catalog.maxFileMb * 1_048_576) {
-      toast(`That file is over ${catalog.maxFileMb} MB.`, "error");
-      return;
-    }
-    drop.classList.remove("is-done");
-    drop.classList.add("is-busy");
-    drawDrop(file.name, "Uploading…");
+    if (tooBig(file)) return toast(`That file is over ${catalog.maxFileMb} MB.`, "error");
+    original.zone.classList.add("is-busy");
+    drawOriginal(`Uploading ${file.name}…`);
     try {
-      const { upload: uploaded } = await api("/api/portal/uploads", { raw: file, fileName: file.name, onProgress: (share) => (bar.style.width = `${Math.round(share * 100)}%`) });
-      state.upload = uploaded;
-      drawDrop(uploaded.name, `${size(uploaded.size)} · uploaded · choose again to replace`);
-      drop.classList.add("is-done");
+      ({ upload: state.upload } = await api("/api/portal/uploads", { raw: file, fileName: file.name, onProgress: (share) => (original.bar.style.width = `${Math.round(share * 100)}%`) }));
+      drawOriginal();
     } catch (error) {
       state.upload = null;
-      drawDrop("Choose the original read", "The upload didn't finish. Try again.");
+      drawOriginal("The upload didn't finish. Try again.");
       report(error);
     } finally {
-      drop.classList.remove("is-busy");
-      bar.style.width = "0";
+      original.zone.classList.remove("is-busy");
+      original.bar.style.width = "0";
+      draw();
     }
-  };
-  fileInput.addEventListener("change", () => sendFile(fileInput.files?.[0]));
-  for (const type of ["dragenter", "dragover"]) drop.addEventListener(type, (event) => (event.preventDefault(), drop.classList.add("is-over")));
-  for (const type of ["dragleave", "drop"]) drop.addEventListener(type, () => drop.classList.remove("is-over"));
-  drop.addEventListener("drop", (event) => {
-    event.preventDefault();
-    sendFile(event.dataTransfer?.files?.[0]);
-  });
-
-  const year = new Date().getFullYear();
-  const total = h("b", { class: "summary__total" });
-  const after = h("span", { class: "summary__after" });
-  const submit = h("button", { class: "btn btn--primary", type: "submit" });
-  const error = formError();
-  const form = h("form", { class: "form order-form", novalidate: true },
-    h("fieldset", { class: "step-box full" }, h("legend", { text: "1 · Original file" }), drop),
-    h("fieldset", { class: "step-box full" }, h("legend", { text: "2 · Vehicle" }),
-      h("div", { class: "form" },
-        field("Make", input("make", { maxlength: 40, placeholder: "Volkswagen", required: true })),
-        field("Model", input("model", { maxlength: 60, placeholder: "Polo", required: true })),
-        field("Engine", input("engine", { maxlength: 60, placeholder: "1.0 TSI 110 hp", required: true })),
-        field("Model year", input("year", { type: "number", inputmode: "numeric", min: 1990, max: year + 1, placeholder: String(year - 3), required: true })),
-        field("Fuel", select("fuel", catalog.fuels)),
-        field("Gearbox", select("gearbox", catalog.gearboxes, { placeholder: "Not sure" }))
-      )
-    ),
-    h("fieldset", { class: "step-box full" }, h("legend", { text: "3 · ECU and tool" }),
-      h("div", { class: "form" },
-        field("ECU", input("ecu", { maxlength: 80, placeholder: "Bosch MED17.5.25", required: true })),
-        field("ECU numbers", input("ecuNumbers", { maxlength: 120, placeholder: "Hardware / software numbers" }), { hint: "(optional)" }),
-        field("Tool", select("tool", catalog.tools)),
-        field("Tool type", select("toolMode", catalog.toolModes)),
-        field("Read by", select("readMethod", catalog.readMethods))
-      )
-    ),
-    h("fieldset", { class: "step-box full" }, h("legend", { text: "4 · Tune" }),
-      h("div", { class: "choices" }, ...tunes.map((option, index) => choice("radio", "tuneId", option, index === 0))),
-      addons.length ? h("p", { class: "choices__label", text: "Add-ons" }) : null,
-      addons.length ? h("div", { class: "choices" }, ...addons.map((option) => choice("checkbox", "addonIds", option))) : null
-    ),
-    h("fieldset", { class: "step-box full" }, h("legend", { text: "5 · Notes" }),
-      field("Anything we should know", h("textarea", { name: "notes", maxlength: 1000, rows: 3, placeholder: "Fuel used (e.g. E20), modifications, gearbox, special requests" }), { full: true })
-    ),
-    h("div", { class: "summary full" }, h("div", {}, h("span", { class: "summary__label", text: "Total" }), total, after), submit),
-    error
+  }
+  drawOriginal();
+  const toolModes = h("div", { class: "segmented", role: "radiogroup", "aria-label": "Master or slave" },
+    ...Object.entries(catalog.toolModes).map(([key, label]) => h("label", { class: "segmented__option" }, h("input", { type: "radio", name: "toolMode", value: key }), h("span", { text: label })))
+  );
+  const filePanel = panel("▤", "Tuning file",
+    original.zone,
+    originalStatus,
+    group("How was the file read?"),
+    h("div", { class: "fields fields--1" },
+      labelled("Tool", choiceSelect("tool", catalog.tools)),
+      h("div", { class: "field", dataset: { need: "toolMode" } }, h("span", { text: "Master or slave tool" }), toolModes, h("small", { class: "field__hint", text: "So the file comes back in the right format for your tool." })),
+      labelled("Read method", choiceSelect("readMethod", catalog.readMethods))
+    )
   );
 
+  // ---- Vehicle: search our list, or choose the make and type the rest ----
+  const search = h("input", { type: "search", placeholder: "Search our list, e.g. Polo 1.0 TSI or Creta diesel", autocomplete: "off", "aria-label": "Search our vehicle list" });
+  const results = h("div", { class: "vehicle-results", hidden: true });
+  const chosen = h("p", { class: "vehicle-chosen", hidden: true });
+  const catalogId = h("input", { type: "hidden", name: "catalogId" });
+  const makeSelect = h("select", { name: "make" }, h("option", { value: "", text: "Choose" }), ...catalog.makes.map((make) => h("option", { value: make, text: make })), h("option", { value: "__other", text: "Other (type it)" }));
+  const makeOther = h("input", { name: "makeOther", maxlength: 40, placeholder: "Type the make", hidden: true, "aria-label": "Make" });
+  const modelList = h("datalist", { id: "model-options" });
+  const engineList = h("datalist", { id: "engine-options" });
+  const ecuList = h("datalist", { id: "ecu-options" }, ...Object.values(catalog.ecus).map((title) => h("option", { value: title })));
+  const model = h("input", { name: "model", maxlength: 60, placeholder: "Choose or type it yourself", list: "model-options", autocomplete: "off" });
+  const engine = h("input", { name: "engine", maxlength: 60, placeholder: "e.g. 1.5 CRDi 115 hp", list: "engine-options", autocomplete: "off" });
+  const ecu = h("input", { name: "ecu", maxlength: 80, placeholder: "e.g. Bosch EDC17C64", list: "ecu-options", autocomplete: "off" });
+  const year = new Date().getFullYear();
+  let brandVehicles = [];
+
+  const makeValue = () => (makeSelect.value === "__other" ? makeOther.value.trim() : makeSelect.value);
+  const setMake = (make) => {
+    if (!catalog.makes.includes(make)) makeSelect.insertBefore(h("option", { value: make, text: make }), makeSelect.lastChild);
+    makeSelect.value = make;
+    makeOther.hidden = true;
+  };
+  // The make's cars from our list fill the model and engine suggestions.
+  async function loadModels() {
+    const brand = catalog.brands.find((entry) => entry.title.toLowerCase() === makeValue().toLowerCase());
+    brandVehicles = brand ? (await api(`/api/vehicles?brand=${encodeURIComponent(brand.id)}`).catch(() => ({ vehicles: [] }))).vehicles : [];
+    modelList.replaceChildren(...[...new Set(brandVehicles.map((vehicle) => vehicle.model))].map((value) => h("option", { value })));
+    loadEngines();
+  }
+  function loadEngines() {
+    const matches = brandVehicles.filter((vehicle) => vehicle.model.toLowerCase() === model.value.trim().toLowerCase());
+    engineList.replaceChildren(...[...new Set((matches.length ? matches : brandVehicles).map((vehicle) => `${vehicle.engine} ${vehicle.stock?.hp ? `${vehicle.stock.hp} hp` : ""}`.trim()))].map((value) => h("option", { value })));
+  }
+  makeSelect.addEventListener("change", () => {
+    makeOther.hidden = makeSelect.value !== "__other";
+    if (!makeOther.hidden) makeOther.focus();
+    catalogId.value = "";
+    chosen.hidden = true;
+    loadModels();
+  });
+  model.addEventListener("input", () => {
+    catalogId.value = "";
+    chosen.hidden = true;
+    loadEngines();
+  });
+
+  function pickVehicle(vehicle) {
+    const set = (name, value) => (form.elements[name].value = value ?? "");
+    set("vehicleType", "car");
+    setMake(vehicle.brand);
+    set("model", vehicle.model);
+    set("generation", [vehicle.generation, vehicle.years ? `(${vehicle.years})` : ""].filter(Boolean).join(" "));
+    set("engine", vehicle.engine);
+    set("fuel", catalog.fuels[vehicle.fuel] ? vehicle.fuel : "");
+    set("powerHp", vehicle.stock?.hp ?? "");
+    const ecuTitles = (vehicle.ecus ?? []).map((id) => catalog.ecus[id]).filter(Boolean);
+    set("ecu", ecuTitles.length === 1 ? ecuTitles[0] : "");
+    ecu.placeholder = ecuTitles.length > 1 ? `Usually ${ecuTitles.join(" or ")}` : "e.g. Bosch EDC17C64";
+    catalogId.value = vehicle.id;
+    chosen.replaceChildren(h("b", { text: `${vehicle.brand} ${vehicle.model}` }), ` ${vehicle.generation ?? ""} · filled in below. Check the details and add the year.`);
+    chosen.hidden = false;
+    results.hidden = true;
+    search.value = "";
+    loadModels();
+    draw();
+  }
+  let searchTimer;
+  search.addEventListener("input", () => {
+    clearTimeout(searchTimer);
+    const query = search.value.trim();
+    if (query.length < 2) {
+      results.hidden = true;
+      return;
+    }
+    searchTimer = setTimeout(async () => {
+      const { vehicles } = await api(`/api/vehicles?q=${encodeURIComponent(query)}`).catch(() => ({ vehicles: [] }));
+      results.replaceChildren(
+        ...vehicles.slice(0, 6).map((vehicle) =>
+          h("button", { class: "vehicle-result", type: "button", onclick: () => pickVehicle(vehicle) },
+            h("b", { text: `${vehicle.brand} ${vehicle.model}` }),
+            h("small", { text: [vehicle.generation, vehicle.years, vehicle.engine, vehicle.stock?.hp ? `${vehicle.stock.hp} hp` : ""].filter(Boolean).join(" · ") })
+          )
+        ),
+        ...(vehicles.length ? [] : [h("p", { class: "vehicle-results__none", text: "Not in our list. Choose the make below and type the rest." })])
+      );
+      results.hidden = false;
+    }, 200);
+  });
+
+  const vehiclePanel = panel("◆", "Vehicle",
+    h("div", { class: "vehicle-search" }, search, results, chosen),
+    catalogId,
+    group("Vehicle and engine"),
+    h("div", { class: "fields" },
+      labelled("Vehicle type", h("select", { name: "vehicleType" }, ...Object.entries(catalog.vehicleTypes).map(([key, label]) => h("option", { value: key, text: label })))),
+      h("label", { class: "field" }, h("span", { text: "Make" }), makeSelect, makeOther),
+      labelled("Model", model),
+      labelled(optional("Generation"), input("generation", { maxlength: 40, placeholder: "e.g. Mk7 (2013–2020)" })),
+      labelled("Engine", engine, { full: true }),
+      labelled(optional("Fuel"), choiceSelect("fuel", catalog.fuels)),
+      labelled(optional("Octane rating"), choiceSelect("octane", catalog.octanes))
+    ),
+    group("Details"),
+    h("div", { class: "fields" },
+      labelled(optional("Year"), input("year", { type: "number", inputmode: "numeric", min: 1980, max: year + 1, placeholder: String(year - 3) })),
+      labelled(optional("Gearbox"), choiceSelect("gearbox", catalog.gearboxes)),
+      labelled(optional("Number plate"), input("plate", { maxlength: 20 })),
+      labelled(optional("VIN"), input("vin", { maxlength: 17 }))
+    ),
+    group("Power and ECU"),
+    h("div", { class: "fields" },
+      labelled(optional("Power"), h("span", { class: "with-unit" }, input("powerHp", { type: "number", inputmode: "numeric", min: 5, max: 3000 }), h("span", { text: "hp" }))),
+      labelled(optional("ECU"), ecu),
+      labelled(optional("Hardware number"), input("hardwareNumber", { maxlength: 40 })),
+      labelled(optional("Software number"), input("softwareNumber", { maxlength: 40 }))
+    ),
+    modelList,
+    engineList,
+    ecuList
+  );
+
+  // ---- Tuning: one tuning type, then its options ----
+  const optionCard = (type, name, option) =>
+    h("label", { class: "choice" }, h("input", { type, name, value: option.id }), h("span", { class: "choice__body" }, h("span", { class: "choice__name", text: option.name }), option.description ? h("small", { text: option.description }) : null), h("b", { class: "choice__cost", text: credits(option.credits) }));
+  const addonsBox = h("div", { class: "choices" }, ...addons.map((option) => optionCard("checkbox", "addonIds", option)));
+  const addonsHint = h("p", { class: "fineprint", text: "Choose a tuning type to see its options." });
+  const tuningPanel = panel("ϟ", "Tuning",
+    h("div", { class: "choices", dataset: { need: "tuneId" } }, ...tunes.map((option) => optionCard("radio", "tuneId", option))),
+    addons.length ? [group("Tuning options"), addonsHint, addonsBox] : null
+  );
+
+  // ---- Service: modified parts, time frame, info and extra files ----
+  const extrasList = h("ul", { class: "extras" });
+  const extras = dropZone({ title: "Drop your files here or click to browse", text: "Supporting files: a photo of the ECU label, a log file, or anything else that helps.", multiple: true, onFiles: (chosenFiles) => sendExtras(chosenFiles) });
+  const drawExtras = () =>
+    extrasList.replaceChildren(
+      ...state.extras.map((extra, index) =>
+        h("li", {}, h("span", { text: extra.name }), h("small", { text: size(extra.size) }), h("button", { class: "link", type: "button", text: "Remove", onclick: () => ((state.extras = state.extras.filter((_, i) => i !== index)), drawExtras()) }))
+      )
+    );
+  async function sendExtras(chosenFiles) {
+    for (const file of chosenFiles) {
+      if (state.extras.length >= MAX_EXTRA_FILES) return toast(`Add up to ${MAX_EXTRA_FILES} extra files.`, "error");
+      if (tooBig(file)) {
+        toast(`${file.name} is over ${catalog.maxFileMb} MB.`, "error");
+        continue;
+      }
+      extras.zone.classList.add("is-busy");
+      try {
+        const { upload: added } = await api("/api/portal/uploads", { raw: file, fileName: file.name, onProgress: (share) => (extras.bar.style.width = `${Math.round(share * 100)}%`) });
+        state.extras.push(added);
+        drawExtras();
+      } catch (error) {
+        report(error);
+      } finally {
+        extras.zone.classList.remove("is-busy");
+        extras.bar.style.width = "0";
+      }
+    }
+  }
+  drawExtras();
+  const confirmBox = h("input", { type: "checkbox", name: "confirmed" });
+  const servicePanel = panel("✓", "Service",
+    h("div", { class: "fields fields--3" },
+      labelled("Does the vehicle have modified parts?", choiceSelect("modifiedParts", catalog.modifiedParts)),
+      labelled("Time frame", choiceSelect("timeFrame", catalog.timeFrames), { hint: "When do you need the file? We plan the work around it." }),
+      labelled(optional("Info"), h("textarea", { name: "notes", maxlength: 1000, rows: 4 }), { hint: "Hardware changes, the fuel you use, wishes: everything we should know." })
+    ),
+    group("Extra files (optional)"),
+    extras.zone,
+    extrasList,
+    h("label", { class: "confirm", dataset: { need: "confirmed" } }, confirmBox, h("span", { text: "I confirm this is the complete, unmodified original read from this vehicle." }))
+  );
+
+  // ---- The bar: total, balance and what's still missing ----
+  const total = h("b", { class: "summary__total" });
+  const balance = h("span", { class: "summary__after" });
+  const left = h("div", { class: "left" });
+  const send = h("button", { class: "btn btn--primary", type: "submit" });
+  const error = formError();
+  const bar = h("div", { class: "summary" }, h("div", {}, h("span", { class: "summary__label", text: "Total" }), total, balance), left, send);
+
+  const value = (name) => String(form.elements[name]?.value ?? "").trim();
+  const focusTarget = (name) => form.querySelector(`[data-need="${name}"]`) ?? form.elements[name];
+  const REQUIRED = [
+    ["Original file", () => Boolean(state.upload), () => original.zone],
+    ["Tool", () => value("tool"), () => form.elements.tool],
+    ["Master or slave", () => value("toolMode"), () => focusTarget("toolMode")],
+    ["Read method", () => value("readMethod"), () => form.elements.readMethod],
+    ["Make", () => makeValue(), () => (makeSelect.value === "__other" ? makeOther : makeSelect)],
+    ["Model", () => value("model"), () => model],
+    ["Engine", () => value("engine"), () => engine],
+    ["Tuning type", () => value("tuneId"), () => focusTarget("tuneId")],
+    ["Modified parts", () => value("modifiedParts"), () => form.elements.modifiedParts],
+    ["Time frame", () => value("timeFrame"), () => form.elements.timeFrame],
+    ["Confirmation", () => confirmBox.checked, () => focusTarget("confirmed")]
+  ];
   const cost = () => {
-    const chosen = new Set(new FormData(form).getAll("addonIds"));
-    const tune = tunes.find((option) => option.id === form.elements.tuneId?.value);
-    return (tune?.credits ?? 0) + addons.filter((option) => chosen.has(option.id)).reduce((sum, option) => sum + option.credits, 0);
+    const tune = tunes.find((option) => option.id === value("tuneId"));
+    const chosenAddons = new Set(new FormData(form).getAll("addonIds"));
+    return Math.round(((tune?.credits ?? 0) + addons.filter((option) => chosenAddons.has(option.id)).reduce((sum, option) => sum + option.credits, 0)) * 100) / 100;
   };
-  const drawSummary = () => {
+  const missing = () => REQUIRED.filter(([, done]) => !done());
+  const drawBar = () => {
     const needed = cost();
+    const short = Math.round((needed - customer.credits) * 100) / 100;
     total.textContent = credits(needed);
-    after.textContent = needed > customer.credits ? `You have ${customer.credits}. Buy ${needed - customer.credits} more to order.` : `You have ${customer.credits}; ${customer.credits - needed} left after this file.`;
-    submit.textContent = needed > customer.credits ? "Buy credits" : `Place order · ${credits(needed)}`;
+    balance.textContent = `Your balance ${creditNumber(customer.credits)} → ${creditNumber(Math.round((customer.credits - needed) * 100) / 100)}`;
+    const todo = missing();
+    left.className = `left${todo.length ? "" : " is-done"}`;
+    const jump = (target) => () => {
+      const element = target();
+      element?.scrollIntoView({ block: "center", behavior: "smooth" });
+      element?.focus?.({ preventScroll: true });
+    };
+    left.replaceChildren(
+      ...(todo.length
+        ? [h("span", { class: "left__title", text: `${todo.length} thing${todo.length === 1 ? "" : "s"} left:` }), ...todo.map(([label, , target]) => h("button", { class: "left__chip", type: "button", text: label, onclick: jump(target) }))]
+        : [h("span", { class: "left__title", text: short > 0 ? `You need ${credits(short)} more.` : "Everything's filled in." })])
+    );
+    send.textContent = short > 0 && !todo.length ? "Buy credits" : "Send file";
+    send.disabled = todo.length > 0;
+    addonsHint.hidden = Boolean(value("tuneId"));
+    addonsBox.hidden = !value("tuneId");
   };
-  form.addEventListener("change", drawSummary);
-  drawSummary();
+  form.addEventListener("change", drawBar);
+  form.addEventListener("input", drawBar);
 
   form.addEventListener("submit", (event) => {
     event.preventDefault();
-    if (cost() > state.customer.credits) {
-      location.hash = "#credits";
-      return;
-    }
+    if (missing().length) return;
+    if (cost() > state.customer.credits) return go("#credits");
     const data = new FormData(form);
-    const body = { ...Object.fromEntries(data), addonIds: data.getAll("addonIds"), uploadId: state.upload?.id };
-    busy(submit, async () => {
-      if (!state.upload) throw new Error("Upload the original file first (step 1).");
-      for (const name of ["make", "model", "engine", "year", "fuel", "ecu", "tool", "toolMode", "readMethod"]) {
-        if (!String(body[name] ?? "").trim()) {
-          form.elements[name].focus();
-          throw new Error("Please fill in the vehicle, ECU and tool details.");
-        }
-      }
+    const body = { ...Object.fromEntries(data), make: makeValue(), addonIds: data.getAll("addonIds"), uploadId: state.upload?.id, extraUploadIds: state.extras.map((extra) => extra.id), confirmed: confirmBox.checked };
+    delete body.makeOther;
+    busy(send, async () => {
       const { order } = await api("/api/portal/orders", { method: "POST", body });
       state.upload = null;
+      state.extras = [];
       toast(`${order.number} is with the workshop. We'll prepare it and it will appear here.`);
       go("#files");
     }, error);
   });
 
-  shell("new",
-    h("section", { class: "portal__section" },
-      h("h2", { class: "card__title", text: "New file" }),
-      h("p", { class: "fineprint", text: "Send the untouched original read. The credits are taken when you place the order and returned if we can't do the file." }),
-      form
-    )
-  );
+  form.append(h("div", { class: "new-grid" }, filePanel, vehiclePanel), tuningPanel, servicePanel, error, bar);
+  shell("new", h("section", { class: "portal__section" }, form));
+  drawBar();
 }
 
 function paymentPanel(purchase) {
@@ -530,7 +736,7 @@ async function viewCredits() {
         ? h("div", { class: "table-wrap" },
             h("table", { class: "ledger" },
               h("thead", {}, h("tr", {}, h("th", { text: "Date" }), h("th", { text: "What" }), h("th", { class: "num", text: "Change" }), h("th", { class: "num", text: "Balance" }))),
-              h("tbody", {}, ...ledger.map((entry) => h("tr", {}, h("td", { text: date(entry.createdAt) }), h("td", { text: `${LEDGER_REASONS[entry.reason] ?? entry.reason}${entry.ref ? ` · ${entry.ref}` : ""}` }), h("td", { class: `num ${entry.change > 0 ? "plus" : "minus"}`, text: entry.change > 0 ? `+${entry.change}` : String(entry.change) }), h("td", { class: "num", text: String(entry.balance) }))))
+              h("tbody", {}, ...ledger.map((entry) => h("tr", {}, h("td", { text: date(entry.createdAt) }), h("td", { text: `${LEDGER_REASONS[entry.reason] ?? entry.reason}${entry.ref ? ` · ${entry.ref}` : ""}` }), h("td", { class: `num ${entry.change > 0 ? "plus" : "minus"}`, text: entry.change > 0 ? `+${creditNumber(entry.change)}` : creditNumber(entry.change) }), h("td", { class: "num", text: creditNumber(entry.balance) }))))
             )
           )
         : h("p", { class: "fineprint", text: "No credit changes yet." })

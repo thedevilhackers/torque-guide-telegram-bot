@@ -28,8 +28,12 @@ export function registerFileAdminRoutes(admin, { fetchImpl } = {}) {
     tools: files.TOOLS,
     toolModes: files.TOOL_MODES,
     readMethods: files.READ_METHODS,
+    vehicleTypes: files.VEHICLE_TYPES,
     fuels: files.FUELS,
+    octanes: files.OCTANES,
     gearboxes: files.GEARBOXES,
+    modifiedParts: files.MODIFIED_PARTS,
+    timeFrames: files.TIME_FRAMES,
     razorpay: razorpayEnabled(),
     upi: files.upiAvailable(),
     provider: fcfStatus(),
@@ -43,8 +47,10 @@ export function registerFileAdminRoutes(admin, { fetchImpl } = {}) {
   admin("GET", "/api/admin/file-orders/:id/download", ({ req, res, url, params }) => {
     const order = db().fileOrders.find((entry) => entry.id === params.id);
     if (!order) throw new HttpError(404, "File order not found.");
-    const which = url.searchParams.get("file") === "tuned" ? order.tuned : order.original;
-    if (!which) throw new HttpError(404, "There's no tuned file on this order yet.");
+    const kind = url.searchParams.get("file");
+    // ?file=tuned, ?file=extra&index=N (a supporting file), or the original.
+    const which = kind === "tuned" ? order.tuned : kind === "extra" ? order.extras?.[Number(url.searchParams.get("index"))] : order.original;
+    if (!which) throw new HttpError(404, kind === "tuned" ? "There's no tuned file on this order yet." : "That file isn't on this order.");
     sendDownload(req, res, files.ecuFilePath(which.file), which.name);
   });
 

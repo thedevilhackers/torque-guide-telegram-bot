@@ -186,7 +186,7 @@ function cleanFileService(backup) {
   const customers = lists.customers ?? [];
   const isHex = (value, length) => typeof value === "string" && value.length === length && /^[a-f0-9]+$/.test(value);
   const badCustomer = customers.find(
-    (customer) => !isText(customer.email) || !isText(customer.name) || !Number.isInteger(customer.credits) || customer.credits < 0 || !isHex(customer.password?.salt, 32) || !isHex(customer.password?.hash, 64)
+    (customer) => !isText(customer.email) || !isText(customer.name) || !Number.isFinite(customer.credits) || customer.credits < 0 || !isHex(customer.password?.salt, 32) || !isHex(customer.password?.hash, 64)
   );
   if (badCustomer) throw new InputError(`Customer "${badCustomer.id}" in the backup is damaged.`);
   const ids = new Set(customers.map((customer) => customer.id));

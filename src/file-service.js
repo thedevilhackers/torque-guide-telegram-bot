@@ -5,10 +5,12 @@ import { promisify } from "node:util";
 import { DATA_DIR, db, settings, transact } from "./db.js";
 import { events } from "./events.js";
 import { InputError } from "./records.js";
+import { brandsWithVehicles, getVehicle } from "./vehicles.js";
 
 // The tuning file service: tuners and workshops open an account, buy credits, upload an original ECU
 // read, choose a tune, and download the modified file when the workshop has made it. Credits are whole
-// numbers; every change to a balance is written to creditLedger in the same step as the change.
+// amounts with up to two decimals (e.g. 1.20); every change to a balance is written to creditLedger in
+// the same step as the change.
 
 const scrypt = promisify(scryptCallback);
 
@@ -17,11 +19,36 @@ export const FILE_ORDER_STATUSES = ["submitted", "in_progress", "completed", "re
 export const PURCHASE_STATUSES = ["awaiting_payment", "submitted", "paid", "cancelled"];
 // Closed orders have had their credits returned and can't be reopened.
 const CLOSED = new Set(["rejected", "cancelled"]);
-export const TOOLS = { autotuner: "Autotuner", kess3: "KESS3", flex: "Magicmotorsport Flex", ktag: "KTAG", cmdflash: "CMDFlash", pcmflash: "PCMFlash", other: "Other" };
+// Choices on the order form. Keys are stored on orders, so existing keys must keep their meaning.
+export const TOOLS = {
+  kess3: "Alientech KESS3",
+  ktag: "Alientech KTAG",
+  autotuner: "Autotuner",
+  flex: "Magicmotorsport Flex",
+  cmdflash: "CMDFlash",
+  pcmflash: "PCMFlash",
+  bflash: "bFlash",
+  trasdata: "Trasdata",
+  newgenius: "New Genius",
+  other: "Other"
+};
 export const TOOL_MODES = { master: "Master", slave: "Slave" };
 export const READ_METHODS = { obd: "OBD", bench: "Bench", boot: "Boot" };
-export const FUELS = { petrol: "Petrol", diesel: "Diesel" };
+export const VEHICLE_TYPES = { car: "Car", bike: "Motorbike", lcv: "Pickup / van", truck: "Truck / bus", agri: "Tractor / agriculture" };
+export const FUELS = { petrol: "Petrol", diesel: "Diesel", cng: "Petrol + CNG", hybrid: "Hybrid" };
+export const OCTANES = { ron91: "91 RON (regular)", ron95: "95 RON (premium)", ron100: "100 RON", e20: "E20", e85: "E85" };
 export const GEARBOXES = { manual: "Manual", automatic: "Automatic" };
+export const MODIFIED_PARTS = { no: "No, standard", yes: "Yes (list them in the info)" };
+export const TIME_FRAMES = { asap: "As soon as possible", today: "Today", day: "Within 24 hours", relaxed: "No rush (2–3 days)" };
+// Makes offered in the list, along with every brand in the vehicle database.
+const COMMON_MAKES = [
+  "Ashok Leyland", "Audi", "Bajaj", "BharatBenz", "BMW", "Chevrolet", "Citroen", "Eicher", "Fiat", "Force Motors", "Ford", "Hero",
+  "Honda", "Hyundai", "Isuzu", "Jaguar", "Jeep", "John Deere", "Kawasaki", "Kia", "KTM", "Land Rover", "Lexus", "Mahindra",
+  "Maruti Suzuki", "Mercedes-Benz", "MG", "Mini", "Mitsubishi", "Nissan", "Porsche", "Renault", "Royal Enfield", "Skoda", "Sonalika",
+  "Swaraj", "Tata", "Toyota", "TVS", "Volkswagen", "Volvo", "Yamaha"
+];
+export const makes = () => [...new Set([...COMMON_MAKES, ...brandsWithVehicles().map((brand) => brand.title)])].sort((a, b) => a.localeCompare(b));
+const MAX_EXTRA_FILES = 5;
 
 const UPLOAD_ID = /^u[a-f0-9]{32}$/;
 const MAX_OPEN_PURCHASES = 5;
@@ -32,7 +59,10 @@ const RESET_TTL_MS = 48 * 60 * 60_000;
 const now = () => new Date().toISOString();
 const newId = (prefix, bytes = 8) => `${prefix}${randomBytes(bytes).toString("hex")}`;
 const clean = (value, max) => String(value ?? "").trim().replace(/\s+/g, " ").slice(0, max);
-const plural = (count, word) => `${count} ${word}${count === 1 ? "" : "s"}`;
+const round2 = (value) => Math.round(value * 100) / 100;
+const isCreditAmount = (value) => Number.isFinite(value) && Math.abs(value * 100 - Math.round(value * 100)) < 1e-6;
+// "1 credit", "3 credits", "1.20 credits".
+export const creditText = (amount) => `${Number.isInteger(amount) ? amount : amount.toFixed(2)} credit${amount === 1 ? "" : "s"}`;
 
 function required(value, label, { min = 1, max = 120 } = {}) {
   const text = clean(value, max);
@@ -45,6 +75,8 @@ function oneOf(value, choices, label) {
   if (!Object.hasOwn(choices, key)) throw new InputError(`Choose ${label}.`);
   return key;
 }
+
+const optionalChoice = (value, choices, label) => (value ? oneOf(value, choices, label) : "");
 
 export function emailAddress(value) {
   const email = clean(value, 120).toLowerCase();
@@ -158,9 +190,9 @@ function findCustomer(data, id) {
 
 // Changes a balance and records why. Runs inside transact, so the two always happen together.
 function changeCredits(data, customer, change, reason, { note = "", ref = "" } = {}) {
-  if (!Number.isInteger(change) || change === 0) throw new InputError("Enter a whole number of credits, other than 0.");
-  if (customer.credits + change < 0) throw new InputError(`That would take the balance below zero (it's ${customer.credits}).`);
-  customer.credits += change;
+  if (!isCreditAmount(change) || change === 0) throw new InputError("Enter an amount of credits other than 0, with at most two decimals.");
+  if (round2(customer.credits + change) < 0) throw new InputError(`That would take the balance below zero (it's ${creditText(customer.credits)}).`);
+  customer.credits = round2(customer.credits + change);
   customer.updatedAt = now();
   const entry = { id: newId("l", 6), customerId: customer.id, change, balance: customer.credits, reason, note: clean(note, 200), ref, createdAt: now() };
   data.creditLedger.unshift(entry);
@@ -196,7 +228,7 @@ function priceOrder(data, tuneId, addonIds) {
     return addon;
   });
   const lines = [tune, ...addons].map(({ id, name, kind, credits }) => ({ id, name, kind, credits }));
-  return { lines, credits: lines.reduce((sum, line) => sum + line.credits, 0) };
+  return { lines, credits: round2(lines.reduce((sum, line) => sum + line.credits, 0)) };
 }
 
 // ---------- Uploaded ECU files ----------
@@ -232,7 +264,7 @@ export function addPendingUpload(customerId, upload) {
 
 // Removes files that no order uses: uploads never ordered with, after a day.
 export function cleanEcuFiles() {
-  const used = new Set(db().fileOrders.flatMap((order) => [order.original?.file, order.tuned?.file]).filter(Boolean));
+  const used = new Set(db().fileOrders.flatMap((order) => [order.original?.file, order.tuned?.file, ...(order.extras ?? []).map((extra) => extra.file)]).filter(Boolean));
   for (const entry of pendingUploads.values()) {
     if (Date.now() - entry.createdAt > UPLOAD_TTL_MS) pendingUploads.delete(entry.id);
     else used.add(entry.file);
@@ -266,37 +298,67 @@ export function startFileCleanup() {
 
 // ---------- File orders ----------
 
+// Make, model and engine are required; the rest helps the tuner and is optional. A car chosen from the
+// vehicle database keeps its id (catalogId).
 function vehicleDetails(input) {
-  const year = Number(input?.year);
-  if (!Number.isInteger(year) || year < 1990 || year > new Date().getFullYear() + 1) throw new InputError("Enter the car's model year, e.g. 2019.");
+  const year = input?.year === undefined || input?.year === null || input?.year === "" ? null : Number(input.year);
+  if (year !== null && (!Number.isInteger(year) || year < 1980 || year > new Date().getFullYear() + 1)) throw new InputError("Enter the model year, e.g. 2019, or leave it empty.");
+  const powerHp = input?.powerHp === undefined || input?.powerHp === null || input?.powerHp === "" ? null : Number(input.powerHp);
+  if (powerHp !== null && (!Number.isFinite(powerHp) || powerHp < 5 || powerHp > 3000)) throw new InputError("Enter the power in hp, e.g. 110, or leave it empty.");
+  const vin = clean(input?.vin, 20).toUpperCase().replace(/\s/g, "");
+  if (vin && !/^[A-HJ-NPR-Z0-9]{11,17}$/.test(vin)) throw new InputError("A VIN has 17 letters and numbers (no I, O or Q). Check it, or leave it empty.");
+  const catalog = input?.catalogId ? getVehicle(String(input.catalogId)) : null;
   return {
+    type: oneOf(input?.vehicleType || "car", VEHICLE_TYPES, "the vehicle type"),
     make: required(input?.make, "Make", { max: 40 }),
     model: required(input?.model, "Model", { max: 60 }),
+    generation: clean(input?.generation, 40),
     engine: required(input?.engine, "Engine", { max: 60 }),
+    fuel: optionalChoice(input?.fuel, FUELS, "the fuel"),
+    octane: optionalChoice(input?.octane, OCTANES, "the octane rating"),
     year,
-    fuel: oneOf(input?.fuel, FUELS, "petrol or diesel"),
-    gearbox: input?.gearbox ? oneOf(input.gearbox, GEARBOXES, "manual or automatic") : ""
+    gearbox: optionalChoice(input?.gearbox, GEARBOXES, "manual or automatic"),
+    plate: clean(input?.plate, 20).toUpperCase(),
+    vin,
+    powerHp: powerHp === null ? null : Math.round(powerHp),
+    ...(catalog && catalog.source !== "ai" && { catalogId: catalog.id })
   };
+}
+
+// The customer's own pending uploads for the given ids, or an error naming what's wrong.
+function takeUploads(customerId, ids, label) {
+  return ids.map((id) => {
+    const upload = UPLOAD_ID.test(id) && pendingUploads.get(id);
+    if (!upload || upload.customerId !== customerId) throw new InputError(`${label} didn't finish uploading. Remove it and add it again.`);
+    return upload;
+  });
 }
 
 export function createFileOrder(customerId, input) {
   const uploadId = String(input?.uploadId ?? "");
   const upload = UPLOAD_ID.test(uploadId) && pendingUploads.get(uploadId);
   if (!upload || upload.customerId !== customerId) throw new InputError("Upload your original ECU file first.");
+  const extraIds = [...new Set(Array.isArray(input?.extraUploadIds) ? input.extraUploadIds.map(String) : [])].filter((id) => id !== uploadId);
+  if (extraIds.length > MAX_EXTRA_FILES) throw new InputError(`Add up to ${MAX_EXTRA_FILES} extra files.`);
+  const extras = takeUploads(customerId, extraIds, "An extra file");
   const details = {
-    vehicle: vehicleDetails(input),
-    ecu: required(input?.ecu, "ECU", { max: 80 }),
-    ecuNumbers: clean(input?.ecuNumbers, 120),
     tool: oneOf(input?.tool, TOOLS, "the tool you read the ECU with"),
-    toolMode: oneOf(input?.toolMode, TOOL_MODES, "master or slave"),
+    toolMode: oneOf(input?.toolMode, TOOL_MODES, "whether your tool is a master or a slave"),
     readMethod: oneOf(input?.readMethod, READ_METHODS, "how the ECU was read"),
+    vehicle: vehicleDetails(input),
+    ecu: clean(input?.ecu, 80),
+    hardwareNumber: clean(input?.hardwareNumber, 40),
+    softwareNumber: clean(input?.softwareNumber, 40),
+    modifiedParts: oneOf(input?.modifiedParts, MODIFIED_PARTS, "whether the vehicle has modified parts"),
+    timeFrame: oneOf(input?.timeFrame, TIME_FRAMES, "when you need the file"),
     notes: String(input?.notes ?? "").trim().slice(0, 1000)
   };
+  if (input?.confirmed !== true) throw new InputError("Tick the box to confirm this is the complete original read from this vehicle.");
   const order = transact((data) => {
     if (!data.settings.fileServiceOpen) throw new InputError("We aren't taking new file orders right now. Please message us on WhatsApp.");
     const customer = findCustomer(data, customerId);
     const { lines, credits } = priceOrder(data, input?.tuneId, input?.addonIds);
-    if (customer.credits < credits) throw new InputError(`This order needs ${plural(credits, "credit")} and you have ${customer.credits}. Buy credits first.`);
+    if (customer.credits < credits) throw new InputError(`This order needs ${creditText(credits)} and you have ${creditText(customer.credits)}. Buy credits first.`);
     const time = now();
     const entry = {
       id: newId("f"),
@@ -309,6 +371,7 @@ export function createFileOrder(customerId, input) {
       message: "",
       adminNotes: "",
       original: { file: upload.file, name: upload.name, size: upload.size, sha256: upload.sha256 },
+      extras: extras.map(({ file, name, size, sha256 }) => ({ file, name, size, sha256 })),
       tuned: null,
       provider: null,
       refunded: false,
@@ -319,17 +382,18 @@ export function createFileOrder(customerId, input) {
     data.fileOrders.unshift(entry);
     return entry;
   });
-  pendingUploads.delete(uploadId);
+  for (const id of [uploadId, ...extraIds]) pendingUploads.delete(id);
   events.emit("fileOrder", order);
   return order;
 }
 
 // What the customer sees: no private notes or stored file names, and the tuned file only once it's ready.
 export function customerOrderView(order) {
-  const { id, number, status, vehicle, ecu, ecuNumbers, tool, toolMode, readMethod, options, credits, notes, message, createdAt, updatedAt, completedAt } = order;
+  const { id, number, status, vehicle, ecu, ecuNumbers, hardwareNumber, softwareNumber, tool, toolMode, readMethod, modifiedParts, timeFrame, options, credits, notes, message, createdAt, updatedAt, completedAt } = order;
   return {
-    id, number, status, vehicle, ecu, ecuNumbers, tool, toolMode, readMethod, options, credits, notes, message, createdAt, updatedAt, completedAt,
+    id, number, status, vehicle, ecu, ecuNumbers, hardwareNumber, softwareNumber, tool, toolMode, readMethod, modifiedParts, timeFrame, options, credits, notes, message, createdAt, updatedAt, completedAt,
     original: { name: order.original.name, size: order.original.size },
+    extras: (order.extras ?? []).map(({ name, size }) => ({ name, size })),
     tuned: order.status === "completed" && order.tuned ? { name: order.tuned.name, size: order.tuned.size } : null
   };
 }

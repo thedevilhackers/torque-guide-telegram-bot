@@ -1,7 +1,9 @@
+import { ecus } from "../catalog.js";
 import { config } from "../config.js";
 import { settings } from "../db.js";
 import * as files from "../file-service.js";
 import { createPaymentLink, fetchPaymentLink, razorpayEnabled, validCallback } from "../razorpay.js";
+import { brandsWithVehicles } from "../vehicles.js";
 import { currentCustomer, endCustomerSession, endOtherSessions, startCustomerSession } from "./customer-auth.js";
 import { HttpError, rateLimiter, readJson, sameOrigin, saveBody, sendDownload } from "./http.js";
 import { siteOrigin } from "./pages.js";
@@ -121,8 +123,15 @@ export function registerPortalRoutes(route, { fetchImpl } = {}) {
       tools: files.TOOLS,
       toolModes: files.TOOL_MODES,
       readMethods: files.READ_METHODS,
+      vehicleTypes: files.VEHICLE_TYPES,
+      makes: files.makes(),
+      brands: brandsWithVehicles().map(({ id, title }) => ({ id, title })),
+      ecus: Object.fromEntries(ecus().filter((ecu) => ecu.id !== "unknown").map((ecu) => [ecu.id, ecu.title])),
       fuels: files.FUELS,
+      octanes: files.OCTANES,
       gearboxes: files.GEARBOXES,
+      modifiedParts: files.MODIFIED_PARTS,
+      timeFrames: files.TIME_FRAMES,
       maxFileMb: config.maxEcuFileMb
     };
   });

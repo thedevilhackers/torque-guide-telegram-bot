@@ -81,7 +81,11 @@ async function signUp(person, extra = {}) {
   return { email, id: response.data.customer.id };
 }
 
-const ORDER = { make: "Volkswagen", model: "Polo", engine: "1.0 TSI 110 hp", year: 2019, fuel: "petrol", gearbox: "manual", ecu: "Bosch MED17.5.25", tool: "autotuner", toolMode: "slave", readMethod: "obd", tuneId: "stage-1", addonIds: ["pops-bangs"], notes: "E20 pump fuel" };
+const ORDER = {
+  make: "Volkswagen", model: "Polo", engine: "1.0 TSI 110 hp", year: 2019, fuel: "petrol", gearbox: "manual", ecu: "Bosch MED17.5.25",
+  tool: "autotuner", toolMode: "slave", readMethod: "obd", tuneId: "stage-1", addonIds: ["pops-bangs"], notes: "E20 pump fuel",
+  modifiedParts: "no", timeFrame: "day", confirmed: true
+};
 
 async function upload(person, bytes = Buffer.from("ORIGINAL-ECU-READ"), name = "polo original.bin") {
   return person.portal("/api/portal/uploads", { method: "POST", raw: bytes, headers: { "x-file-name": encodeURIComponent(name) } });
@@ -366,11 +370,69 @@ test("unused uploads are cleaned up; options never include emissions or immobili
   }
 });
 
+test("the order form: required and optional fields, the vehicle list, extra files and prices with decimals", async (t) => {
+  const { browser, admin, close } = await startApp();
+  t.after(close);
+  const person = browser();
+  const { id } = await signUp(person);
+  await admin.admin(`/api/admin/customers/${id}/credits`, { method: "POST", body: { change: 3.1, note: "Starter" } });
+  assert.equal((await person.request("/api/portal/me")).data.customer.credits, 3.1);
+  assert.equal((await admin.admin(`/api/admin/customers/${id}/credits`, { method: "POST", body: { change: 0.001, note: "Too fine" } })).status, 400, "two decimals at most");
+  // An option priced like a file service's: 1.20 credits.
+  const option = await admin.admin("/api/admin/tuneOptions", { method: "POST", body: { name: "Car tuning (Stage 2 file)", kind: "tune", credits: "1.2", active: true } });
+  assert.equal(option.data.item.credits, 1.2);
+
+  const catalog = (await person.request("/api/portal/catalog")).data;
+  assert.ok(catalog.makes.includes("Maruti Suzuki") && catalog.makes.includes("Volkswagen"));
+  assert.ok(catalog.brands.some((brand) => brand.title === "Volkswagen"));
+  assert.equal(catalog.ecus.bosch_med17, "Bosch MED17 / ME17 / MEVD17");
+  assert.equal(catalog.toolModes.slave, "Slave");
+
+  const place = async (extra) => person.portal("/api/portal/orders", { method: "POST", body: { uploadId: (await upload(person)).data.upload.id, ...extra } });
+  // Only make, model and engine are needed about the car; tool, master/slave, read method, modified parts, time frame and the tick are required.
+  const minimal = { make: "Maruti Suzuki", model: "Swift", engine: "1.2 K12", tool: "kess3", toolMode: "master", readMethod: "bench", tuneId: option.data.item.id, modifiedParts: "no", timeFrame: "asap", confirmed: true };
+  for (const [field, message] of [["toolMode", /master or a slave/], ["modifiedParts", /modified parts/], ["timeFrame", /when you need/], ["engine", /Engine is required/]]) {
+    const { [field]: _, ...rest } = minimal;
+    const response = await place(rest);
+    assert.equal(response.status, 400, field);
+    assert.match(response.data.error, message);
+  }
+  assert.match((await place({ ...minimal, confirmed: false })).data.error, /original read/);
+  assert.match((await place({ ...minimal, vin: "ABC" })).data.error, /VIN/);
+
+  const extraOne = (await upload(person, Buffer.from("LOG"), "drive log.csv")).data.upload.id;
+  const extraTwo = (await upload(person, Buffer.from("PHOTO"), "ecu label.jpg")).data.upload.id;
+  const placed = await place({ ...minimal, catalogId: "vw_polo_10tsi", vin: "wvwzzzaw1kt000001", powerHp: "83", extraUploadIds: [extraOne, extraTwo] });
+  assert.equal(placed.status, 200, JSON.stringify(placed.data));
+  const order = placed.data.order;
+  assert.equal(order.credits, 1.2);
+  assert.equal(placed.data.customer.credits, 1.9);
+  assert.equal(order.vehicle.year, null);
+  assert.equal(order.vehicle.vin, "WVWZZZAW1KT000001");
+  assert.equal(order.vehicle.powerHp, 83);
+  assert.equal(order.vehicle.catalogId, "vw_polo_10tsi");
+  assert.equal(order.vehicle.type, "car");
+  assert.deepEqual(order.extras.map((extra) => extra.name), ["drive log.csv", "ecu label.jpg"]);
+  assert.equal((await admin.request(`/api/admin/file-orders/${order.id}/download?file=extra&index=1`)).data.toString(), "PHOTO");
+  assert.equal((await admin.request(`/api/admin/file-orders/${order.id}/download?file=extra&index=5`)).status, 404);
+  // Extra files are used once, and only by the customer who uploaded them.
+  assert.equal((await place({ ...minimal, extraUploadIds: [extraOne] })).status, 400);
+  const stranger = browser();
+  await signUp(stranger);
+  const theirs = (await upload(stranger)).data.upload.id;
+  assert.equal((await place({ ...minimal, extraUploadIds: [theirs] })).status, 400);
+
+  // Rejecting refunds the decimal amount exactly.
+  await admin.admin(`/api/admin/file-orders/${order.id}`, { method: "PATCH", body: { status: "rejected" } });
+  assert.equal((await person.request("/api/portal/me")).data.customer.credits, 3.1);
+});
+
 test("file order and payment alerts read clearly", () => {
   const customer = { id: "c1", name: "Ravi", phone: "+91 98765 43210", company: "Ravi Motors" };
-  const order = { id: "f1", number: "TF-1001", customerId: "c1", credits: 2, vehicle: { make: "VW", model: "Polo", engine: "1.0 TSI", year: 2019, fuel: "petrol" }, ecu: "MED17", tool: "autotuner", toolMode: "slave", readMethod: "obd", options: [{ name: "Stage 1" }, { name: "Pops & bangs" }], notes: "" };
+  const order = { id: "f1", number: "TF-1001", customerId: "c1", credits: 2.2, vehicle: { make: "VW", model: "Polo", engine: "1.0 TSI", year: 2019, fuel: "petrol" }, ecu: "MED17", tool: "autotuner", toolMode: "slave", readMethod: "obd", options: [{ name: "Stage 1" }, { name: "Pops & bangs" }], notes: "", timeFrame: "today", modifiedParts: "yes" };
   const { text } = fileOrderAlert(order);
-  assert.match(text, /New tuning file TF-1001<\/b> · 2 credits/);
+  assert.match(text, /New tuning file TF-1001<\/b> · 2\.20 credits/);
+  assert.match(text, /Today · modified parts/);
   assert.match(text, /Autotuner Slave · OBD read/);
   assert.match(text, /Stage 1, Pops &amp; bangs/);
   assert.match(paymentAlert({ number: "CR-1001", customerId: customer.id, amount: 9999, currency: "INR", packName: "Tuner 5", credits: 5, utr: "412356789012" }).text, /UTR 412356789012/);

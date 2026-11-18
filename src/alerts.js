@@ -2,7 +2,7 @@ import { randomInt } from "node:crypto";
 import { ecuById } from "./catalog.js";
 import { db, settings, transact } from "./db.js";
 import { events } from "./events.js";
-import { FUELS, READ_METHODS, TOOL_MODES, TOOLS } from "./file-service.js";
+import { FUELS, READ_METHODS, TIME_FRAMES, TOOL_MODES, TOOLS, creditText } from "./file-service.js";
 import { escapeHtml as h, sendText } from "./telegram.js";
 
 // Instant Telegram alerts for new orders and enquiries. The owner links a chat from the admin
@@ -102,10 +102,11 @@ export function fileOrderAlert(order) {
   const customer = db().customers.find((entry) => entry.id === order.customerId) ?? { name: "Customer", phone: "" };
   const { vehicle } = order;
   const lines = [
-    `📁 <b>New tuning file ${h(order.number)}</b> · ${order.credits} credit${order.credits === 1 ? "" : "s"}`,
-    `🚗 ${h(`${vehicle.make} ${vehicle.model} ${vehicle.engine}`)} (${vehicle.year}, ${FUELS[vehicle.fuel] ?? h(vehicle.fuel)})`,
-    `🧾 ${h(order.ecu)} · ${TOOLS[order.tool] ?? h(order.tool)} ${TOOL_MODES[order.toolMode] ?? ""} · ${READ_METHODS[order.readMethod] ?? ""} read`,
+    `📁 <b>New tuning file ${h(order.number)}</b> · ${creditText(order.credits)}`,
+    `🚗 ${h([vehicle.make, vehicle.model, vehicle.generation, vehicle.engine].filter(Boolean).join(" "))}${[vehicle.year, FUELS[vehicle.fuel]].filter(Boolean).length ? ` (${[vehicle.year, FUELS[vehicle.fuel]].filter(Boolean).join(", ")})` : ""}`,
+    `🧾 ${order.ecu ? `${h(order.ecu)} · ` : ""}${TOOLS[order.tool] ?? h(order.tool)} ${TOOL_MODES[order.toolMode] ?? ""} · ${READ_METHODS[order.readMethod] ?? ""} read`,
     `⚙️ ${order.options.map((option) => h(option.name)).join(", ")}`,
+    order.timeFrame ? `⏱ ${TIME_FRAMES[order.timeFrame] ?? h(order.timeFrame)}${order.modifiedParts === "yes" ? " · modified parts" : ""}` : null,
     "",
     `👤 ${h(customer.name)}${customer.company ? ` · ${h(customer.company)}` : ""}${customer.phone ? ` · ${h(customer.phone)}` : ""}`,
     order.notes ? `📝 ${h(order.notes)}` : null
