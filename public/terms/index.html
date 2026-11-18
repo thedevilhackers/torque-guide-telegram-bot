@@ -1,0 +1,1073 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Terms and Conditions | Unity Carrier</title>
+  <meta name="description" content="Terms and Conditions for Unity Carrier VoIP, SIP trunking and phone number services.">
+  <link rel="canonical" href="https://terms.unitycarrier.com/terms">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Terms and Conditions | Unity Carrier">
+  <meta property="og:description" content="The rules for using Unity Carrier VoIP, SIP trunking and phone number services.">
+  <meta property="og:url" content="https://terms.unitycarrier.com/terms">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#05070d">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%2322d3ee'/%3E%3Cstop offset='1' stop-color='%23a78bfa'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='9' fill='%230b1120'/%3E%3Cpath d='M10 9v7a6 6 0 0 0 12 0V9' fill='none' stroke='url(%23g)' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@500;600;700&display=swap">
+  <script>
+    // Enable entrance animations only when they can run and the visitor has not asked for reduced motion.
+    if ("IntersectionObserver" in window && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      document.documentElement.classList.add("motion");
+    }
+  </script>
+  <style>
+    :root {
+      --bg: #05070d;
+      --bg-raise: #0b1120;
+      --panel: rgba(13, 20, 36, 0.62);
+      --border: rgba(148, 163, 184, 0.14);
+      --border-strong: rgba(148, 163, 184, 0.26);
+      --text: #eef3fb;
+      --body: #c4cfdf;
+      --muted: #8d9ab0;
+      --cyan: #22d3ee;
+      --violet: #a78bfa;
+      --green: #34d399;
+      --amber: #fbbf24;
+      --grad: linear-gradient(90deg, var(--cyan), var(--violet));
+      --radius: 16px;
+      --header-h: 64px;
+      --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      --font-display: "Space Grotesk", "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+      --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
+    html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; background: var(--bg); }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--body);
+      font: 16px/1.7 var(--font-sans);
+      background:
+        radial-gradient(900px 600px at 8% -12%, rgba(34, 211, 238, 0.13), transparent 60%),
+        radial-gradient(800px 600px at 96% -4%, rgba(167, 139, 250, 0.13), transparent 60%),
+        var(--bg);
+      -webkit-font-smoothing: antialiased;
+    }
+    body::before {
+      content: "";
+      position: fixed; inset: 0; z-index: -1; pointer-events: none;
+      background-image:
+        linear-gradient(rgba(148, 163, 184, 0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(148, 163, 184, 0.05) 1px, transparent 1px);
+      background-size: 56px 56px;
+      -webkit-mask-image: radial-gradient(ellipse 90% 70% at 50% 0%, #000 25%, transparent 75%);
+              mask-image: radial-gradient(ellipse 90% 70% at 50% 0%, #000 25%, transparent 75%);
+    }
+    ::selection { background: rgba(34, 211, 238, 0.3); color: #fff; }
+    a { color: var(--cyan); text-underline-offset: 3px; text-decoration-thickness: 1px; }
+    a:hover { color: #67e8f9; }
+    :focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; border-radius: 6px; }
+
+    .skip {
+      position: absolute; left: -9999px; top: 0; z-index: 100;
+      background: var(--bg-raise); color: var(--text); padding: 10px 14px; border-radius: 8px;
+    }
+    .skip:focus { left: 16px; top: 16px; }
+
+    /* Scroll progress */
+    .progress {
+      position: fixed; top: 0; left: 0; right: 0; height: 2px; z-index: 60;
+      background: var(--grad); transform: scaleX(0); transform-origin: 0 50%;
+      box-shadow: 0 0 14px rgba(34, 211, 238, 0.7);
+    }
+
+    /* Header */
+    .masthead {
+      position: sticky; top: 0; z-index: 50; height: var(--header-h);
+      background: rgba(5, 7, 13, 0.72);
+      -webkit-backdrop-filter: blur(16px) saturate(150%);
+              backdrop-filter: blur(16px) saturate(150%);
+      border-bottom: 1px solid var(--border);
+    }
+    .masthead-inner {
+      max-width: 1200px; height: 100%; margin: 0 auto; padding: 0 16px;
+      display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    }
+    .brand { display: flex; align-items: center; gap: 12px; color: var(--text); text-decoration: none; min-width: 0; }
+    .brand:hover { color: var(--text); }
+    .logo { flex: none; filter: drop-shadow(0 0 10px rgba(34, 211, 238, 0.35)); }
+    .brand-name { font: 600 17px/1 var(--font-display); letter-spacing: 0.01em; white-space: nowrap; }
+    .brand-tag {
+      font: 500 11px/1 var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted);
+      padding: 5px 8px; border: 1px solid var(--border); border-radius: 999px; white-space: nowrap;
+    }
+    @media (max-width: 520px) { .brand-tag { display: none; } }
+    .head-actions { display: flex; align-items: center; gap: 8px; flex: none; }
+    .btn {
+      display: inline-flex; align-items: center; gap: 8px; height: 38px; padding: 0 14px;
+      border-radius: 10px; font: 500 14px/1 var(--font-sans); text-decoration: none; cursor: pointer;
+      border: 1px solid var(--border-strong); background: rgba(13, 20, 36, 0.6); color: var(--text);
+      transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+    }
+    .btn:hover { color: var(--text); border-color: rgba(34, 211, 238, 0.5); background: rgba(34, 211, 238, 0.08); }
+    .btn-primary {
+      border-color: transparent; color: #04121a; font-weight: 600;
+      background: var(--grad); box-shadow: 0 0 22px rgba(34, 211, 238, 0.25);
+    }
+    .btn-primary:hover { color: #04121a; background: var(--grad); box-shadow: 0 0 30px rgba(34, 211, 238, 0.45); }
+    @media (max-width: 640px) { .btn-label { display: none; } .btn { padding: 0 11px; } }
+
+    /* Hero */
+    .hero { position: relative; overflow: hidden; border-bottom: 1px solid var(--border); }
+    .net {
+      position: absolute; inset: 0; width: 100%; height: 100%; display: block;
+      -webkit-mask-image: linear-gradient(180deg, #000 35%, transparent 100%);
+              mask-image: linear-gradient(180deg, #000 35%, transparent 100%);
+    }
+    .hero-inner { position: relative; max-width: 1200px; margin: 0 auto; padding: 64px 16px 44px; }
+    @media (min-width: 960px) { .hero-inner { padding: 104px 16px 64px; } }
+    .eyebrow {
+      display: inline-flex; align-items: center; gap: 10px; margin: 0 0 24px;
+      padding: 7px 14px 7px 12px; border-radius: 999px;
+      border: 1px solid var(--border-strong); background: rgba(11, 17, 32, 0.7);
+      font: 500 12px/1 var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted);
+    }
+    .pulse { width: 8px; height: 8px; border-radius: 50%; background: var(--green); animation: ping 2s ease-out infinite; }
+    @keyframes ping {
+      0% { box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.6); }
+      80%, 100% { box-shadow: 0 0 0 10px rgba(52, 211, 153, 0); }
+    }
+    h1 {
+      margin: 0 0 20px; color: var(--text);
+      font: 700 clamp(2.5rem, 7vw, 4.5rem)/1.02 var(--font-display); letter-spacing: -0.035em;
+    }
+    .grad {
+      background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent;
+      filter: drop-shadow(0 0 24px rgba(34, 211, 238, 0.25));
+    }
+    .lede { max-width: 58ch; margin: 0 0 32px; font-size: clamp(1.05rem, 2.2vw, 1.22rem); line-height: 1.6; color: var(--body); }
+    .stats { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 36px; }
+    .stats div {
+      min-width: 128px; padding: 10px 16px; border-radius: 12px;
+      border: 1px solid var(--border); background: rgba(11, 17, 32, 0.62);
+      -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+    }
+    .stats dt { margin: 0 0 3px; font: 500 11px/1.2 var(--font-mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+    .stats dd { margin: 0; font: 600 16px/1.3 var(--font-display); color: var(--text); }
+    @media (max-width: 520px) {
+      .stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+      .stats div { min-width: 0; padding: 10px 12px; }
+      .stats dt { font-size: 10px; letter-spacing: 0.06em; }
+      .stats dd { font-size: 15px; }
+    }
+    .wave { display: flex; align-items: center; gap: 3px; height: 56px; max-width: 620px; }
+    .wave i {
+      flex: 1; max-width: 5px; height: calc(var(--h) * 100%); border-radius: 3px;
+      background: var(--cyan);
+      background: color-mix(in oklab, var(--cyan), var(--violet) calc(var(--p) * 100%));
+      opacity: 0.85; transform-origin: 50% 50%;
+      animation: eq 1.7s ease-in-out infinite; animation-delay: calc(var(--i) * -73ms);
+    }
+    @keyframes eq { 0%, 100% { transform: scaleY(0.3); } 50% { transform: scaleY(1); } }
+
+    /* SIP call-flow card */
+    .sip {
+      position: absolute; right: 16px; top: 50%; transform: translateY(-50%); width: 340px; padding: 18px 18px 16px;
+      border-radius: 18px; border: 1px solid var(--border-strong); background: rgba(11, 17, 32, 0.74);
+      -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+      box-shadow: 0 30px 80px -30px rgba(34, 211, 238, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+      font-family: var(--font-mono);
+    }
+    @media (max-width: 1119px) { .sip { display: none; } }
+    .sip-head { display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: var(--muted); letter-spacing: 0.06em; }
+    .sip-state { display: inline-flex; align-items: center; gap: 8px; color: var(--text); }
+    .sip-state i { width: 7px; height: 7px; border-radius: 50%; background: var(--amber); box-shadow: 0 0 10px var(--amber); transition: background 0.3s, box-shadow 0.3s; }
+    .sip.connected .sip-state i { background: var(--green); box-shadow: none; animation: ping 2s ease-out infinite; }
+    .sip-ends {
+      display: flex; justify-content: space-between; margin: 16px 0 4px;
+      font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted);
+    }
+    .sip-flow { position: relative; list-style: none; margin: 0; padding: 2px 0 6px; }
+    .sip-flow::before, .sip-flow::after {
+      content: ""; position: absolute; top: 0; bottom: 0; width: 1px;
+      background: linear-gradient(180deg, var(--border-strong), rgba(148, 163, 184, 0.04));
+    }
+    .sip-flow::before { left: 10px; }
+    .sip-flow::after { right: 10px; }
+    .sip-flow li { position: relative; height: 36px; margin: 0 10px; opacity: 0; transition: opacity 0.35s; }
+    .sip-flow li.on { opacity: 1; }
+    .sip-flow li::before {
+      content: ""; position: absolute; left: 0; right: 0; bottom: 9px; height: 1px;
+      background: linear-gradient(90deg, var(--cyan), var(--violet));
+      transform: scaleX(0); transition: transform 0.55s cubic-bezier(0.2, 0.7, 0.2, 1);
+    }
+    .sip-flow li.out::before { transform-origin: 0 50%; }
+    .sip-flow li.in::before { transform-origin: 100% 50%; }
+    .sip-flow li.on::before { transform: scaleX(1); }
+    .sip-flow li::after {
+      content: ""; position: absolute; bottom: 5px; width: 0; height: 0; opacity: 0;
+      border-top: 4.5px solid transparent; border-bottom: 4.5px solid transparent; transition: opacity 0.2s 0.45s;
+    }
+    .sip-flow li.out::after { right: -1px; border-left: 7px solid var(--violet); }
+    .sip-flow li.in::after { left: -1px; border-right: 7px solid var(--cyan); }
+    .sip-flow li.on::after { opacity: 1; }
+    .sip-flow .msg { position: absolute; left: 50%; top: 2px; transform: translateX(-50%); font-size: 12px; color: var(--text); white-space: nowrap; }
+    .sip-flow .ok .msg { color: var(--green); }
+    .sip-foot {
+      display: flex; justify-content: space-between; align-items: center; margin-top: 10px; padding-top: 12px;
+      border-top: 1px solid var(--border); font-size: 12px; color: var(--muted);
+    }
+    .sip-foot b { color: var(--text); font-weight: 500; font-variant-numeric: tabular-nums; }
+
+    /* Layout */
+    .layout {
+      max-width: 1200px; margin: 0 auto; padding: 32px 16px 96px;
+      display: grid; grid-template-columns: minmax(0, 1fr); gap: 32px;
+    }
+    @media (min-width: 960px) {
+      .layout { grid-template-columns: 272px minmax(0, 1fr); gap: 56px; padding-top: 56px; }
+    }
+
+    /* Contents */
+    .toc {
+      border: 1px solid var(--border); border-radius: var(--radius); background: var(--panel);
+      -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+      padding: 6px; font-size: 14px; align-self: start;
+    }
+    @media (min-width: 960px) {
+      .toc {
+        position: sticky; top: calc(var(--header-h) + 24px);
+        max-height: calc(100vh - var(--header-h) - 48px); overflow: auto; scrollbar-width: thin;
+      }
+    }
+    .toc summary {
+      display: flex; align-items: center; gap: 10px; padding: 10px 12px; cursor: pointer; list-style: none;
+      font: 600 14px/1.2 var(--font-display); color: var(--text); border-radius: 10px;
+    }
+    .toc summary::-webkit-details-marker { display: none; }
+    .toc-meta { margin-left: auto; font: 500 12px/1 var(--font-mono); color: var(--muted); }
+    .toc-meta b { color: var(--cyan); font-weight: 500; }
+    .chev { transition: transform 0.25s; color: var(--muted); }
+    .toc details[open] .chev { transform: rotate(180deg); }
+    @media (min-width: 960px) { .toc summary { pointer-events: none; } .chev { display: none; } }
+    .toc ol { list-style: none; margin: 4px 0 0; padding: 0 0 4px; counter-reset: toc; }
+    .toc li { counter-increment: toc; }
+    .toc li a {
+      position: relative; display: flex; gap: 10px; padding: 6px 12px; border-radius: 8px;
+      color: var(--muted); text-decoration: none; font-size: 13.5px; line-height: 1.45;
+      transition: color 0.2s, background 0.2s;
+    }
+    .toc li a::before {
+      content: counter(toc, decimal-leading-zero); flex: none; min-width: 1.6em;
+      font: 400 12px/1.6 var(--font-mono); color: rgba(141, 154, 176, 0.6); transition: color 0.2s;
+    }
+    .toc li a:hover { color: var(--text); background: rgba(148, 163, 184, 0.07); }
+    .toc li a[aria-current="true"] { color: var(--text); background: linear-gradient(90deg, rgba(34, 211, 238, 0.13), rgba(167, 139, 250, 0.03)); }
+    .toc li a[aria-current="true"]::before { color: var(--cyan); }
+    .toc li a[aria-current="true"]::after {
+      content: ""; position: absolute; left: 0; top: 7px; bottom: 7px; width: 2px; border-radius: 2px;
+      background: var(--grad); box-shadow: 0 0 10px var(--cyan);
+    }
+
+    /* Article */
+    article { min-width: 0; max-width: 760px; }
+    .brief { margin: 0 0 64px; }
+    .kicker {
+      display: block; margin: 0 0 6px;
+      font: 500 12px/1.2 var(--font-mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--cyan);
+    }
+    .brief h2 { margin: 0 0 18px; font: 600 1.5rem/1.25 var(--font-display); color: var(--text); letter-spacing: -0.01em; }
+    .cards { display: grid; gap: 14px; grid-template-columns: minmax(0, 1fr); }
+    @media (min-width: 640px) { .cards { grid-template-columns: 1fr 1fr; } }
+    .card {
+      position: relative; overflow: hidden; display: flex; flex-direction: column;
+      padding: 20px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--panel);
+      transition: border-color 0.25s, transform 0.25s, box-shadow 0.25s;
+    }
+    .card:hover { border-color: rgba(34, 211, 238, 0.35); transform: translateY(-3px); box-shadow: 0 18px 40px -20px rgba(34, 211, 238, 0.35); }
+    .spot::before {
+      content: ""; position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity 0.3s;
+      background: radial-gradient(340px circle at var(--mx, 50%) var(--my, 50%), rgba(34, 211, 238, 0.12), transparent 60%);
+    }
+    .spot:hover::before { opacity: 1; }
+    .spot > * { position: relative; }
+    .icon {
+      width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center; color: var(--cyan);
+      border: 1px solid transparent;
+      background: linear-gradient(var(--bg-raise), var(--bg-raise)) padding-box, var(--grad) border-box;
+      box-shadow: 0 0 18px rgba(34, 211, 238, 0.15);
+    }
+    .card h3 { margin: 16px 0 6px; font: 600 1.05rem/1.3 var(--font-display); color: var(--text); }
+    .card p { margin: 0 0 14px; font-size: 15px; line-height: 1.6; }
+    .card-link { margin-top: auto; font: 500 12px/1 var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase; text-decoration: none; }
+    .card-link span { display: inline-block; transition: transform 0.2s; }
+    .card-link:hover span { transform: translateX(4px); }
+    .brief-note { margin: 14px 0 0; font-size: 13px; color: var(--muted); }
+
+    .clauses { position: relative; }
+    .clause { position: relative; scroll-margin-top: calc(var(--header-h) + 24px); }
+    .clause + .clause { margin-top: 52px; }
+    .clause h2 {
+      margin: 0 0 14px; color: var(--text);
+      font: 600 1.35rem/1.35 var(--font-display); letter-spacing: -0.01em;
+    }
+    .num {
+      display: inline-grid; place-items: center; width: 44px; height: 30px; margin-right: 12px; vertical-align: 2px;
+      border-radius: 999px; border: 1px solid var(--border-strong); background: var(--bg-raise);
+      font: 500 13px/1 var(--font-mono); color: var(--cyan);
+      transition: color 0.3s, background 0.3s, box-shadow 0.3s, border-color 0.3s;
+    }
+    .clause.active .num {
+      color: #04121a; border-color: transparent; background: var(--grad);
+      box-shadow: 0 0 0 5px rgba(34, 211, 238, 0.1), 0 0 26px rgba(34, 211, 238, 0.5);
+    }
+    @media (min-width: 640px) {
+      .clauses::before {
+        content: ""; position: absolute; left: 22px; top: 12px; bottom: 12px; width: 1px;
+        background: linear-gradient(180deg, rgba(34, 211, 238, 0.55), rgba(167, 139, 250, 0.35) 55%, rgba(148, 163, 184, 0.06));
+      }
+      .clause { padding-left: 72px; }
+      .clause .num { position: absolute; left: 0; top: 0; margin: 0; }
+    }
+    .anchor {
+      margin-left: 8px; color: var(--muted); text-decoration: none; opacity: 0;
+      font: 400 0.9em/1 var(--font-mono); transition: opacity 0.2s, color 0.2s;
+    }
+    .clause h2:hover .anchor, .anchor:focus-visible { opacity: 1; }
+    .anchor:hover { color: var(--cyan); }
+    @media (hover: none) { .anchor { opacity: 0.45; } }
+    .clause p, .clause li { font-size: 1.02rem; }
+    .clause p, .clause ul { margin: 0 0 14px; }
+    .clause ul { padding-left: 22px; }
+    .clause li + li { margin-top: 8px; }
+    .clause li::marker { color: var(--cyan); }
+    .clause strong { color: var(--text); font-weight: 600; }
+
+    .alert {
+      display: flex; gap: 14px; align-items: flex-start; margin: 0 0 18px; padding: 16px 18px;
+      border-radius: 14px; border: 1px solid rgba(251, 191, 36, 0.38);
+      background: linear-gradient(135deg, rgba(251, 191, 36, 0.11), rgba(251, 191, 36, 0.02));
+    }
+    .alert p { margin: 0; color: var(--text); }
+    .alert-icon {
+      position: relative; flex: none; width: 34px; height: 34px; border-radius: 50%;
+      display: grid; place-items: center; color: var(--amber); background: rgba(251, 191, 36, 0.13);
+    }
+    .alert-icon::after {
+      content: ""; position: absolute; inset: 0; border-radius: 50%;
+      border: 1px solid rgba(251, 191, 36, 0.7); animation: ring 2.4s ease-out infinite;
+    }
+    @keyframes ring { from { transform: scale(1); opacity: 0.8; } to { transform: scale(1.7); opacity: 0; } }
+
+    .contact { position: relative; overflow: hidden; padding: 22px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--panel); }
+    .contact > p { margin: 0 0 14px; }
+    .endpoints { display: grid; gap: 10px; grid-template-columns: minmax(0, 1fr); }
+    @media (min-width: 640px) { .endpoints { grid-template-columns: 1fr 1fr; } }
+    .endpoint {
+      position: relative; display: flex; flex-direction: column; gap: 4px; padding: 14px 16px;
+      border-radius: 12px; border: 1px solid var(--border); background: rgba(5, 7, 13, 0.55);
+      text-decoration: none; transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .endpoint:hover { border-color: rgba(34, 211, 238, 0.45); box-shadow: 0 0 24px -6px rgba(34, 211, 238, 0.4); }
+    .ep-label { font: 500 11px/1.2 var(--font-mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+    .ep-value { color: var(--text); font-weight: 500; overflow-wrap: anywhere; }
+
+    .eof {
+      display: flex; align-items: center; gap: 14px; margin: 64px 0 0;
+      font: 500 12px/1 var(--font-mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted);
+    }
+    .eof::before, .eof::after { content: ""; flex: 1; height: 1px; background: linear-gradient(90deg, transparent, var(--border-strong), transparent); }
+    .eof b { color: var(--green); font-weight: 500; }
+
+    /* Footer */
+    .site-foot { border-top: 1px solid var(--border); background: rgba(5, 7, 13, 0.6); }
+    .foot-inner {
+      max-width: 1200px; margin: 0 auto; padding: 28px 16px;
+      display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px 24px;
+      font-size: 14px; color: var(--muted);
+    }
+    .foot-inner nav { display: flex; flex-wrap: wrap; gap: 6px 20px; }
+    .foot-inner nav a { color: var(--muted); text-decoration: none; }
+    .foot-inner nav a:hover { color: var(--text); }
+    .foot-inner p { margin: 0; width: 100%; font-size: 13px; }
+
+    /* Floating controls */
+    .to-top {
+      position: fixed; right: 18px; bottom: 18px; z-index: 40; width: 46px; height: 46px; border-radius: 50%;
+      display: grid; place-items: center; cursor: pointer; color: var(--text);
+      border: 1px solid var(--border-strong); background: rgba(11, 17, 32, 0.82);
+      -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+      opacity: 0; visibility: hidden; transform: translateY(12px);
+      transition: opacity 0.25s, transform 0.25s, visibility 0s 0.25s, border-color 0.2s, box-shadow 0.2s;
+    }
+    .to-top.show { opacity: 1; visibility: visible; transform: none; transition: opacity 0.25s, transform 0.25s, border-color 0.2s, box-shadow 0.2s; }
+    .to-top:hover { border-color: rgba(34, 211, 238, 0.6); box-shadow: 0 0 22px rgba(34, 211, 238, 0.35); }
+    .toast {
+      position: fixed; left: 50%; bottom: 24px; z-index: 70; padding: 10px 16px; border-radius: 10px;
+      background: var(--bg-raise); color: var(--text); border: 1px solid rgba(34, 211, 238, 0.4);
+      font: 500 13px/1.2 var(--font-mono); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+      opacity: 0; transform: translate(-50%, 16px); pointer-events: none; transition: opacity 0.25s, transform 0.25s;
+    }
+    .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+    /* Entrance animation (only when the page script can reveal content) */
+    .motion .reveal { opacity: 0; transform: translateY(18px); transition: opacity 0.7s ease, transform 0.7s cubic-bezier(0.2, 0.7, 0.2, 1); }
+    .motion .reveal.in { opacity: 1; transform: none; }
+
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after { animation: none !important; transition: none !important; }
+    }
+
+    @media print {
+      :root { --text: #000; --body: #111; --muted: #444; --cyan: #000; }
+      html, body { background: #fff !important; }
+      body::before, .progress, .masthead, .net, .wave, .toc, .to-top, .toast, .eof, .anchor, .card-link, .site-foot nav { display: none !important; }
+      .hero, .site-foot { border: 0; background: none; }
+      .hero-inner { padding: 0 0 16px; }
+      .grad { color: #000; background: none; filter: none; }
+      .eyebrow, .stats div, .card, .contact, .endpoint, .alert { background: none !important; border-color: #999 !important; box-shadow: none !important; }
+      .layout { display: block; padding: 0; }
+      .reveal { opacity: 1 !important; transform: none !important; }
+      .clauses::before { display: none; }
+      .clause { padding-left: 0; break-inside: avoid-page; }
+      .clause .num { position: static; margin-right: 8px; background: none; color: #000; box-shadow: none; }
+      a { color: #000; }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip" href="#content">Skip to content</a>
+  <div class="progress" aria-hidden="true"></div>
+
+  <header class="masthead">
+    <div class="masthead-inner">
+      <a class="brand" href="https://unitycarrier.com">
+        <svg class="logo" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true">
+          <defs>
+            <linearGradient id="uc-grad" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#22d3ee"/>
+              <stop offset="1" stop-color="#a78bfa"/>
+            </linearGradient>
+          </defs>
+          <rect x="0.75" y="0.75" width="30.5" height="30.5" rx="9" fill="#0b1120" stroke="url(#uc-grad)" stroke-opacity="0.7"/>
+          <path d="M10 9v7a6 6 0 0 0 12 0V9" fill="none" stroke="url(#uc-grad)" stroke-width="2.6" stroke-linecap="round"/>
+          <circle cx="16" cy="9.5" r="1.7" fill="#22d3ee"/>
+        </svg>
+        <span class="brand-name">Unity Carrier</span>
+        <span class="brand-tag">VoIP · SIP</span>
+      </a>
+      <div class="head-actions">
+        <button class="btn" type="button" data-print hidden aria-label="Print or save as PDF">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9V3h12v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M6 14h12v7H6z"/></svg>
+          <span class="btn-label">Print</span>
+        </button>
+        <a class="btn btn-primary" href="#contact">Contact</a>
+      </div>
+    </div>
+  </header>
+
+  <main id="content">
+    <section class="hero" aria-labelledby="page-title">
+      <canvas class="net" aria-hidden="true"></canvas>
+      <div class="hero-inner">
+        <p class="eyebrow"><span class="pulse" aria-hidden="true"></span>Legal · VoIP &amp; SIP trunking</p>
+        <h1 id="page-title">Terms and <span class="grad">Conditions</span></h1>
+        <p class="lede">The rules for using Unity Carrier’s VoIP, SIP trunking and phone number services. Please read them carefully before you connect.</p>
+        <dl class="stats">
+          <div><dt>Last updated</dt><dd><time datetime="2026-11-05">5 Nov 2026</time></dd></div>
+          <div><dt>Sections</dt><dd data-count>25</dd></div>
+          <div><dt>Reading time</dt><dd data-readtime>~12 min</dd></div>
+        </dl>
+        <div class="wave" aria-hidden="true"></div>
+
+        <div class="sip" aria-hidden="true" hidden>
+          <div class="sip-head"><span>SIP/2.0</span><span class="sip-state"><i></i><span data-sip-state>Dialing…</span></span></div>
+          <div class="sip-ends"><span>You</span><span>Unity Carrier</span></div>
+          <ol class="sip-flow">
+            <li class="out"><span class="msg">INVITE</span></li>
+            <li class="in"><span class="msg">100 Trying</span></li>
+            <li class="in"><span class="msg">180 Ringing</span></li>
+            <li class="in ok"><span class="msg">200 OK</span></li>
+            <li class="out"><span class="msg">ACK</span></li>
+          </ol>
+          <div class="sip-foot"><span>Session time</span><b data-sip-timer>00:00</b></div>
+        </div>
+      </div>
+    </section>
+
+    <div class="layout">
+      <nav class="toc" aria-label="Table of contents">
+        <details open>
+          <summary>
+            <span>Contents</span>
+            <span class="toc-meta"><b data-current>01</b> / <span data-total>25</span></span>
+            <svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+          </summary>
+          <ol>
+            <li><a href="#about">About these terms</a></li>
+            <li><a href="#definitions">Definitions</a></li>
+            <li><a href="#account">Your account</a></li>
+            <li><a href="#services">The Services</a></li>
+            <li><a href="#emergency">Emergency calling</a></li>
+            <li><a href="#numbers">Phone numbers and porting</a></li>
+            <li><a href="#fees">Fees, billing and payment</a></li>
+            <li><a href="#acceptable-use">Acceptable use</a></li>
+            <li><a href="#caller-id">Caller ID</a></li>
+            <li><a href="#fraud">Security and fraud</a></li>
+            <li><a href="#equipment">Your equipment and network</a></li>
+            <li><a href="#quality">Service quality and availability</a></li>
+            <li><a href="#compliance">Legal and regulatory compliance</a></li>
+            <li><a href="#resale">Resale</a></li>
+            <li><a href="#data">Data and privacy</a></li>
+            <li><a href="#ip">Intellectual property</a></li>
+            <li><a href="#termination">Suspension and termination</a></li>
+            <li><a href="#disclaimers">Disclaimers</a></li>
+            <li><a href="#liability">Limitation of liability</a></li>
+            <li><a href="#indemnity">Indemnity</a></li>
+            <li><a href="#force-majeure">Events outside our control</a></li>
+            <li><a href="#changes">Changes to these terms</a></li>
+            <li><a href="#law">Governing law and disputes</a></li>
+            <li><a href="#general">General</a></li>
+            <li><a href="#contact">Contact us</a></li>
+          </ol>
+        </details>
+      </nav>
+
+      <article>
+        <aside class="brief reveal" aria-labelledby="brief-title">
+          <span class="kicker">Key points</span>
+          <h2 id="brief-title">The short version</h2>
+          <div class="cards">
+            <div class="card spot">
+              <span class="icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h4"/></svg></span>
+              <h3>Every call is billed to you</h3>
+              <p>You pay for all calls and charges made through your account, including any fraudulent traffic caused by stolen credentials or an insecure PBX.</p>
+              <a class="card-link" href="#fees">Section 07 <span>→</span></a>
+            </div>
+            <div class="card spot">
+              <span class="icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2 20h20L12 3z"/><path d="M12 10v4M12 17h.01"/></svg></span>
+              <h3>Emergency calling is limited</h3>
+              <p>It is unavailable unless your order specifically includes it. Always keep another way to reach emergency services.</p>
+              <a class="card-link" href="#emergency">Section 05 <span>→</span></a>
+            </div>
+            <div class="card spot">
+              <span class="icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6l8-3z"/><path d="m9 12 2 2 4-4"/></svg></span>
+              <h3>Zero tolerance for abuse</h3>
+              <p>No spam, unlawful robocalls, caller ID spoofing, traffic pumping or other fraud. We will suspend accounts that do this.</p>
+              <a class="card-link" href="#acceptable-use">Section 08 <span>→</span></a>
+            </div>
+            <div class="card spot">
+              <span class="icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9h14M5 15h14M10 4 8 20M16 4l-2 16"/></svg></span>
+              <h3>Numbers are assigned, not owned</h3>
+              <p>Phone numbers are assigned to you for use, and may need identity or address documents to activate or keep.</p>
+              <a class="card-link" href="#numbers">Section 06 <span>→</span></a>
+            </div>
+          </div>
+          <p class="brief-note">This summary is for convenience only. The full terms below apply.</p>
+        </aside>
+
+        <div class="clauses">
+          <section id="about" class="clause reveal">
+            <h2><span class="num">01</span>About these terms<a class="anchor" href="#about" aria-label="Copy link to section 1">#</a></h2>
+            <p>These Terms and Conditions (the “Terms”) are an agreement between you and Unity Carrier (“Unity Carrier”, “we”, “us” or “our”). They apply to all VoIP, SIP trunking, phone number, messaging and related services that we provide, and to our website, customer portal and APIs (together, the “Services”).</p>
+            <p>By creating an account, signing an order, or using any of the Services, you agree to these Terms. If you are accepting on behalf of a company or other organisation, you confirm that you have authority to bind it, and “you” means that organisation. If you do not agree, do not use the Services.</p>
+            <p>If an order form, quote or separate signed agreement with us conflicts with these Terms, that document applies to the extent of the conflict.</p>
+          </section>
+
+          <section id="definitions" class="clause reveal">
+            <h2><span class="num">02</span>Definitions<a class="anchor" href="#definitions" aria-label="Copy link to section 2">#</a></h2>
+            <ul>
+              <li><strong>Account</strong> means your Unity Carrier customer account, including its portal logins, API keys and SIP credentials.</li>
+              <li><strong>Order</strong> means any order form, quote, sign-up, portal purchase or other request for Services that we accept.</li>
+              <li><strong>Number</strong> means any telephone number, DID, toll-free number or similar identifier that we assign to you.</li>
+              <li><strong>SIP Trunk</strong> means a connection that lets your phone system or application send and receive calls over the internet using the Session Initiation Protocol.</li>
+              <li><strong>Traffic</strong> means calls, messages and other communications sent or received through your Account.</li>
+              <li><strong>End Users</strong> means anyone who uses the Services through you, including your staff and, if you are a reseller, your customers.</li>
+            </ul>
+          </section>
+
+          <section id="account" class="clause reveal">
+            <h2><span class="num">03</span>Your account<a class="anchor" href="#account" aria-label="Copy link to section 3">#</a></h2>
+            <p>The Services are intended for businesses and individuals who are at least 18 years old. When you open an Account, you must give us complete and accurate information and keep it up to date.</p>
+            <p>We may ask you to verify your identity, business registration, address or intended use before we activate an Account, assign Numbers or enable certain destinations. We may refuse or delay activation if verification is incomplete or if we are not satisfied that the Services will be used lawfully.</p>
+            <p>You are responsible for everything that happens under your Account. Keep your passwords, API keys and SIP credentials secret, and tell us straight away if you believe they have been compromised.</p>
+          </section>
+
+          <section id="services" class="clause reveal">
+            <h2><span class="num">04</span>The Services<a class="anchor" href="#services" aria-label="Copy link to section 4">#</a></h2>
+            <p>Depending on your Order, the Services may include:</p>
+            <ul>
+              <li>SIP trunking for inbound and outbound calls;</li>
+              <li>hosted VoIP calling and related features;</li>
+              <li>local, national and toll-free Numbers;</li>
+              <li>wholesale voice termination and origination; and</li>
+              <li>access to our customer portal, call detail records and APIs.</li>
+            </ul>
+            <p>The features, coverage, destinations, capacity (such as concurrent call limits) and prices for your Services are set out in your Order, our current rate card or the customer portal. We may set or change limits on capacity, destinations or spending to protect our network and you.</p>
+          </section>
+
+          <section id="emergency" class="clause reveal">
+            <h2><span class="num">05</span>Emergency calling<a class="anchor" href="#emergency" aria-label="Copy link to section 5">#</a></h2>
+            <div class="alert" role="note">
+              <span class="alert-icon" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v5M12 16.5h.01"/><circle cx="12" cy="12" r="9"/></svg></span>
+              <p><strong>Important:</strong> VoIP emergency calling is different from emergency calling on a traditional phone line or mobile network. Please read this section carefully and share it with your End Users.</p>
+            </div>
+            <ul>
+              <li>Unless your Order expressly includes emergency calling for a specific Number and registered location, the Services do not support calls to emergency services such as 911, 112, 999 or 100.</li>
+              <li>Where we do provide emergency calling, you must give us the accurate physical address where each Number is used and update it whenever that location changes. Emergency services may be sent to the address we hold, not where the caller actually is.</li>
+              <li>Emergency calls may fail or be delayed during a power cut, an internet or network outage, if your equipment is misconfigured, or if your Account is suspended.</li>
+              <li>You must make sure your End Users know these limitations, and that they always have another way to contact emergency services, such as a mobile phone.</li>
+            </ul>
+            <p>To the extent permitted by law, we are not liable for any inability to reach emergency services, or for the misrouting of an emergency call, when using the Services.</p>
+          </section>
+
+          <section id="numbers" class="clause reveal">
+            <h2><span class="num">06</span>Phone numbers and porting<a class="anchor" href="#numbers" aria-label="Copy link to section 6">#</a></h2>
+            <p>Numbers are allocated by telecommunications regulators and carriers. We assign Numbers to you for your use while your Account is active. You do not own them, and we may need to change or withdraw a Number if a regulator or upstream carrier requires it.</p>
+            <p>Many countries require proof of identity, a local address or other documents before a Number can be activated or kept active. You must provide these documents when asked and confirm that they are accurate. We may suspend or reclaim a Number if the required documents are not provided or are found to be invalid.</p>
+            <p>You can ask to port a Number into or out of our network where the law and the relevant carriers allow it. Porting depends on third parties and may take time. You must have authority to request any port and must pay any outstanding charges on the Number. If your Account is closed, we may release Numbers that have not been ported out after a reasonable period.</p>
+          </section>
+
+          <section id="fees" class="clause reveal">
+            <h2><span class="num">07</span>Fees, billing and payment<a class="anchor" href="#fees" aria-label="Copy link to section 7">#</a></h2>
+            <ul>
+              <li><strong>Charges.</strong> You agree to pay all charges for the Services, including recurring fees for Numbers and trunks, usage charges for calls, set-up fees, and any regulatory fees or surcharges that apply.</li>
+              <li><strong>Rates.</strong> Usage is charged at the rates and billing increments shown in your Order, our rate card or the customer portal at the time the Traffic is carried. We may change rates. Where reasonably possible we will give notice of changes, but some destination rates can change at short notice because of upstream carrier pricing.</li>
+              <li><strong>Prepaid accounts.</strong> If your Account is prepaid, Services stop when your balance runs out. Prepaid credit is not transferable and is not refundable, except where the law requires otherwise or we agree in writing.</li>
+              <li><strong>Invoiced accounts.</strong> If we invoice you, payment is due by the date shown on the invoice. We may apply a credit limit, ask for a deposit, charge interest on late payments where the law allows, and suspend the Services if payment is overdue.</li>
+              <li><strong>Taxes.</strong> Prices do not include taxes unless stated. You are responsible for all applicable taxes, duties and levies, other than taxes on our income.</li>
+              <li><strong>Billing disputes.</strong> If you believe a charge is wrong, you must tell us in writing within 30 days of the charge or invoice date, with supporting details. You must still pay any amounts that are not in dispute. Our call detail records are the primary basis for calculating usage charges.</li>
+              <li><strong>Chargebacks.</strong> If you dispute a card payment with your bank instead of contacting us, we may suspend your Account while the dispute is resolved.</li>
+            </ul>
+          </section>
+
+          <section id="acceptable-use" class="clause reveal">
+            <h2><span class="num">08</span>Acceptable use<a class="anchor" href="#acceptable-use" aria-label="Copy link to section 8">#</a></h2>
+            <p>You must use the Services lawfully and responsibly, and you are responsible for the use of the Services by your End Users. You must not use the Services, or allow them to be used, to:</p>
+            <ul>
+              <li>make unsolicited marketing calls or messages, or automated, prerecorded or artificial-voice calls, without the consent and registrations required by law, or in breach of any do-not-call or similar rules;</li>
+              <li>make calls or send messages that are fraudulent, deceptive, threatening, harassing, abusive or obscene;</li>
+              <li>artificially generate or inflate Traffic, including traffic pumping, international revenue share fraud, “wangiri” or call-back schemes, or calls made mainly to generate termination revenue;</li>
+              <li>bypass lawful termination routes or charges where this is prohibited, including through SIM boxes or unauthorised gateways;</li>
+              <li>carry a pattern of Traffic that unreasonably harms our network, such as very high volumes of very short calls;</li>
+              <li>record or monitor calls without giving the notices and obtaining the consents required by law;</li>
+              <li>transmit malware, attempt to gain unauthorised access to any system, or interfere with or overload our network or our other customers; or</li>
+              <li>infringe anyone else’s rights or break any applicable law.</li>
+            </ul>
+            <p>We may monitor Traffic patterns and call detail records to detect breaches of this section, and we may block destinations, limit capacity or suspend the Services if we reasonably suspect a breach.</p>
+          </section>
+
+          <section id="caller-id" class="clause reveal">
+            <h2><span class="num">09</span>Caller ID<a class="anchor" href="#caller-id" aria-label="Copy link to section 9">#</a></h2>
+            <p>The caller ID (CLI) you present on outbound calls must be a valid number that is assigned to you or that you are authorised to use. You must not falsify or manipulate caller ID to mislead, defraud, cause harm or hide your identity. Where call authentication frameworks apply, such as STIR/SHAKEN, we may assign an attestation level based on the information available to us, and we may block or modify calls that present invalid or unauthorised caller ID.</p>
+          </section>
+
+          <section id="fraud" class="clause reveal">
+            <h2><span class="num">10</span>Security and fraud<a class="anchor" href="#fraud" aria-label="Copy link to section 10">#</a></h2>
+            <p>You are responsible for securing your phone systems, PBXs, softphones, devices, servers and network, and for protecting your Account credentials. We recommend strong passwords, IP address restrictions, disabling unused destinations and setting spending limits.</p>
+            <p>You must pay for all Traffic sent through your Account or credentials, including Traffic made without your permission as a result of hacking, toll fraud or compromised equipment, unless the unauthorised use was caused by a failure of our own systems.</p>
+            <p>If we detect unusual Traffic, we may, without notice, block destinations, lower limits, or suspend your Account to limit losses. We do not guarantee that we will detect or stop fraud, and our fraud controls do not reduce your responsibility under this section.</p>
+          </section>
+
+          <section id="equipment" class="clause reveal">
+            <h2><span class="num">11</span>Your equipment and network<a class="anchor" href="#equipment" aria-label="Copy link to section 11">#</a></h2>
+            <p>You are responsible for providing, configuring and maintaining your own internet connection, routers, firewalls, PBX or application, and devices, and for making sure they are compatible with the Services and our technical requirements. We are not responsible for problems caused by your equipment, network, internet service provider or configuration.</p>
+          </section>
+
+          <section id="quality" class="clause reveal">
+            <h2><span class="num">12</span>Service quality and availability<a class="anchor" href="#quality" aria-label="Copy link to section 12">#</a></h2>
+            <p>We work to keep the Services reliable, but VoIP Traffic travels over the internet and through third-party carriers. Call quality, completion rates and delivery can be affected by factors outside our control, including network congestion, upstream carriers, destination networks and your own connection.</p>
+            <p>Unless a written service level agreement is included in your Order, we do not guarantee any level of availability, call quality or call completion. We may carry out scheduled or emergency maintenance, and we will try to give advance notice of scheduled maintenance that is likely to affect the Services. We may change carriers, routes and technical arrangements at any time.</p>
+          </section>
+
+          <section id="compliance" class="clause reveal">
+            <h2><span class="num">13</span>Legal and regulatory compliance<a class="anchor" href="#compliance" aria-label="Copy link to section 13">#</a></h2>
+            <p>Telecommunications services are regulated, and requirements differ between countries. You must comply with all laws and regulations that apply to your use of the Services, including those on telemarketing, consent, call recording, data protection, consumer protection, sanctions and export controls.</p>
+            <p>We may need to retain records, verify customers, cooperate with lawful requests from regulators and law enforcement, and comply with lawful interception requirements. We may change, restrict or suspend the Services where this is needed to comply with the law, a regulator, or the requirements of an upstream carrier.</p>
+          </section>
+
+          <section id="resale" class="clause reveal">
+            <h2><span class="num">14</span>Resale<a class="anchor" href="#resale" aria-label="Copy link to section 14">#</a></h2>
+            <p>You may only resell or redistribute the Services if we have agreed to this in writing. If you resell the Services, you are responsible for your customers’ use of them as if it were your own, for obtaining any licences or registrations you need, for passing on the restrictions in these Terms (including section 5 on emergency calling), and for providing first-line support to your customers.</p>
+          </section>
+
+          <section id="data" class="clause reveal">
+            <h2><span class="num">15</span>Data and privacy<a class="anchor" href="#data" aria-label="Copy link to section 15">#</a></h2>
+            <p>To provide the Services, we process account and contact details, billing information, and technical and traffic data such as call detail records, IP addresses and Number usage. We use this information to provide, bill for, secure and improve the Services, to prevent fraud, and to meet our legal obligations. We keep it only for as long as we need it for these purposes or as the law requires. We do not sell your personal information.</p>
+            <p>We do not record or store the content of your calls unless you use a feature that does this. If you use call recording, voicemail or similar features, you are responsible for giving any required notices and obtaining any required consents from the people involved.</p>
+            <p>You are responsible for having a lawful basis for any personal data about your End Users that you provide to us or process using the Services.</p>
+          </section>
+
+          <section id="ip" class="clause reveal">
+            <h2><span class="num">16</span>Intellectual property<a class="anchor" href="#ip" aria-label="Copy link to section 16">#</a></h2>
+            <p>Our website, customer portal, APIs, software, documentation and branding belong to Unity Carrier or its licensors. While your Account is active and you comply with these Terms, we give you a non-exclusive, non-transferable licence to use them only to access and use the Services. You must not copy, modify, reverse engineer or resell them, except where the law expressly allows this or we agree in writing.</p>
+          </section>
+
+          <section id="termination" class="clause reveal">
+            <h2><span class="num">17</span>Suspension and termination<a class="anchor" href="#termination" aria-label="Copy link to section 17">#</a></h2>
+            <p>You may stop using the Services at any time, subject to any minimum term or notice period in your Order. To close your Account, contact us using the details in <a href="#contact">section 25</a>.</p>
+            <p>We may suspend or terminate all or part of the Services, with or without notice, if:</p>
+            <ul>
+              <li>you do not pay amounts when they are due;</li>
+              <li>you breach these Terms, including sections 8, 9 or 10;</li>
+              <li>we reasonably suspect fraud, misuse or a security threat;</li>
+              <li>you do not provide verification or regulatory documents when asked; or</li>
+              <li>we are required to do so by law, a regulator or an upstream carrier.</li>
+            </ul>
+            <p>We may also end the Services for any other reason by giving you at least 30 days’ notice.</p>
+            <p>When the Services end, you must pay all outstanding charges, and Numbers that have not been ported out may be released. Sections that by their nature should continue, including sections 7, 10, and 15 to 24, continue to apply.</p>
+          </section>
+
+          <section id="disclaimers" class="clause reveal">
+            <h2><span class="num">18</span>Disclaimers<a class="anchor" href="#disclaimers" aria-label="Copy link to section 18">#</a></h2>
+            <p>To the fullest extent permitted by law, the Services are provided “as is” and “as available”, without warranties of any kind, whether express or implied. This includes any implied warranties of merchantability, fitness for a particular purpose, uninterrupted service and non-infringement.</p>
+          </section>
+
+          <section id="liability" class="clause reveal">
+            <h2><span class="num">19</span>Limitation of liability<a class="anchor" href="#liability" aria-label="Copy link to section 19">#</a></h2>
+            <p>To the fullest extent permitted by law, Unity Carrier and its owners, staff, suppliers and carriers will not be liable for:</p>
+            <ul>
+              <li>any indirect, incidental, special, consequential or punitive loss;</li>
+              <li>loss of profits, revenue, business, contracts, goodwill or data;</li>
+              <li>the cost of substitute services; or</li>
+              <li>losses caused by failed, delayed or misrouted calls, including emergency calls, or by unauthorised use of your Account.</li>
+            </ul>
+            <p>Our total liability to you for all claims arising out of or relating to the Services or these Terms is limited to the fees you paid us for the Services in the 3 months before the event giving rise to the claim.</p>
+            <p>Nothing in these Terms limits or excludes liability that cannot be limited or excluded by law, including liability for fraud, or for death or personal injury caused by negligence.</p>
+          </section>
+
+          <section id="indemnity" class="clause reveal">
+            <h2><span class="num">20</span>Indemnity<a class="anchor" href="#indemnity" aria-label="Copy link to section 20">#</a></h2>
+            <p>You agree to defend and compensate Unity Carrier against any claims, fines, penalties, losses, liabilities and reasonable costs, including legal fees, that arise from your or your End Users’ use of the Services, any Traffic sent through your Account, your breach of these Terms, or your breach of any law or regulation.</p>
+          </section>
+
+          <section id="force-majeure" class="clause reveal">
+            <h2><span class="num">21</span>Events outside our control<a class="anchor" href="#force-majeure" aria-label="Copy link to section 21">#</a></h2>
+            <p>We are not responsible for any failure or delay in providing the Services caused by events outside our reasonable control. These include natural disasters, fire, flood, power failures, internet or carrier outages, cable cuts, cyberattacks, government action, war, civil unrest and labour disputes.</p>
+          </section>
+
+          <section id="changes" class="clause reveal">
+            <h2><span class="num">22</span>Changes to these terms<a class="anchor" href="#changes" aria-label="Copy link to section 22">#</a></h2>
+            <p>We may update these Terms from time to time. When we do, we will change the “Last updated” date at the top of this page. If a change is significant, we will take reasonable steps to tell you in advance, for example by email or through the customer portal. If you continue to use the Services after the updated Terms take effect, you accept them.</p>
+          </section>
+
+          <section id="law" class="clause reveal">
+            <h2><span class="num">23</span>Governing law and disputes<a class="anchor" href="#law" aria-label="Copy link to section 23">#</a></h2>
+            <p>These Terms are governed by the laws of the country in which Unity Carrier is established, without regard to its conflict-of-law rules. The courts of that country have exclusive jurisdiction over any dispute arising out of or relating to these Terms or the Services, except where the law gives you a right to bring a claim elsewhere.</p>
+            <p>If you have a concern, please contact us first. We will try to resolve it informally before either of us starts formal proceedings.</p>
+          </section>
+
+          <section id="general" class="clause reveal">
+            <h2><span class="num">24</span>General<a class="anchor" href="#general" aria-label="Copy link to section 24">#</a></h2>
+            <ul>
+              <li><strong>Entire agreement.</strong> These Terms, together with any Order, are the whole agreement between you and us about the Services.</li>
+              <li><strong>Severability.</strong> If any part of these Terms is found to be unenforceable, the rest stays in effect.</li>
+              <li><strong>No waiver.</strong> If we do not enforce a right straight away, we can still enforce it later.</li>
+              <li><strong>Transfer.</strong> You may not transfer your rights or obligations under these Terms without our written consent. We may transfer ours as part of a reorganisation, merger or sale of our business.</li>
+              <li><strong>Notices.</strong> We may send notices to the email address on your Account or through the customer portal. You must send notices to us using the details below.</li>
+            </ul>
+          </section>
+
+          <section id="contact" class="clause reveal">
+            <h2><span class="num">25</span>Contact us<a class="anchor" href="#contact" aria-label="Copy link to section 25">#</a></h2>
+            <div class="contact spot">
+              <p>If you have any questions about these Terms or the Services, contact Unity Carrier at:</p>
+              <div class="endpoints">
+                <a class="endpoint" href="mailto:support@unitycarrier.com"><span class="ep-label">Email</span><span class="ep-value">support@unitycarrier.com</span></a>
+                <a class="endpoint" href="https://unitycarrier.com"><span class="ep-label">Website</span><span class="ep-value">unitycarrier.com</span></a>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <p class="eof" aria-hidden="true"><span><b>200 OK</b> · End of terms</span></p>
+      </article>
+    </div>
+  </main>
+
+  <footer class="site-foot">
+    <div class="foot-inner">
+      <a class="brand" href="https://unitycarrier.com">
+        <svg class="logo" viewBox="0 0 32 32" width="28" height="28" aria-hidden="true">
+          <rect x="0.75" y="0.75" width="30.5" height="30.5" rx="9" fill="#0b1120" stroke="url(#uc-grad)" stroke-opacity="0.7"/>
+          <path d="M10 9v7a6 6 0 0 0 12 0V9" fill="none" stroke="url(#uc-grad)" stroke-width="2.6" stroke-linecap="round"/>
+          <circle cx="16" cy="9.5" r="1.7" fill="#22d3ee"/>
+        </svg>
+        <span class="brand-name">Unity Carrier</span>
+      </a>
+      <nav aria-label="Footer">
+        <a href="https://unitycarrier.com">Website</a>
+        <a href="mailto:support@unitycarrier.com">Support</a>
+        <a href="#content">Back to top</a>
+      </nav>
+      <p>© 2026 Unity Carrier. All rights reserved.</p>
+    </div>
+  </footer>
+
+  <button class="to-top" type="button" aria-label="Back to top">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+  </button>
+  <div class="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    (() => {
+      const root = document.documentElement;
+      const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const wide = matchMedia("(min-width: 960px)");
+      const clauses = [...document.querySelectorAll(".clause")];
+      const toc = document.querySelector(".toc");
+      const tocLinks = clauses.map((clause) => toc.querySelector(`a[href="#${clause.id}"]`));
+
+      // Reveal sections as they scroll into view. Set up first so content can never stay hidden.
+      if (root.classList.contains("motion")) {
+        const revealer = new IntersectionObserver((entries) => {
+          for (const entry of entries) {
+            if (!entry.isIntersecting) continue;
+            entry.target.classList.add("in");
+            revealer.unobserve(entry.target);
+          }
+        }, { rootMargin: "0px 0px -6% 0px" });
+        document.querySelectorAll(".reveal").forEach((element) => revealer.observe(element));
+      }
+
+      // Section count and reading time.
+      const pad = (value) => String(value).padStart(2, "0");
+      document.querySelector("[data-count]").textContent = clauses.length;
+      document.querySelector("[data-total]").textContent = pad(clauses.length);
+      const words = document.querySelector(".clauses").textContent.trim().split(/\s+/).length;
+      document.querySelector("[data-readtime]").textContent = `~${Math.max(1, Math.round(words / 220))} min`;
+
+      // Contents: open beside the text on wide screens, collapsed on phones.
+      const details = toc.querySelector("details");
+      const syncContents = () => { details.open = wide.matches; };
+      syncContents();
+      wide.addEventListener("change", syncContents);
+      toc.addEventListener("click", (event) => {
+        if (event.target.closest("a") && !wide.matches) details.open = false;
+      });
+
+      // Scroll progress, active section and back-to-top button.
+      const progress = document.querySelector(".progress");
+      const toTop = document.querySelector(".to-top");
+      const current = document.querySelector("[data-current]");
+      let active = -1;
+      let ticking = false;
+
+      function setActive(index) {
+        if (index === active) return;
+        if (active >= 0) {
+          clauses[active].classList.remove("active");
+          tocLinks[active].removeAttribute("aria-current");
+        }
+        active = index;
+        clauses[index].classList.add("active");
+        const link = tocLinks[index];
+        link.setAttribute("aria-current", "true");
+        current.textContent = pad(index + 1);
+        if (wide.matches) {
+          const top = link.offsetTop - 48;
+          const bottom = link.offsetTop + link.offsetHeight + 48;
+          if (top < toc.scrollTop) toc.scrollTop = top;
+          else if (bottom > toc.scrollTop + toc.clientHeight) toc.scrollTop = bottom - toc.clientHeight;
+        }
+      }
+
+      function onScroll() {
+        ticking = false;
+        const max = root.scrollHeight - innerHeight;
+        progress.style.transform = `scaleX(${max > 0 ? Math.min(1, scrollY / max) : 0})`;
+        toTop.classList.toggle("show", scrollY > 700);
+        const line = innerHeight * 0.32;
+        let index = 0;
+        for (let i = 0; i < clauses.length; i += 1) {
+          if (clauses[i].getBoundingClientRect().top <= line) index = i;
+          else break;
+        }
+        if (max > 0 && scrollY >= max - 2) index = clauses.length - 1;
+        setActive(index);
+      }
+
+      addEventListener("scroll", () => {
+        if (!ticking) { ticking = true; requestAnimationFrame(onScroll); }
+      }, { passive: true });
+      addEventListener("resize", onScroll);
+      onScroll();
+      toTop.addEventListener("click", () => scrollTo({ top: 0, behavior: reduceMotion ? "auto" : "smooth" }));
+
+      // Copy a section link when its # is clicked.
+      const toast = document.querySelector(".toast");
+      let toastTimer;
+      function showToast(message) {
+        toast.textContent = message;
+        toast.classList.add("show");
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => toast.classList.remove("show"), 1800);
+      }
+      document.addEventListener("click", async (event) => {
+        const anchor = event.target.closest(".anchor");
+        if (!anchor || !navigator.clipboard) return;
+        try {
+          await navigator.clipboard.writeText(anchor.href);
+          showToast("Link copied");
+        } catch {
+          // Clipboard access can be blocked; the link still jumps to the section.
+        }
+      });
+
+      // Print or save as PDF.
+      const printButton = document.querySelector("[data-print]");
+      printButton.hidden = false;
+      printButton.addEventListener("click", () => print());
+
+      // Cursor spotlight on cards.
+      document.querySelectorAll(".spot").forEach((card) => {
+        card.addEventListener("pointermove", (event) => {
+          const rect = card.getBoundingClientRect();
+          card.style.setProperty("--mx", `${event.clientX - rect.left}px`);
+          card.style.setProperty("--my", `${event.clientY - rect.top}px`);
+        });
+      });
+
+      // Voice waveform in the header area.
+      const wave = document.querySelector(".wave");
+      const bars = 64;
+      wave.innerHTML = Array.from({ length: bars }, (_, i) => {
+        const height = 0.22 + 0.78 * Math.abs(Math.sin(i * 0.37) * Math.cos(i * 0.13 + 0.6));
+        return `<i style="--i:${i};--p:${(i / (bars - 1)).toFixed(3)};--h:${height.toFixed(2)}"></i>`;
+      }).join("");
+
+      // SIP call-flow card: play the call set-up once, then keep a live session timer.
+      const sip = document.querySelector(".sip");
+      sip.hidden = false;
+      const sipSteps = [...sip.querySelectorAll(".sip-flow li")];
+      const sipState = sip.querySelector("[data-sip-state]");
+      const sipLabels = ["Dialing…", "Trying…", "Ringing…", "Connected", "Connected"];
+      const showStep = (index) => {
+        sipSteps[index].classList.add("on");
+        sipState.textContent = sipLabels[index];
+        if (index >= 3) sip.classList.add("connected");
+      };
+      sipSteps.forEach((_, index) => {
+        if (reduceMotion) showStep(index);
+        else setTimeout(() => showStep(index), 600 + index * 700);
+      });
+      const sipTimer = sip.querySelector("[data-sip-timer]");
+      const sessionStart = Date.now();
+      setInterval(() => {
+        const seconds = Math.floor((Date.now() - sessionStart) / 1000);
+        sipTimer.textContent = `${pad(Math.floor(seconds / 60))}:${pad(seconds % 60)}`;
+      }, 1000);
+
+      // Animated network: nodes linked like a carrier mesh, with call packets travelling between them.
+      const canvas = document.querySelector(".net");
+      const ctx = canvas.getContext("2d");
+      const hero = document.querySelector(".hero");
+      const LINK = 150;
+      let width = 0;
+      let height = 0;
+      let nodes = [];
+      let packets = [];
+      let running = false;
+      let heroVisible = true;
+
+      function buildNetwork() {
+        const ratio = Math.min(devicePixelRatio || 1, 2);
+        const rect = canvas.getBoundingClientRect();
+        width = rect.width;
+        height = rect.height;
+        canvas.width = Math.round(width * ratio);
+        canvas.height = Math.round(height * ratio);
+        ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+        const count = Math.round(Math.min(64, Math.max(18, (width * height) / 15000)));
+        nodes = Array.from({ length: count }, () => ({
+          x: Math.random() * width,
+          y: Math.random() * height,
+          vx: (Math.random() - 0.5) * 0.28,
+          vy: (Math.random() - 0.5) * 0.28,
+          r: Math.random() * 1.3 + 0.9
+        }));
+        packets = [];
+      }
+
+      function draw(moving) {
+        ctx.clearRect(0, 0, width, height);
+        if (moving) {
+          for (const node of nodes) {
+            node.x += node.vx;
+            node.y += node.vy;
+            if (node.x < 0 || node.x > width) node.vx *= -1;
+            if (node.y < 0 || node.y > height) node.vy *= -1;
+          }
+        }
+        ctx.lineWidth = 1;
+        for (let i = 0; i < nodes.length; i += 1) {
+          for (let j = i + 1; j < nodes.length; j += 1) {
+            const dx = nodes[i].x - nodes[j].x;
+            const dy = nodes[i].y - nodes[j].y;
+            const distance = Math.hypot(dx, dy);
+            if (distance > LINK) continue;
+            ctx.strokeStyle = `rgba(56, 189, 248, ${(1 - distance / LINK) * 0.22})`;
+            ctx.beginPath();
+            ctx.moveTo(nodes[i].x, nodes[i].y);
+            ctx.lineTo(nodes[j].x, nodes[j].y);
+            ctx.stroke();
+          }
+        }
+        for (const node of nodes) {
+          ctx.fillStyle = "rgba(165, 180, 252, 0.75)";
+          ctx.beginPath();
+          ctx.arc(node.x, node.y, node.r, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        if (!moving) return;
+        if (packets.length < 9 && Math.random() < 0.06) {
+          const from = nodes[Math.floor(Math.random() * nodes.length)];
+          const near = nodes.filter((node) => node !== from && Math.hypot(node.x - from.x, node.y - from.y) < LINK);
+          if (near.length) {
+            packets.push({ from, to: near[Math.floor(Math.random() * near.length)], t: 0, speed: 0.008 + Math.random() * 0.012, violet: Math.random() < 0.4 });
+          }
+        }
+        packets = packets.filter((packet) => {
+          packet.t += packet.speed;
+          if (packet.t >= 1) return false;
+          const x = packet.from.x + (packet.to.x - packet.from.x) * packet.t;
+          const y = packet.from.y + (packet.to.y - packet.from.y) * packet.t;
+          const glow = ctx.createRadialGradient(x, y, 0, x, y, 9);
+          glow.addColorStop(0, packet.violet ? "rgba(196, 181, 253, 0.95)" : "rgba(103, 232, 249, 0.95)");
+          glow.addColorStop(1, "rgba(34, 211, 238, 0)");
+          ctx.fillStyle = glow;
+          ctx.beginPath();
+          ctx.arc(x, y, 9, 0, Math.PI * 2);
+          ctx.fill();
+          return true;
+        });
+      }
+
+      function loop() {
+        if (!running) return;
+        draw(true);
+        requestAnimationFrame(loop);
+      }
+
+      function updateRunning() {
+        const shouldRun = !reduceMotion && heroVisible && !document.hidden;
+        if (shouldRun && !running) { running = true; requestAnimationFrame(loop); }
+        else if (!shouldRun) running = false;
+      }
+
+      buildNetwork();
+      draw(false);
+      new ResizeObserver(() => { buildNetwork(); draw(false); }).observe(canvas);
+      new IntersectionObserver(([entry]) => { heroVisible = entry.isIntersecting; updateRunning(); }).observe(hero);
+      document.addEventListener("visibilitychange", updateRunning);
+      updateRunning();
+    })();
+  </script>
+</body>
+</html>

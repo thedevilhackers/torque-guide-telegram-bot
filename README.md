@@ -54,6 +54,17 @@ This repository includes `render.yaml`, which packages the bot as a single Rende
 
 Render background workers are not available on its free plan. Review the displayed plan and cost before creating the service. The worker is deliberately configured with one instance, because the bot's file-based session store is intended for a single instance.
 
+## Unity Carrier terms page
+
+The Unity Carrier Terms and Conditions page is in `public/terms/index.html`. The same `render.yaml` Blueprint deploys it as a separate Render **static site** named `unity-carrier-terms`, which is free and does not affect the bot worker. It is served at `https://terms.unitycarrier.com/terms`, and the site root redirects there.
+
+1. Sync the Blueprint in Render. It creates the `unity-carrier-terms` static site alongside the bot.
+2. In the static site's **Settings → Custom Domains**, Render shows the DNS target for `terms.unitycarrier.com`.
+3. At your DNS provider for `unitycarrier.com`, add a `CNAME` record for `terms` pointing to that target (normally `unity-carrier-terms.onrender.com`).
+4. Wait for Render to verify the domain and issue the HTTPS certificate.
+
+To change the terms, edit `public/terms/index.html`, update the "Last updated" date, run `npm test`, and push.
+
 ## 5. Keep it online later
 
 For initial testing, leave your Mac on with `npm start` running. For a 24/7 production bot, the Render deployment above is sufficient. Long polling still works—there is no need to configure a Telegram webhook unless you choose to use webhooks later.
