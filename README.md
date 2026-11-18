@@ -75,3 +75,7 @@ Edit `src/catalog.js` to add brands, models, ECU families or tuning stages. The 
 - [Telegram Bot API](https://core.telegram.org/bots/api)
 - [OpenAI model guidance](https://developers.openai.com/api/docs/guides/latest-model)
 - [OpenAI API keys](https://platform.openai.com/api-keys)
+
+## Also in this repository: Store POS
+
+`store-pos/` is a separate, self-contained app: a multi-branch store billing and inventory system (barcode till, expiry tracking, daily summaries) with an API and webhooks for a head-office admin panel. It does not affect this bot. See [store-pos/README.md](store-pos/README.md).

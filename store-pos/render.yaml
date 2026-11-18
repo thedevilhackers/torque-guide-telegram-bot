@@ -1,0 +1,26 @@
+# Render Blueprint for Store POS. When creating the Blueprint in Render, set the
+# blueprint path to store-pos/render.yaml. The persistent disk needs a paid plan.
+services:
+  - type: web
+    name: store-pos
+    runtime: node
+    rootDir: store-pos
+    plan: starter
+    region: singapore
+    numInstances: 1
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    disk:
+      name: store-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: DATABASE_PATH
+        value: /var/data/store.db
+      - key: CORS_ORIGINS
+        sync: false
+      - key: FRAME_ANCESTORS
+        sync: false

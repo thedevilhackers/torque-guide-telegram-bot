@@ -1,0 +1,15 @@
+{
+  "name": "store-pos",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Multi-branch store billing and inventory: barcode POS, expiry (FEFO) tracking, daily summaries, and an API + webhooks for a head-office admin panel.",
+  "type": "module",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning src/server.js",
+    "dev": "node --disable-warning=ExperimentalWarning --watch src/server.js",
+    "test": "node --disable-warning=ExperimentalWarning --test \"checks/*.check.js\""
+  }
+}
