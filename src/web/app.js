@@ -7,7 +7,7 @@ import { registerPortalRoutes } from "./portal-api.js";
 import { registerPublicRoutes } from "./public-api.js";
 
 const PUBLIC_DIR = fileURLToPath(new URL("../../public/", import.meta.url));
-const PAGES = { "/": "index.html", "/files": "files.html", "/finder": "finder.html", "/shop": "shop.html", "/tools": "tools.html", "/admin": "admin/index.html" };
+const PAGES = { "/": "index.html", "/files": "files.html", "/shop": "shop.html", "/tools": "tools.html", "/admin": "admin/index.html" };
 const UPLOAD_FILE = /^\/uploads\/([a-f0-9]{32}\.(png|jpg|webp))$/;
 
 function compile(path) {
@@ -45,6 +45,11 @@ export function createApp({ botUsername = () => "", sendAlert = null, ai, fetchI
   registerPublicRoutes(route, { botUsername, ...(ai && { ai }) });
   registerPortalRoutes(route, { fetchImpl });
   registerAdminRoutes(route, { botUsername, sendAlert, fetchImpl });
+  // The car finder was briefly at /finder; it's the home page again. Browsers keep the #car=… part.
+  route("GET", "/finder", ({ res }) => {
+    res.writeHead(301, { Location: "/", "Cache-Control": "public, max-age=3600" });
+    res.end();
+  });
   route("GET", "/robots.txt", ({ req, res }) => sendBuffer(res, 200, Buffer.from(robotsTxt(req)), "text/plain; charset=utf-8", { "Cache-Control": "public, max-age=3600" }));
   route("GET", "/sitemap.xml", ({ req, res }) => sendBuffer(res, 200, Buffer.from(sitemapXml(req)), "application/xml; charset=utf-8", { "Cache-Control": "public, max-age=3600" }));
 

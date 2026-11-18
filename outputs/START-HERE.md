@@ -1,12 +1,11 @@
 # Installation guide: Unity Performance website
 
-This guide puts the new version of the website on your server: the simple black-and-gold home page, the tuning file service at `/files` (accounts, credits, ECU file upload, buying tunes), and the new admin screens. Your orders, enquiries, products, settings and photos are kept; an update never touches them.
+This guide puts the new version of the website on your server: the home page with Find your car, Stage 1 graphs, services, Our work, ECUs and Visit, plus the new tuning file service at `/files` (accounts, credits, ECU file upload, buying tunes) and the new admin screens. Your orders, enquiries, products, settings and photos are kept; an update never touches them.
 
 You need:
 
 - Your Mac, with the **Terminal** app (press Cmd+Space, type `Terminal`, press Enter).
 - Your server's address, `81.19.137.7`, and its `root` password (or SSH key).
-- For the upload route only: `unity-performance-vps.zip`, saved in your **Downloads** folder.
 
 It takes about 10 minutes. The site keeps running while the new version is checked.
 
@@ -16,57 +15,37 @@ It takes about 10 minutes. The site keeps running while the new version is check
 
 Open https://unityperformance.co/admin, go to **Backup** and press **Download backup**. Keep the file somewhere safe and private: it holds your settings and customer accounts.
 
-### 2. Connect to the server
+### 2. Run the update
 
-In Terminal on your Mac, type:
-
-```bash
-ssh root@81.19.137.7
-```
-
-The first time, type `yes` when asked whether to trust the server. Then type the password and press Enter. Nothing appears on screen while you type the password; that's normal.
-
-### 3. Run the update
+Your server was set up from a zip, so it updates from one. This single command, pasted into Terminal on your Mac, makes the server download the newest version from GitHub, pack it, check it and switch to it. It asks for the server password once:
 
 ```bash
-sudo bash /opt/unity-performance/deploy/vps/update.sh
+ssh root@81.19.137.7 'set -e; command -v zip >/dev/null || { apt-get update -qq && apt-get install -y -qq zip unzip; }; W=$(mktemp -d); cd "$W"; curl -fsSL -o src.zip https://codeload.github.com/thedevilhackers/torque-guide-telegram-bot/zip/refs/heads/claude/unity-performance-ai-vehicle-search-fw2o30; unzip -q src.zip; mv torque-guide-telegram-bot-* unity-performance; rm -f ~/unity-performance-vps.zip; zip -qr ~/unity-performance-vps.zip unity-performance; cd ~; rm -rf "$W"; sudo bash /opt/unity-performance/deploy/vps/update.sh ~/unity-performance-vps.zip'
 ```
 
-It fetches the new version, runs its checks in a separate copy, then switches. What you see next tells you what to do:
+The first time, type `yes` when asked whether to trust the server. Nothing appears on screen while you type the password; that's normal.
 
 | The last message says | What it means | Next |
 | --- | --- | --- |
-| `Updated to: …` (followed by the newest change's description) | Done. | Go to step 5. |
-| `This copy was installed from a zip.` | Your server was set up from a zip file. | Do step 4. |
-| `Couldn't fetch the update` | The server can't reach GitHub with its key. | Do step 4. |
-| `Already up to date.` but the site still looks old | The server follows an older branch. | Do step 4. |
+| `Updated.` | Done. | Go to step 4. |
 | `The new version failed its checks. Nothing was changed` | Your site is safe and still running the old version. | Send me the lines it printed. |
+| `The new version didn't start … Went back to the previous version` | Your site is running the old version again. | Send me the lines it printed. |
 
-### 4. Only if step 3 told you to: update from the zip
+### 3. Or: update from a zip on your Mac
 
-Open a **second** Terminal window on your Mac (Cmd+N), so you're on your Mac, not the server, and send the zip:
-
-```bash
-scp ~/Downloads/unity-performance-vps.zip root@81.19.137.7:~/
-```
-
-Type the server password again. Then, back in the first window (the server), run:
+If the server can't reach GitHub, save `unity-performance-vps.zip` in your **Downloads** folder (don't unzip it) and run this on your Mac instead. It asks for the password twice:
 
 ```bash
-sudo bash /opt/unity-performance/deploy/vps/update.sh ~/unity-performance-vps.zip
+scp ~/Downloads/unity-performance-vps.zip root@81.19.137.7:~/ && ssh root@81.19.137.7 'sudo bash /opt/unity-performance/deploy/vps/update.sh ~/unity-performance-vps.zip'
 ```
 
-You'll see `Checking the new version…`, `Switching to the new version…` and `Updated.` If the new version doesn't start, the script puts the previous one back by itself.
+### 4. Check the site
 
-### 5. Check the site
+Open these in your browser. If something looks unchanged, press Cmd+Shift+R to reload without the cache.
 
-Open these in your browser. If you still see the old fiery page, press Cmd+Shift+R to reload without the cache.
-
-- https://unityperformance.co: the new black and gold home page.
+- https://unityperformance.co: the home page, now with a **Tuning file service** section and a **File service** link in the menu.
 - https://unityperformance.co/files: the tuning file service, with sign in and create account.
 - https://unityperformance.co/admin: the admin panel now lists **File orders**, **Payments**, **Customers**, **Tune options** and **Credit packs**.
-
-Type `exit` to leave the server.
 
 ## Part 2: Set up the file service
 
@@ -138,7 +117,7 @@ Files go to fast-chiptuningfiles.com by hand for now (see "When a real order com
 
 | What | Command |
 | --- | --- |
-| Update to the newest version | `sudo bash /opt/unity-performance/deploy/vps/update.sh` |
+| Update to the newest version | the one command in Part 1, step 2 (run on your Mac) |
 | Is the site running? | `systemctl status unity-performance` (press `q` to leave) |
 | Recent messages and errors | `sudo journalctl -u unity-performance -n 50` |
 | Restart the site | `sudo systemctl restart unity-performance` |

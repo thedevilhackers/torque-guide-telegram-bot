@@ -1,47 +1,25 @@
-/* Unity Performance: the home page and the tuning file service. Quiet, dark and precise:
-   ivory type on near-black, one champagne accent, hairlines instead of boxes. */
-
-@font-face {
-  font-family: "Cormorant Garamond";
-  font-style: normal;
-  font-weight: 500;
-  font-display: swap;
-  src: url("/fonts/cormorant-garamond-500.woff2") format("woff2");
-}
-
-@font-face {
-  font-family: "Cormorant Garamond";
-  font-style: italic;
-  font-weight: 500;
-  font-display: swap;
-  src: url("/fonts/cormorant-garamond-500-italic.woff2") format("woff2");
-}
-
-@font-face {
-  font-family: "Inter";
-  font-style: normal;
-  font-weight: 300 700;
-  font-display: swap;
-  src: url("/fonts/inter-variable.woff2") format("woff2");
-}
+/* Unity Performance: the tuning file service (/files), in the same dark style and red accent as the rest
+   of the site (site.css). */
 
 :root {
-  --ink: #0b0b0c;
-  --ink-2: #111113;
-  --ink-3: #18181b;
-  --line: rgba(242, 238, 230, 0.1);
-  --line-strong: rgba(242, 238, 230, 0.2);
-  --ivory: #f2eee6;
-  --ivory-2: #bdb7ac;
-  --muted: #8e897f;
-  --gold: #c8a46a;
-  --gold-bright: #e0c38f;
-  --on-gold: #14110b;
-  --good: #8fc79a;
-  --warn: #e0b56a;
-  --bad: #e08f84;
-  --serif: "Cormorant Garamond", "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
-  --sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  --ink: #000;
+  --ink-2: #0b0b0d;
+  --ink-3: #141418;
+  --line: rgba(245, 245, 247, 0.12);
+  --line-strong: rgba(245, 245, 247, 0.24);
+  --ivory: #f5f5f7;
+  --ivory-2: #a1a1a6;
+  --muted: #86868b;
+  --accent: #ff2d26;
+  --accent-bright: #ff6961;
+  --accent-fill: #d81b16;
+  --accent-fill-hover: #e3201a;
+  --on-accent: #fff;
+  --link: #2997ff;
+  --good: #30d158;
+  --warn: #ffb020;
+  --bad: #ff6961;
+  --sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", "Segoe UI", Inter, Roboto, Arial, sans-serif;
   --wrap: 1180px;
   --gutter: clamp(16px, 5vw, 48px);
   --nav-h: 72px;
@@ -55,14 +33,6 @@
   box-sizing: border-box;
 }
 
-/* Lining figures everywhere: Cormorant's default old-style numbers make "Stage 1" and "1.0 TSI 110 hp"
-   hard to read. Important, because each font shorthand below would otherwise reset it. */
-*,
-*::before,
-*::after {
-  font-variant-numeric: lining-nums !important;
-}
-
 html {
   scroll-behavior: smooth;
   scroll-padding-top: calc(var(--nav-h) + 16px);
@@ -73,8 +43,8 @@ body {
   margin: 0;
   background: var(--ink);
   color: var(--ivory);
-  font: 300 16px/1.65 var(--sans);
-  letter-spacing: 0.005em;
+  font: 400 17px/1.47 var(--sans);
+  letter-spacing: -0.022em;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
@@ -99,12 +69,12 @@ textarea {
 }
 
 ::selection {
-  background: var(--gold);
-  color: var(--on-gold);
+  background: var(--accent);
+  color: var(--on-accent);
 }
 
 :focus-visible {
-  outline: 1px solid var(--gold-bright);
+  outline: 1px solid var(--accent-bright);
   outline-offset: 3px;
 }
 
@@ -142,20 +112,19 @@ textarea {
 /* ---------- Type ---------- */
 
 .eyebrow {
-  margin: 0 0 22px;
-  color: var(--gold);
-  font: 500 11px/1.4 var(--sans);
-  letter-spacing: 0.32em;
-  text-transform: uppercase;
+  margin: 0 0 14px;
+  color: var(--accent);
+  font: 600 17px/1.3 var(--sans);
+  letter-spacing: -0.01em;
 }
 
 .display,
 .title {
   margin: 0;
-  font-family: var(--serif);
-  font-weight: 500;
-  letter-spacing: -0.01em;
-  line-height: 1.02;
+  font-family: var(--sans);
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  line-height: 1.05;
 }
 
 .display {
@@ -169,8 +138,8 @@ textarea {
 
 .display em,
 .title em {
-  font-style: italic;
-  color: var(--gold-bright);
+  font-style: normal;
+  color: var(--accent);
 }
 
 .lead {
@@ -180,14 +149,6 @@ textarea {
   font-size: clamp(16px, 1.6vw, 18px);
 }
 
-.rule {
-  width: 56px;
-  height: 1px;
-  margin: 0 0 28px;
-  border: 0;
-  background: var(--gold);
-}
-
 /* ---------- Buttons ---------- */
 
 .btn {
@@ -195,15 +156,14 @@ textarea {
   align-items: center;
   justify-content: center;
   gap: 10px;
-  min-height: 50px;
-  padding: 0 28px;
+  min-height: 46px;
+  padding: 0 24px;
   border: 1px solid var(--line-strong);
-  border-radius: 0;
+  border-radius: 980px;
   background: transparent;
   color: var(--ivory);
-  font: 500 12px/1 var(--sans);
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
+  font: 500 16px/1 var(--sans);
+  letter-spacing: -0.01em;
   text-decoration: none;
   cursor: pointer;
   transition: background 0.4s var(--ease), color 0.4s var(--ease), border-color 0.4s var(--ease);
@@ -213,21 +173,21 @@ textarea {
   border-color: var(--ivory);
 }
 
-.btn--gold {
-  border-color: var(--gold);
-  background: var(--gold);
-  color: var(--on-gold);
+.btn--primary {
+  border-color: var(--accent-fill);
+  background: var(--accent-fill);
+  color: var(--on-accent);
 }
 
-.btn--gold:hover {
-  border-color: var(--gold-bright);
-  background: var(--gold-bright);
+.btn--primary:hover {
+  border-color: var(--accent-fill-hover);
+  background: var(--accent-fill-hover);
 }
 
 .btn--small {
-  min-height: 40px;
-  padding: 0 18px;
-  font-size: 11px;
+  min-height: 36px;
+  padding: 0 16px;
+  font-size: 14px;
 }
 
 .btn:disabled {
@@ -239,20 +199,17 @@ textarea {
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  padding: 6px 0;
+  padding: 4px 0;
   border: 0;
-  border-bottom: 1px solid var(--gold);
   background: none;
-  color: var(--ivory);
-  font: 500 12px/1.4 var(--sans);
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
+  color: var(--link);
+  font: 400 16px/1.4 var(--sans);
   text-decoration: none;
   cursor: pointer;
 }
 
 .link:hover {
-  color: var(--gold-bright);
+  text-decoration: underline;
 }
 
 /* ---------- Navigation ---------- */
@@ -297,10 +254,9 @@ textarea {
 
 .nav__links a {
   color: var(--ivory-2);
-  font-size: 12px;
-  font-weight: 500;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
   text-decoration: none;
   transition: color 0.3s;
 }
@@ -376,295 +332,10 @@ textarea {
   }
 }
 
-/* ---------- Home: hero ---------- */
-
-.hero {
-  position: relative;
-  display: flex;
-  align-items: flex-end;
-  min-height: 100vh;
-  min-height: 100svh;
-  padding: calc(var(--nav-h) + 64px) 0 clamp(56px, 9vh, 96px);
-  overflow: hidden;
-  isolation: isolate;
-}
-
-/* A single warm light from the upper right, like a car under a studio lamp. */
-.hero::before {
-  content: "";
-  position: absolute;
-  inset: -20% -10% auto auto;
-  z-index: -1;
-  width: min(1100px, 120vw);
-  aspect-ratio: 1;
-  background: radial-gradient(closest-side, rgba(200, 164, 106, 0.16), rgba(200, 164, 106, 0.04) 55%, transparent 70%);
-}
-
-.hero::after {
-  content: "";
-  position: absolute;
-  left: var(--gutter);
-  right: var(--gutter);
-  bottom: 0;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, var(--line-strong) 20%, var(--line-strong) 80%, transparent);
-}
-
-.hero__lines {
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  width: 100%;
-  height: 100%;
-  color: var(--gold);
-  opacity: 0.35;
-}
-
-.hero__actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 18px 32px;
-  margin-top: 44px;
-}
-
-.hero__meta {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 24px;
-  margin: clamp(56px, 10vh, 96px) 0 0;
-  padding: 26px 0 0;
-  border-top: 1px solid var(--line);
-  list-style: none;
-}
-
-.hero__meta li {
-  color: var(--ivory-2);
-  font-size: 13px;
-  letter-spacing: 0.04em;
-}
-
-.hero__meta b {
-  display: block;
-  margin-bottom: 4px;
-  color: var(--ivory);
-  font: 500 22px/1.2 var(--serif);
-  letter-spacing: 0;
-}
-
-@media (max-width: 760px) {
-  .hero__meta {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-/* ---------- Home: sections ---------- */
-
-.section {
-  padding: clamp(88px, 14vw, 168px) 0;
-  border-bottom: 1px solid var(--line);
-}
-
-.section--ivory {
-  --line: rgba(20, 17, 11, 0.12);
-  --line-strong: rgba(20, 17, 11, 0.24);
-  --ivory: #14110b;
-  --ivory-2: #57524a;
-  --muted: #7a7469;
-  --gold: #9a7a45;
-  --gold-bright: #7d602f;
-  background: #f2eee6;
-  color: var(--ivory);
-}
-
-.section__head {
-  display: grid;
-  grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
-  gap: 32px 64px;
-  align-items: end;
-  margin-bottom: clamp(48px, 8vw, 88px);
-}
-
-.section__head .lead {
-  margin: 0;
-}
-
-@media (max-width: 860px) {
-  .section__head {
-    grid-template-columns: 1fr;
-  }
-}
-
-.services {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  border-top: 1px solid var(--line);
-}
-
-.service {
-  display: grid;
-  grid-template-columns: 80px minmax(0, 4fr) minmax(0, 5fr);
-  gap: 16px 40px;
-  align-items: baseline;
-  padding: 34px 0;
-  border-bottom: 1px solid var(--line);
-}
-
-.service__index {
-  color: var(--gold);
-  font: 500 13px/1 var(--sans);
-  letter-spacing: 0.2em;
-}
-
-.service h3 {
-  margin: 0;
-  font: 500 clamp(26px, 3vw, 36px)/1.15 var(--serif);
-}
-
-.service p {
-  margin: 0;
-  color: var(--ivory-2);
-}
-
-@media (max-width: 760px) {
-  .service {
-    grid-template-columns: 48px minmax(0, 1fr);
-  }
-
-  .service p {
-    grid-column: 2;
-  }
-}
-
-.steps {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  counter-reset: step;
-}
-
-.step {
-  padding: 32px 28px 8px 0;
-  border-top: 1px solid var(--line-strong);
-  counter-increment: step;
-}
-
-.step + .step {
-  padding-left: 28px;
-  border-left: 1px solid var(--line);
-}
-
-.step::before {
-  content: counter(step, decimal-leading-zero);
-  display: block;
-  margin-bottom: 40px;
-  color: var(--gold);
-  font: 500 13px/1 var(--sans);
-  letter-spacing: 0.2em;
-}
-
-.step h3 {
-  margin: 0 0 10px;
-  font: 500 26px/1.15 var(--serif);
-}
-
-.step p {
-  margin: 0;
-  color: var(--ivory-2);
-  font-size: 15px;
-}
-
-@media (max-width: 900px) {
-  .steps {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .step:nth-child(3) {
-    padding-left: 0;
-    border-left: 0;
-  }
-}
-
-@media (max-width: 560px) {
-  .steps {
-    grid-template-columns: 1fr;
-  }
-
-  .step + .step {
-    padding-left: 0;
-    border-left: 0;
-  }
-}
-
-.split-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 18px 32px;
-  align-items: center;
-  margin-top: 64px;
-}
-
 .fineprint {
   margin: 28px 0 0;
   color: var(--muted);
   font-size: 13px;
-}
-
-/* ---------- Home: visit ---------- */
-
-.visit {
-  display: grid;
-  grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
-  gap: 56px 80px;
-}
-
-.details {
-  display: grid;
-  gap: 0;
-  margin: 0;
-  border-top: 1px solid var(--line);
-}
-
-.details div {
-  display: grid;
-  grid-template-columns: 120px minmax(0, 1fr);
-  gap: 20px;
-  padding: 20px 0;
-  border-bottom: 1px solid var(--line);
-}
-
-.details dt {
-  color: var(--muted);
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.24em;
-  text-transform: uppercase;
-  padding-top: 4px;
-}
-
-.details dd {
-  margin: 0;
-  font: 500 21px/1.4 var(--serif);
-}
-
-.details a {
-  text-decoration: none;
-  border-bottom: 1px solid var(--line-strong);
-}
-
-@media (max-width: 860px) {
-  .visit {
-    grid-template-columns: 1fr;
-  }
-
-  .details div {
-    grid-template-columns: 1fr;
-    gap: 6px;
-  }
 }
 
 /* ---------- Forms ---------- */
@@ -741,7 +412,7 @@ textarea {
 .form input:focus,
 .form select:focus,
 .form textarea:focus {
-  border-bottom-color: var(--gold);
+  border-bottom-color: var(--accent);
   outline: none;
 }
 
@@ -901,7 +572,7 @@ textarea {
 
 .price-list__title {
   margin: 36px 0 6px;
-  color: var(--gold);
+  color: var(--accent);
   font: 500 11px/1.4 var(--sans);
   letter-spacing: 0.28em;
   text-transform: uppercase;
@@ -923,7 +594,7 @@ textarea {
 }
 
 .price-list li span {
-  font: 500 21px/1.3 var(--serif);
+  font: 600 21px/1.3 var(--sans);
 }
 
 .price-list small {
@@ -950,7 +621,7 @@ textarea {
 
 .card__title {
   margin: 0;
-  font: 500 clamp(26px, 3vw, 34px)/1.15 var(--serif);
+  font: 600 clamp(26px, 3vw, 34px)/1.15 var(--sans);
 }
 
 .auth .form {
@@ -959,7 +630,7 @@ textarea {
 
 .auth .fineprint a,
 .order__message a {
-  color: var(--gold-bright);
+  color: var(--accent-bright);
 }
 
 .tabs {
@@ -980,10 +651,9 @@ textarea {
   padding: 14px 0;
   border-bottom: 1px solid transparent;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 16px;
   font-weight: 500;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
+  letter-spacing: -0.01em;
   text-decoration: none;
   transition: color 0.3s, border-color 0.3s;
 }
@@ -994,7 +664,7 @@ textarea {
 
 .tab[aria-selected="true"],
 .tab[aria-current="page"] {
-  border-bottom-color: var(--gold);
+  border-bottom-color: var(--accent);
   color: var(--ivory);
 }
 
@@ -1022,8 +692,8 @@ textarea {
 }
 
 .nav__credits b {
-  color: var(--gold-bright);
-  font: 500 18px/1 var(--serif);
+  color: var(--accent-bright);
+  font: 600 18px/1 var(--sans);
   letter-spacing: 0;
 }
 
@@ -1057,9 +727,8 @@ textarea {
 }
 
 .balance__value {
-  color: var(--gold-bright);
-  font: 500 clamp(56px, 8vw, 96px)/0.9 var(--serif);
-  font-variant-numeric: lining-nums;
+  color: var(--accent-bright);
+  font: 600 clamp(56px, 8vw, 96px)/0.9 var(--sans);
 }
 
 .balance__label {
@@ -1094,7 +763,7 @@ textarea {
 
 .empty p {
   margin: 0 0 16px;
-  font: 500 22px/1.4 var(--serif);
+  font: 600 22px/1.4 var(--sans);
 }
 
 /* Orders and payments */
@@ -1133,7 +802,7 @@ textarea {
 
 .order__car {
   margin: 0 0 6px;
-  font: 500 24px/1.25 var(--serif);
+  font: 600 24px/1.25 var(--sans);
 }
 
 .order__detail {
@@ -1145,8 +814,8 @@ textarea {
 .order__message {
   margin: 12px 0 0;
   padding: 12px 16px;
-  border-left: 1px solid var(--gold);
-  background: rgba(200, 164, 106, 0.06);
+  border-left: 1px solid var(--accent);
+  background: rgba(255, 45, 38, 0.06);
   color: var(--ivory);
   font-size: 14px;
 }
@@ -1274,7 +943,7 @@ textarea {
 }
 
 .pay__form input:focus {
-  border-bottom-color: var(--gold);
+  border-bottom-color: var(--accent);
   outline: none;
 }
 
@@ -1307,7 +976,7 @@ textarea {
 }
 
 .pack__name {
-  color: var(--gold);
+  color: var(--accent);
   font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.26em;
@@ -1322,14 +991,12 @@ textarea {
 .pack__credits b {
   margin-right: 8px;
   color: var(--ivory);
-  font: 500 64px/1 var(--serif);
-  font-variant-numeric: lining-nums;
+  font: 600 64px/1 var(--sans);
 }
 
 .pack__price {
   margin-top: 18px !important;
-  font: 500 26px/1.2 var(--serif);
-  font-variant-numeric: lining-nums;
+  font: 600 26px/1.2 var(--sans);
 }
 
 .pack__each {
@@ -1362,7 +1029,7 @@ textarea {
 .step-box legend {
   padding: 0 10px;
   margin-left: -10px;
-  color: var(--gold);
+  color: var(--accent);
   font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.26em;
@@ -1383,8 +1050,8 @@ textarea {
 .drop:hover,
 .drop.is-over,
 .drop:focus-within {
-  border-color: var(--gold);
-  background: rgba(200, 164, 106, 0.05);
+  border-color: var(--accent);
+  background: rgba(255, 45, 38, 0.05);
 }
 
 .drop.is-done {
@@ -1400,7 +1067,7 @@ textarea {
   height: 48px;
   border: 1px solid var(--line-strong);
   border-radius: 50%;
-  color: var(--gold-bright);
+  color: var(--accent-bright);
   font-size: 20px;
 }
 
@@ -1417,7 +1084,7 @@ textarea {
 
 .drop__text b {
   overflow: hidden;
-  font: 500 21px/1.3 var(--serif);
+  font: 600 21px/1.3 var(--sans);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1437,7 +1104,7 @@ textarea {
   display: block;
   width: 0;
   height: 100%;
-  background: var(--gold);
+  background: var(--accent);
   transition: width 0.2s linear;
 }
 
@@ -1473,15 +1140,15 @@ textarea {
 }
 
 .choice:has(input:checked) {
-  border-color: var(--gold);
-  background: rgba(200, 164, 106, 0.06);
+  border-color: var(--accent);
+  background: rgba(255, 45, 38, 0.06);
 }
 
 .choice input {
   width: 16px;
   height: 16px;
   margin: 4px 0 0;
-  accent-color: var(--gold);
+  accent-color: var(--accent);
 }
 
 .choice__body {
@@ -1490,7 +1157,7 @@ textarea {
 }
 
 .choice__name {
-  font: 500 19px/1.3 var(--serif);
+  font: 600 19px/1.3 var(--sans);
 }
 
 .choice__body small {
@@ -1500,9 +1167,8 @@ textarea {
 }
 
 .choice__cost {
-  color: var(--gold-bright);
-  font: 500 20px/1.2 var(--serif);
-  font-variant-numeric: lining-nums;
+  color: var(--accent-bright);
+  font: 600 20px/1.2 var(--sans);
 }
 
 .summary {
@@ -1545,8 +1211,7 @@ textarea {
 }
 
 .summary__total {
-  font: 500 30px/1.1 var(--serif);
-  font-variant-numeric: lining-nums;
+  font: 600 30px/1.1 var(--sans);
 }
 
 .summary__after {
@@ -1585,7 +1250,7 @@ textarea {
 
 .ledger .num {
   text-align: right;
-  font-variant-numeric: lining-nums tabular-nums !important;
+  font-variant-numeric: tabular-nums;
 }
 
 .ledger .plus {
@@ -1613,7 +1278,7 @@ textarea {
 .toast {
   padding: 14px 18px;
   border: 1px solid var(--line-strong);
-  border-left: 2px solid var(--gold);
+  border-left: 2px solid var(--accent);
   background: #17171a;
   color: var(--ivory);
   font-size: 14px;

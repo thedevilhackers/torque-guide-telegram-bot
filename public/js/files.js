@@ -156,7 +156,7 @@ function authPanel(mode) {
     h("a", { class: "tab", href: "#register", role: "tab", "aria-selected": String(mode === "register"), text: "Create account" })
   );
   const error = formError();
-  const submit = h("button", { class: "btn btn--gold", type: "submit", text: mode === "signin" ? "Sign in" : "Create account" });
+  const submit = h("button", { class: "btn btn--primary", type: "submit", text: mode === "signin" ? "Sign in" : "Create account" });
   const form = h("form", { class: "form", novalidate: true },
     mode === "register" ? field("Your name", input("name", { autocomplete: "name", maxlength: 80, required: true })) : null,
     mode === "register" ? field("Workshop", input("company", { autocomplete: "organization", maxlength: 80 }), { hint: "(optional)" }) : null,
@@ -184,7 +184,7 @@ function authPanel(mode) {
 
 function resetPanel(token) {
   const error = formError();
-  const submit = h("button", { class: "btn btn--gold", type: "submit", text: "Set password" });
+  const submit = h("button", { class: "btn btn--primary", type: "submit", text: "Set password" });
   const form = h("form", { class: "form", novalidate: true },
     field("New password", input("password", { type: "password", autocomplete: "new-password", minlength: 8, required: true }), { full: true, hint: "(at least 8 characters)" }),
     h("div", { class: "full" }, submit),
@@ -233,7 +233,7 @@ async function refresh() {
 function orderCard(order) {
   const { vehicle } = order;
   const actions = [];
-  if (order.tuned) actions.push(h("a", { class: "btn btn--gold btn--small", href: `/api/portal/orders/${order.id}/download`, download: "", text: "Download tuned file" }));
+  if (order.tuned) actions.push(h("a", { class: "btn btn--primary btn--small", href: `/api/portal/orders/${order.id}/download`, download: "", text: "Download tuned file" }));
   actions.push(h("a", { class: "link", href: `/api/portal/orders/${order.id}/download?file=original`, download: "", text: "Original" }));
   if (order.status === "submitted") {
     const cancel = h("button", { class: "link", type: "button", text: "Cancel & refund" });
@@ -265,7 +265,7 @@ async function viewFiles() {
   const open = orders.filter((order) => ["submitted", "in_progress"].includes(order.status)).length;
   shell("files",
     h("section", { class: "portal__section" },
-      h("div", { class: "section-row" }, h("h2", { class: "card__title", text: orders.length ? `${orders.length} file${orders.length === 1 ? "" : "s"}${open ? ` · ${open} in the workshop` : ""}` : "No files yet" }), h("a", { class: "btn btn--gold btn--small", href: "#new", text: "New file" })),
+      h("div", { class: "section-row" }, h("h2", { class: "card__title", text: orders.length ? `${orders.length} file${orders.length === 1 ? "" : "s"}${open ? ` · ${open} in the workshop` : ""}` : "No files yet" }), h("a", { class: "btn btn--primary btn--small", href: "#new", text: "New file" })),
       state.catalog.note ? h("p", { class: "fineprint", text: state.catalog.note }) : null,
       orders.length
         ? h("div", { class: "orders" }, ...orders.map(orderCard))
@@ -331,7 +331,7 @@ async function viewNew() {
   const year = new Date().getFullYear();
   const total = h("b", { class: "summary__total" });
   const after = h("span", { class: "summary__after" });
-  const submit = h("button", { class: "btn btn--gold", type: "submit" });
+  const submit = h("button", { class: "btn btn--primary", type: "submit" });
   const error = formError();
   const form = h("form", { class: "form order-form", novalidate: true },
     h("fieldset", { class: "step-box full" }, h("legend", { text: "1 · Original file" }), drop),
@@ -423,11 +423,11 @@ function paymentPanel(purchase) {
         route();
       })
     );
-    return h("div", { class: "pay" }, h("a", { class: "btn btn--gold btn--small", href: purchase.payUrl, text: `Pay ${money(purchase.amount)} online` }), check);
+    return h("div", { class: "pay" }, h("a", { class: "btn btn--primary btn--small", href: purchase.payUrl, text: `Pay ${money(purchase.amount)} online` }), check);
   }
   if (!purchase.upi) return null;
   const reference = input("reference", { inputmode: "numeric", maxlength: 40, placeholder: "12-digit UPI reference (UTR)", required: true });
-  const send = h("button", { class: "btn btn--gold btn--small", type: "submit", text: "I've paid" });
+  const send = h("button", { class: "btn btn--primary btn--small", type: "submit", text: "I've paid" });
   const error = formError();
   const copy = h("button", { class: "link", type: "button", text: "Copy UPI ID" });
   copy.addEventListener("click", async () => {
@@ -479,12 +479,12 @@ async function viewCredits() {
   const packCard = (pack) => {
     const buttons = [];
     if (catalog.payments.upi) {
-      const upi = h("button", { class: "btn btn--gold btn--small", type: "button", text: "Pay by UPI" });
+      const upi = h("button", { class: "btn btn--primary btn--small", type: "button", text: "Pay by UPI" });
       upi.addEventListener("click", () => buy(pack, "upi", upi));
       buttons.push(upi);
     }
     if (catalog.payments.online) {
-      const online = h("button", { class: `btn btn--small${catalog.payments.upi ? "" : " btn--gold"}`, type: "button", text: "Card / UPI online" });
+      const online = h("button", { class: `btn btn--small${catalog.payments.upi ? "" : " btn--primary"}`, type: "button", text: "Card / UPI online" });
       online.addEventListener("click", () => buy(pack, "online", online));
       buttons.push(online);
     }

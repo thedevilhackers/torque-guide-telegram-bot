@@ -2,9 +2,8 @@
 
 One Node.js app runs four things that share one database:
 
-- **Home page** (`/`): a simple, quiet page in black, ivory and champagne gold: what the workshop does, the tuning file service, and a form to request a visit.
+- **Home page** (`/`): the "Find your car" search with interactive Stage 1 power and torque charts, Stage 1 booking, services, an "Our work" photo gallery, supported ECUs, the tuning file service and a visit section.
 - **Tuning file service** (`/files`): tuners and workshops open an account, buy credits, upload an original ECU read, choose a tune and add-ons priced in credits, and download the finished file.
-- **Car finder** (`/finder`): a live "Find your car" search with interactive Stage 1 power and torque charts, Stage 1 booking, services, an "Our work" photo gallery, supported ECUs and a visit section.
 - **Tool support** (`/tools`): customers search their car to see its usual ECU and how Autotuner and KESS3 read it (OBD, bench or boot), with the full support list by ECU family.
 - **Shop** (`/shop`): products with categories, search and sorting, a bag and checkout. Orders are saved, and the customer sends the order to you on WhatsApp in one tap.
 - **Admin panel** (`/admin`): full access to orders, enquiries, file orders, customers and their credits, payments, tune options, credit packs, products (with photo upload), the Stage 1 vehicle database, ECUs, brands, services, gallery photos, site settings and backups.
@@ -15,7 +14,7 @@ It has no npm dependencies. The Stage 1 graphs are drawn in plain JavaScript, so
 
 ## What customers see
 
-**Home page.** A calm, typographic page: a large serif headline (“Performance, refined.”), the five services, how the tuning file service works in four steps, and a **Visit** section with the address, hours, phone, WhatsApp, Instagram and a **Request a visit** form. The form saves an enquiry (it appears in Admin → Enquiries and alerts you on Telegram), then offers WhatsApp with the customer's name, phone, car and service. The address, phone, hours and Instagram come from the admin settings. Old links to sections of the earlier home page (such as `/#car=…`) forward to `/finder`.
+**Home page.** The hero and the "Read. Calibrate. Verify." story animate as you scroll, with a live power counter and a curve that draws itself. **Find your car** searches the database as you type, or browses by brand. It shows Stage 1 figures and an interactive chart, where you hover or use the arrow keys to read values; power and torque are separate panels on a shared rpm axis, and there's also a table view. A **Stage 1 / 2 / 3** switch shows each stage's figures, chart, the hardware it needs and a downloadable power graph. **Book Stage 1** saves an enquiry and hands it to WhatsApp. If a car isn't listed and AI is on, "Ask AI to identify it" estimates it; the estimate is clearly labelled and kept within your gain limits. A **Tuning file service** section explains the four steps and links to `/files`. Links to `/finder` (where this page was for a while) forward to the home page.
 
 **Tuning file service** (`/files`). For tuners and workshops who read ECUs themselves:
 
@@ -25,8 +24,6 @@ It has no npm dependencies. The Stage 1 graphs are drawn in plain JavaScript, so
 4. **Download.** When you upload the tuned file to the order, it shows as **Ready** with a download button, along with any message you wrote. Customers can cancel an order (and get the credits back) until you start on it; if you reject or cancel an order, the credits go back automatically.
 
 Every credit change (purchase, order, refund, adjustment) is recorded in the customer's credit history. Tune options don't include, and the page says the workshop doesn't do, removal of emissions equipment (DPF, EGR, AdBlue, catalysts) or immobilisers.
-
-**Car finder.** The hero and the "Read. Calibrate. Verify." story animate as you scroll, with a live power counter and a curve that draws itself. **Find your car** searches the database as you type, or browses by brand. It shows Stage 1 figures and an interactive chart, where you hover or use the arrow keys to read values; power and torque are separate panels on a shared rpm axis, and there's also a table view. A **Stage 1 / 2 / 3** switch shows each stage's figures, chart, the hardware it needs and a downloadable power graph. **Book Stage 1** saves an enquiry and hands it to WhatsApp. If a car isn't listed and AI is on, "Ask AI to identify it" estimates it; the estimate is clearly labelled and kept within your gain limits.
 
 **Tool support.** A separate page, linked from the menu on every page and from each car in Find your car. Search a car to see its usual ECU, whether you tune it, and how Autotuner and KESS3 read it: OBD (through the diagnostic port), bench or boot. Below it, the whole support list by ECU family, filtered by petrol or diesel. Cars without a known ECU ask for a photo of the ECU label on WhatsApp. The bot has the same check under **Can you read my car?** (or `/read`).
 
@@ -192,13 +189,13 @@ Web services with disks need a paid instance type (the blueprint uses Starter). 
 ## Customise
 
 - **Content and catalogue**: use the admin panel. The first-run defaults live in `src/seed-data.js`.
-- **Look**: `public/css/lux.css` (the home page and file service; colour tokens at the top), `public/css/site.css` (car finder, tool support and shop) and `public/admin/admin.css`.
+- **Look**: `public/css/site.css` (colour tokens at the top), `public/css/lux.css` (the file service, in the same colours) and `public/admin/admin.css`.
 - **Telegram PNG graph**: `THEME` in `src/dyno-chart.js`.
 - **AI gain limits**: `STAGE1_GAINS` in `src/vehicles.js`.
 
-## Home page
+## Home page and file service
 
-The home page is `public/index.html` with `public/css/lux.css` and `public/js/home-lux.js`; the file service is `public/files.html` with `public/js/files.js`, sharing `public/js/lux.js`. The fonts, Cormorant Garamond for headings and Inter for text (SIL Open Font License, in `public/fonts/`), come from your own server, as the site's security settings require. The earlier fiery home page, its 3D car and its animation libraries were removed; they remain in the git history.
+The home page is `public/index.html` with `public/js/home.js` and `public/css/site.css`. The file service is `public/files.html` with `public/js/files.js`, `public/js/lux.js` and `public/css/lux.css`. A fiery landing page and a black-and-gold page were tried as the home page and removed; they remain in the git history.
 
 ## Brand
 
