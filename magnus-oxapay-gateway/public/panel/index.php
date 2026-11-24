@@ -131,7 +131,7 @@ $loginUrl = (string) (($app->config['panel']['login_url'] ?? '') ?: $app->db()->
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex">
     <title><?= $e($tab === 'topup' ? 'Top up' : 'Telegram & security') ?> · <?= $e($site['name']) ?></title>
-    <link rel="stylesheet" href="panel.css?v=1">
+    <link rel="stylesheet" href="panel.css?v=2">
 </head>
 <body>
 <main class="wrap">
@@ -196,6 +196,25 @@ $loginUrl = (string) (($app->config['panel']['login_url'] ?? '') ?: $app->db()->
                     <p class="msg" id="topup-msg" role="status" hidden></p>
                 </form>
             </section>
+
+            <?php if ($view['referral'] !== null): $ref = $view['referral']; ?>
+                <section class="card">
+                    <div class="row">
+                        <h2>🎁 Invite friends</h2>
+                        <span class="badge ok"><?= $e(number_format($ref['earned'], 2)) ?> earned</span>
+                    </div>
+                    <p class="muted">When a friend tops up <?= $e($ref['min']) ?> or more for the first time, you get <b><?= $e($ref['percent']) ?></b> of it as
+                        credit and they get <b><?= $e($ref['friend_percent']) ?></b> extra.</p>
+                    <div class="copy">
+                        <input id="ref-link" value="<?= $e($ref['web']) ?>" readonly aria-label="Your invite link">
+                        <button class="btn" type="button" id="ref-copy" data-copy="ref-link">Copy</button>
+                    </div>
+                    <?php if ($ref['telegram'] !== ''): ?>
+                        <p class="small muted">Telegram link: <a href="<?= $e($ref['telegram']) ?>" target="_blank" rel="noopener"><?= $e($ref['telegram']) ?></a></p>
+                    <?php endif; ?>
+                    <p class="small muted">Friends invited: <b><?= (int) $ref['friends'] ?></b> · rewarded: <b><?= (int) $ref['rewarded'] ?></b></p>
+                </section>
+            <?php endif; ?>
 
             <section class="card">
                 <h2>Recent top-ups</h2>
@@ -275,6 +294,6 @@ $loginUrl = (string) (($app->config['panel']['login_url'] ?? '') ?: $app->db()->
 </main>
 <script type="application/json" id="panel-config"><?= json_encode($client, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>
 <script src="qrcode.js?v=1.4.4"></script>
-<script src="panel.js?v=1"></script>
+<script src="panel.js?v=2"></script>
 </body>
 </html>

@@ -1227,7 +1227,7 @@ test('bot profile: standard description, About text and command menus', function
     $about = telegramCalls($fake, 'setMyShortDescription')[0]['short_description'];
     check(\Gateway\BotProfile::length($about) <= 120 && strpos($about, 'Test Carrier') !== false, 'about fits and names the company');
     $menus = telegramCalls($fake, 'setMyCommands');
-    same(['topup', 'myorders', 'myaccount', 'status', 'support', 'help', 'cancel'], commandNames($menus[0]), 'customer menu');
+    same(['topup', 'myorders', 'myaccount', 'status', 'support', 'invite', 'help', 'cancel'], commandNames($menus[0]), 'customer menu');
     check(!isset($menus[0]['scope']), 'customer menu is the default');
     same(['type' => 'chat', 'chat_id' => 999], $menus[1]['scope'], 'admin menu in the admin chat');
     check(in_array('addcredit', commandNames($menus[1]), true) && in_array('topup', commandNames($menus[1]), true), 'admins get both menus');
@@ -1643,6 +1643,110 @@ test('backups: encrypted file goes to Telegram as a document', function () {
     same($file, $call['document']['file'], 'uploaded as a file');
     same('💾 <b>Nightly backup</b>', $call['caption']);
     unlink($file);
+});
+
+// ------------------------------------------------------------ referrals
+
+/** Creates and pays a web order; returns the credited order. */
+function paidOrder(\Gateway\App $app, FakeServices $fake, string $username, string $amount, string $ref = '', array $options = []): array
+{
+    $order = $app->payments()->createOrder(['username' => $username, 'amount' => $amount, 'ref' => $ref], 'web', $options);
+    $fake->oxapayStatus($order['track_id'], 'Paid');
+    [$body, $hmac] = $fake->webhook($order['track_id'], 'Paid');
+    $app->payments()->handleWebhook($body, $hmac);
+
+    return $app->payments()->getOrder((string) $order['id']);
+}
+
+function bonusRefills(FakeServices $fake): array
+{
+    return array_values(array_filter($fake->refills, static function (array $r): bool {
+        return strpos($r['description'], 'referral #') !== false;
+    }));
+}
+
+test('referrals: invited friend and inviter both get a bonus on the first top-up', function () {
+    [$app, $fake] = makeApp(['referral' => ['percent' => 10, 'friend_percent' => 5, 'min_amount' => 10, 'max_bonus' => 20]]);
+    linkChat($app, $fake, 555, 'alice');
+    $code = $app->referrals()->codeFor('alice');
+    same($code, $app->referrals()->codeFor('ALICE'), 'one code per customer');
+    check(strpos($app->referrals()->links('alice')['web'], '/?ref=' . $code) !== false, 'web link');
+
+    $order = paidOrder($app, $fake, '100234', '50', strtolower($code));
+    same('credited', $order['status']);
+    $bonuses = bonusRefills($fake);
+    same(2, count($bonuses), 'two bonus refills');
+    same([8, 2.5], [$bonuses[0]['id_user'], $bonuses[0]['credit']], 'friend: 5% of 50');
+    same([7, 5.0], [$bonuses[1]['id_user'], $bonuses[1]['credit']], 'inviter: 10% of 50');
+    $msg = messagesTo($fake, '555');
+    check(strpos(end($msg)['text'], 'Referral bonus') !== false && strpos(end($msg)['text'], '+5.00') !== false, 'inviter told');
+    same(['friends' => 1, 'rewarded' => 1, 'earned' => 5.0], $app->referrals()->stats('alice'));
+
+    // Only the first top-up counts.
+    paidOrder($app, $fake, '100234', '100', $code);
+    same(2, count(bonusRefills($fake)), 'no second bonus');
+});
+
+test('referrals: abuse rules', function () {
+    [$app, $fake] = makeApp(['referral' => ['min_amount' => 20, 'max_bonus' => 1, 'max_per_month' => 1]]);
+    $code = $app->referrals()->codeFor('alice');
+
+    paidOrder($app, $fake, 'alice', '50', $code);
+    same(0, count(bonusRefills($fake)), 'no self-referral');
+
+    $fake->users[30] = ['id' => 30, 'username' => 'old', 'credit' => 0, 'creationdate' => date('Y-m-d H:i:s', time() - 90 * 86400)];
+    paidOrder($app, $fake, 'old', '50', $code);
+    same(0, count(bonusRefills($fake)), 'old accounts do not count');
+
+    $fake->users[31] = ['id' => 31, 'username' => 'paidbefore', 'credit' => 0];
+    paidOrder($app, $fake, 'paidbefore', '50');
+    paidOrder($app, $fake, 'paidbefore', '50', $code);
+    same(0, count(bonusRefills($fake)), 'customers who already paid do not count');
+
+    $fake->users[32] = ['id' => 32, 'username' => 'small', 'credit' => 0];
+    paidOrder($app, $fake, 'small', '10', $code);
+    same(0, count(bonusRefills($fake)), 'first top-up below the minimum: bonus waits');
+    paidOrder($app, $fake, 'small', '25', $code);
+    $bonuses = bonusRefills($fake);
+    same([1.0, 1.0], array_column($bonuses, 'credit'), 'paid on the next big enough top-up, capped by max_bonus');
+
+    $fake->users[33] = ['id' => 33, 'username' => 'second', 'credit' => 0];
+    paidOrder($app, $fake, 'second', '50', $code);
+    same(2, count(bonusRefills($fake)), 'monthly limit per inviter');
+    same('rejected', $app->db()->one("SELECT status FROM oxg_referrals WHERE friend = 'second'")['status']);
+
+    paidOrder($app, $fake, '100234', '50', 'NOSUCHCODE');
+    same(null, $app->db()->one("SELECT status FROM oxg_referrals WHERE friend = '100234'"), 'unknown codes ignored');
+});
+
+test('referrals: invite links in the bot and the panel, settings', function () {
+    [$app, $fake] = makeApp();
+    $code = $app->referrals()->codeFor('alice');
+
+    tgSay($app, $fake, 777, '/start r_' . $code);
+    $welcome = messagesTo($fake, '777');
+    check(strpos($welcome[0]['text'], 'A friend invited you') !== false, 'friend welcomed');
+    tgSay($app, $fake, 777, '/topup 100234 25');
+    same('pending', $app->db()->one("SELECT status FROM oxg_referrals WHERE friend = '100234'")['status'], 'payment from that chat carries the invite');
+
+    $reply = tgSay($app, $fake, 888, '/invite');
+    check(strpos($reply['text'], 'Link your Telegram') !== false, 'needs a linked account');
+    linkChat($app, $fake, 555, 'alice');
+    $reply = tgSay($app, $fake, 555, '/invite');
+    check(strpos($reply['text'], '?ref=' . $code) !== false && strpos($reply['text'], 'start=r_' . $code) !== false, 'both links');
+    check(strpos($reply['reply_markup']['inline_keyboard'][0][0]['url'], 'https://t.me/share/url?url=') === 0, 'share button');
+
+    [$panel] = makePanel($app);
+    same($code, $panel->overview()['referral']['code'], 'panel shows the link');
+
+    $confirm = tgTap($app, $fake, 999, 'adm:reftoggle');
+    tgTap($app, $fake, 999, confirmButton($confirm));
+    same(false, $app->referrals()->enabled(), 'turned off from the bot');
+    same(null, $panel->overview()['referral'], 'panel hides it');
+    tgTap($app, $fake, 999, 'adm:refset:friend');
+    $confirm = tgSay($app, $fake, 999, '7.5');
+    tgTap($app, $fake, 999, confirmButton($confirm));
+    same(7.5, (float) $app->config['referral']['friend_percent']);
 });
 
 test('telegram: unexpected errors reply politely instead of crashing', function () {

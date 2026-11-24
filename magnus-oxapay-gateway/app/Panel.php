@@ -113,6 +113,28 @@ final class Panel
                 'linked' => count($this->app->customers()->chatsForUsername((string) $user['username'])),
             ],
             'two_step' => $this->twoStepOn(),
+            'referral' => $this->referral((string) $user['username']),
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>|null the customer's invite link and earnings, if the program is on
+     */
+    private function referral(string $username): ?array
+    {
+        $referrals = $this->app->referrals();
+        if (!$referrals->enabled()) {
+            return null;
+        }
+        $r = $this->app->config['referral'];
+        $percent = static function ($value): string {
+            return rtrim(rtrim(number_format((float) $value, 2), '0'), '.') . '%';
+        };
+
+        return $referrals->links($username) + $referrals->stats($username) + [
+            'percent' => $percent($r['percent']),
+            'friend_percent' => $percent($r['friend_percent']),
+            'min' => $this->app->payments()->money($r['min_amount']),
         ];
     }
 

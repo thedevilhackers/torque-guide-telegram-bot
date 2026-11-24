@@ -262,6 +262,13 @@ final class Payments
         $this->app->log('info', 'Order created', [
             'order' => $id, 'user' => $user['username'], 'amount' => $quote['amount'], 'source' => $source, 'track' => $created['track_id'],
         ]);
+        if (trim((string) ($input['ref'] ?? '')) !== '') {
+            try {
+                $this->app->referrals()->attach((string) $input['ref'], $user);
+            } catch (\Throwable $e) {
+                $this->app->log('warning', 'Referral could not be noted', ['order' => $id, 'error' => $e->getMessage()]);
+            }
+        }
 
         return $this->getOrder($id) ?? [];
     }
@@ -685,6 +692,11 @@ final class Payments
     {
         if (!empty($order['promo_code'])) {
             $this->app->promos()->countUse((string) $order['promo_code']);
+        }
+        try {
+            $this->app->referrals()->onCredited($order);
+        } catch (\Throwable $e) {
+            $this->app->log('error', 'Referral bonus step failed', ['order' => $order['id'], 'error' => $e->getMessage()]);
         }
     }
 

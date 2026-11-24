@@ -61,7 +61,7 @@ $logo = static function () use ($site, $theme): void {
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=<?= Settings::THEME_FONTS[$theme] ?>&display=swap">
-    <link rel="stylesheet" href="<?= Web::e($assetBase) ?>assets/style.css?v=5">
+    <link rel="stylesheet" href="<?= Web::e($assetBase) ?>assets/style.css?v=6">
 </head>
 <body>
 <div class="backdrop" aria-hidden="true"></div>
@@ -112,6 +112,6 @@ $logo = static function () use ($site, $theme): void {
         </footer>
     </main>
 <script type="application/json" id="gateway-config"><?= json_encode($public, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>
-<script src="<?= Web::e($assetBase) ?>assets/app.js?v=5" defer></script>
+<script src="<?= Web::e($assetBase) ?>assets/app.js?v=6" defer></script>
 </body>
 </html>

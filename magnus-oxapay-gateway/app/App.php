@@ -118,6 +118,16 @@ final class App
                 'notify_admins' => true,
                 'report_hour' => 9,
             ],
+            'referral' => [
+                // Referral program (app/Referrals.php)
+                'enabled' => true,
+                'percent' => 5,               // bonus for the customer who invited, % of the friend's first top-up
+                'friend_percent' => 5,        // welcome bonus for the friend, % of their first top-up
+                'min_amount' => 10,           // the friend's first top-up must be at least this much
+                'max_bonus' => 20,            // most credit either side gets for one referral
+                'max_per_month' => 20,        // most rewarded referrals per customer in 30 days
+                'max_account_age_days' => 30, // the friend's MagnusBilling account must be newer than this (0 = any)
+            ],
             'backup' => [
                 // Nightly backups (bin/backup.sh, installed by install.sh)
                 'enabled' => true,
@@ -268,6 +278,11 @@ final class App
     public function cron(): Cron
     {
         return new Cron($this);
+    }
+
+    public function referrals(): Referrals
+    {
+        return new Referrals($this);
     }
 
     public function fraudGuard(): FraudGuard

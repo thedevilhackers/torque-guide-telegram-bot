@@ -140,3 +140,6 @@ details.danger summary { color: var(--err); }
     .balance { text-align: left; width: 100%; }
     .inline input { flex: 1; }
 }
+
+.copy { display: flex; gap: 8px; margin-bottom: 10px; }
+.copy input { flex: 1; font: 13px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background: #f7f9fc; }

@@ -15,7 +15,7 @@ trait BotExtras
 {
     /** Admin buttons that view-only admins may use. */
     private static $viewerCommands = ['panel', 'recent', 'stats', 'order', 'account', 'find', 'findu', 'sip', 'live',
-        'linked', 'calls', 'cust', 'banks', 'promos', 'settings', 'botprofile', 'fraud'];
+        'linked', 'calls', 'cust', 'banks', 'promos', 'settings', 'botprofile', 'fraud', 'ref'];
 
     // ------------------------------------------------------------ public hooks
 
@@ -470,6 +470,20 @@ trait BotExtras
             case 'fraud':
                 $this->sendFraudSettings($chatId);
                 return true;
+            case 'ref':
+                $this->sendReferralSettings($chatId);
+                return true;
+            case 'reftoggle':
+                $this->askSettingChange($chatId, 'ref_enabled', empty($this->app->config['referral']['enabled']) ? 'on' : 'off');
+                return true;
+            case 'refset':
+                $name = $arg === 'friend' ? 'ref_friend_percent' : 'ref_percent';
+                $this->setSession($chatId, 'adm_setting', ['name' => $name]);
+                $this->say($chatId, $arg === 'friend'
+                    ? '🎁 Welcome bonus for the <b>invited friend</b>, in % of their first top-up? (e.g. <code>5</code>, or <code>0</code> for none)'
+                    : '🎁 Bonus for the <b>customer who invites</b>, in % of the friend\'s first top-up? (e.g. <code>5</code>, or <code>0</code> for none)',
+                    $this->cancelKeyboard());
+                return true;
             case 'fraudset':
                 $names = ['daily' => 'fraud_daily', 'hour' => 'fraud_hour', 'rate' => 'fraud_rate', 'calls' => 'fraud_calls'];
                 if (!isset($names[$arg])) {
@@ -511,6 +525,103 @@ trait BotExtras
         }
 
         return false;
+    }
+
+    // ---------------------------------------------------------------- referrals
+
+    /**
+     * /start r_<code>: remembered for this chat for 30 days and used for its payments.
+     */
+    private function acceptReferral(string $chatId, string $code, bool $admin): void
+    {
+        $referrals = $this->app->referrals();
+        $code = Referrals::normalizeCode($code);
+        if ($referrals->enabled() && $code !== '' && $referrals->referrerFor($code) !== null) {
+            $this->app->db()->kvSet('ref:chat:' . $chatId, (string) json_encode(['code' => $code, 'until' => time() + 30 * 86400]));
+            $r = $this->app->config['referral'];
+            $this->say($chatId, '🎁 <b>A friend invited you!</b>' . "\nYou get <b>" . self::e(rtrim(rtrim(number_format((float) $r['friend_percent'], 2), '0'), '.'))
+                . '%</b> extra credit on your first top-up of ' . self::e($this->payments()->money($r['min_amount'])) . ' or more.');
+        }
+        $this->sendWelcome($chatId, $admin);
+    }
+
+    private function chatReferral(string $chatId): string
+    {
+        $saved = json_decode((string) $this->app->db()->kvGet('ref:chat:' . $chatId), true);
+
+        return is_array($saved) && (int) ($saved['until'] ?? 0) > time() ? (string) ($saved['code'] ?? '') : '';
+    }
+
+    /**
+     * /invite: the customer's own referral links (needs a linked account).
+     */
+    private function sendReferral(string $chatId): void
+    {
+        $referrals = $this->app->referrals();
+        if (!$referrals->enabled()) {
+            $this->say($chatId, 'The referral program is not running at the moment.');
+            return;
+        }
+        $username = $this->app->customers()->linkedUsername($chatId);
+        if ($username === null) {
+            $this->say($chatId, 'Link your Telegram to your account first: ask us for an invite link, or open the customer panel and tap Connect Telegram.');
+            return;
+        }
+        $r = $this->app->config['referral'];
+        $links = $referrals->links($username);
+        $stats = $referrals->stats($username);
+        $percent = static function ($value): string {
+            return rtrim(rtrim(number_format((float) $value, 2), '0'), '.') . '%';
+        };
+        $lines = [
+            '🎁 <b>Invite friends, get bonus credit</b>',
+            'When a friend tops up ' . self::e($this->payments()->money($r['min_amount'])) . ' or more for the first time, you get <b>'
+                . self::e($percent($r['percent'])) . '</b> of it as credit, and they get <b>' . self::e($percent($r['friend_percent'])) . '</b> extra.',
+            '',
+            'Your link: ' . self::e($links['web']),
+        ];
+        if ($links['telegram'] !== '') {
+            $lines[] = 'Telegram: ' . self::e($links['telegram']);
+        }
+        $lines[] = '';
+        $lines[] = 'Friends invited: <b>' . $stats['friends'] . '</b> · rewarded: <b>' . $stats['rewarded'] . '</b> · you earned: <b>'
+            . self::e(number_format($stats['earned'], 2)) . '</b>';
+        $share = 'https://t.me/share/url?url=' . rawurlencode($links['telegram'] !== '' ? $links['telegram'] : $links['web'])
+            . '&text=' . rawurlencode('Cheap international calls with ' . $this->app->config['site']['name'] . '. Use my link for extra credit:');
+        $this->say($chatId, implode("\n", $lines), ['reply_markup' => ['inline_keyboard' => [[['text' => '📤 Share with a friend', 'url' => $share]]]]]);
+    }
+
+    private function sendReferralSettings(string $chatId): void
+    {
+        $r = $this->app->config['referral'];
+        $percent = static function ($value): string {
+            return rtrim(rtrim(number_format((float) $value, 2), '0'), '.') . '%';
+        };
+        $lines = [
+            '🎁 <b>Referrals</b>: <b>' . (!empty($r['enabled']) ? 'on' : 'off') . '</b>',
+            'Every customer has an invite link (in the panel and with /invite in the bot).',
+            'On a new friend\'s first top-up of ' . self::e($this->payments()->money($r['min_amount'])) . ' or more:',
+            '• the customer who invited gets <b>' . self::e($percent($r['percent'])) . '</b> as credit',
+            '• the friend gets <b>' . self::e($percent($r['friend_percent'])) . '</b> extra',
+            'At most ' . self::e(number_format((float) $r['max_bonus'], 2)) . ' credit each, ' . (int) $r['max_per_month'] . ' rewards per customer a month'
+                . ((int) $r['max_account_age_days'] > 0 ? ', only accounts newer than ' . (int) $r['max_account_age_days'] . ' days' : '') . ' <i>(config.php)</i>.',
+        ];
+        $recent = $this->app->referrals()->recent(6);
+        if ($recent !== []) {
+            $lines[] = '';
+            $lines[] = '<b>Latest</b>';
+            $icons = ['pending' => '⏳', 'paying' => '🔄', 'rewarded' => '✅', 'failed' => '🚨', 'rejected' => '⛔'];
+            foreach ($recent as $row) {
+                $lines[] = ($icons[$row['status']] ?? '•') . ' <code>' . self::e((string) $row['referrer']) . '</code> → <code>' . self::e((string) $row['friend']) . '</code>'
+                    . ($row['status'] === 'rewarded' ? ' · ' . self::e(number_format((float) $row['referrer_bonus'], 2)) . ' / ' . self::e(number_format((float) $row['friend_bonus'], 2)) : '')
+                    . (!empty($row['note']) ? ' · ' . self::e((string) $row['note']) : '');
+            }
+        }
+        $this->say($chatId, implode("\n", $lines), ['reply_markup' => ['inline_keyboard' => [
+            [['text' => !empty($r['enabled']) ? '⏸ Turn off' : '▶️ Turn on', 'callback_data' => 'adm:reftoggle']],
+            [['text' => '✏️ Inviter bonus %', 'callback_data' => 'adm:refset:percent'], ['text' => '✏️ Friend bonus %', 'callback_data' => 'adm:refset:friend']],
+            [['text' => '« Settings', 'callback_data' => 'adm:settings']],
+        ]]]);
     }
 
     // ------------------------------------------------------------- fraud guard

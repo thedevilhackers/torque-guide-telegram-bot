@@ -261,6 +261,27 @@ final class Database
             updated_at BIGINT NOT NULL
         )' . $suffix);
 
+        $this->pdo->exec('CREATE TABLE IF NOT EXISTS ' . $this->table('ref_codes') . ' (
+            code VARCHAR(16) NOT NULL PRIMARY KEY,
+            username VARCHAR(100) NOT NULL UNIQUE,
+            display VARCHAR(100) NOT NULL,
+            created_at BIGINT NOT NULL
+        )' . $suffix);
+
+        $this->pdo->exec('CREATE TABLE IF NOT EXISTS ' . $this->table('referrals') . ' (
+            id VARCHAR(24) NOT NULL PRIMARY KEY,
+            code VARCHAR(16) NOT NULL,
+            referrer VARCHAR(100) NOT NULL,
+            friend VARCHAR(100) NOT NULL UNIQUE,
+            status VARCHAR(20) NOT NULL,
+            order_id VARCHAR(32) NULL,
+            friend_bonus DECIMAL(14,4) NULL,
+            referrer_bonus DECIMAL(14,4) NULL,
+            created_at BIGINT NOT NULL,
+            rewarded_at BIGINT NULL,
+            note VARCHAR(500) NULL
+        )' . $suffix);
+
         // MySQL: settings values were VARCHAR(500); bank details and the bot description can be longer.
         if ($this->pdo->getAttribute(\PDO::ATTR_DRIVER_NAME) === 'mysql' && $this->kvGet('schema:settings_text') === null) {
             $this->pdo->exec('ALTER TABLE ' . $this->table('settings') . ' MODIFY svalue TEXT NOT NULL');

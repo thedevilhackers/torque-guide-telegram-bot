@@ -17,6 +17,24 @@
         try { return window.localStorage.getItem(STORAGE_KEY) || ''; } catch (e) { return ''; }
     }
 
+    // Invite links (?ref=CODE) are remembered for 30 days and sent with the payment.
+    var REF_KEY = 'gateway.ref';
+    (function () {
+        var match = /[?&]ref=([A-Za-z2-9]{6,12})(?:&|$)/.exec(window.location.search);
+        if (match) {
+            try { window.localStorage.setItem(REF_KEY, JSON.stringify({ code: match[1].toUpperCase(), until: Date.now() + 30 * 864e5 })); } catch (e) { /* storage unavailable */ }
+        }
+    }());
+
+    function referral() {
+        try {
+            var saved = JSON.parse(window.localStorage.getItem(REF_KEY) || 'null');
+            return saved && saved.until > Date.now() ? String(saved.code || '') : '';
+        } catch (e) {
+            return '';
+        }
+    }
+
     function api(action, params, body) {
         var url = 'api.php?action=' + encodeURIComponent(action);
         Object.keys(params || {}).forEach(function (key) {
@@ -221,6 +239,7 @@
                 username: user,
                 amount: value.toFixed(2),
                 promo: promo.code,
+                ref: referral(),
                 email: email ? email.value.trim() : ''
             }).then(function (res) {
                 if (res.ok && res.data && res.data.payment_url) {

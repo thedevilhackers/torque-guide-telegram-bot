@@ -18,6 +18,14 @@ $public = $app->publicConfig();
 $prefillUser = substr(preg_replace('/[^A-Za-z0-9_.@+\-]/', '', (string) ($_GET['username'] ?? '')) ?? '', 0, 64);
 $prefillAmount = preg_match('/^\d{1,9}(\.\d{1,2})?$/', (string) ($_GET['amount'] ?? '')) ? (string) $_GET['amount'] : '';
 $prefillPromo = preg_match('/^[A-Za-z0-9]{3,20}$/', (string) ($_GET['promo'] ?? '')) ? strtoupper((string) $_GET['promo']) : '';
+// ?ref=CODE: arrived through a customer's invite link (remembered by app.js and sent with the payment).
+$refNote = '';
+$referrals = $app->referrals();
+if ($referrals->enabled() && is_string($_GET['ref'] ?? null) && $referrals->referrerFor((string) $_GET['ref']) !== null) {
+    $r = $app->config['referral'];
+    $refNote = '🎁 A friend invited you: get ' . rtrim(rtrim(number_format((float) $r['friend_percent'], 2), '0'), '.')
+        . '% extra credit on your first top-up of ' . $payments->money($r['min_amount']) . ' or more.';
+}
 $title = $app->config['site']['name'] . ' · Top up';
 
 $coinColors = [
@@ -26,7 +34,7 @@ $coinColors = [
     'XMR' => '#ff6600', 'BCH' => '#8dc351', 'DAI' => '#f5ac37', 'SHIB' => '#e42d04', 'POL' => '#8247e5',
 ];
 
-$body = static function () use ($app, $pay, $payments, $prefillUser, $prefillAmount, $prefillPromo): void {
+$body = static function () use ($app, $pay, $payments, $prefillUser, $prefillAmount, $prefillPromo, $refNote): void {
     ?>
         <div class="card-head">
             <div>
@@ -41,6 +49,9 @@ $body = static function () use ($app, $pay, $payments, $prefillUser, $prefillAmo
             <li><b>3</b>Pay</li>
         </ol>
 
+    <?php if ($refNote !== ''): ?>
+        <p class="ref-note"><?= Web::e($refNote) ?></p>
+    <?php endif; ?>
     <form id="topup-form" class="form" novalidate>
         <div class="group">
             <label for="username">Account username</label>

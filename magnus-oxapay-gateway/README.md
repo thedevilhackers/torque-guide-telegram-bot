@@ -361,6 +361,24 @@ There are three ways to use your own texts:
 
 Telegram shows the description only in an empty chat. To check it, open the bot from an account that has never used it, or delete the chat and open it again.
 
+## One-tap top-up and referrals
+
+**One-tap top-up:** Telegram low-balance alerts show amount buttons, for example **💳 €10 · €25 · €50**. A tap creates the payment and replies with a **Pay** button, with no typing. The "payment confirmed" message also offers **⚡ the same amount again**.
+
+**Referrals:**
+
+- **Where customers find their link:** in the panel add-on (**Top up → 🎁 Invite friends**, with a Copy button) and with `/invite` in the bot (with a Share button).
+- **Link formats:** `https://…/pay/?ref=CODE` for the website, `https://t.me/<bot>?start=r_CODE` for Telegram. The website remembers the invite for 30 days, and so does the bot for that chat.
+- **The bonus:** when the invited friend makes their first top-up of at least `min_amount` (default 10), both get bonus credit in MagnusBilling. The inviter gets `percent` (default 5%) and the friend gets `friend_percent` (5%), each up to `max_bonus` (20). Both are told in Telegram, and admins see each one.
+- **Rules against abuse:**
+  - no inviting yourself;
+  - only friends who never paid before;
+  - only MagnusBilling accounts newer than `max_account_age_days` (30);
+  - at most `max_per_month` (20) rewards per inviter in 30 days;
+  - each bonus is paid once.
+  If a bonus fails, admins get the details to add it by hand.
+- **Settings:** in **🛠 Admin panel → ⚙️ Settings → 🎁 Referrals** you can turn it on or off, change both percentages and see the latest referrals. The other values are under `referral` in `config.php`.
+
 ## Fraud guard
 
 Every 5 minutes the gateway reads MagnusBilling's call records. It only reads them and never changes them. If it sees one of the warning signs below, admins get a Telegram alert. A stolen SIP password can run up a large bill in hours, and this catches it early.

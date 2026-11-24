@@ -139,6 +139,30 @@
         });
     }
 
+    // ----------------------------------------------------------------- invite
+
+    var copy = $('ref-copy');
+    if (copy) {
+        copy.addEventListener('click', function () {
+            var input = $(copy.getAttribute('data-copy'));
+            var done = function () {
+                copy.textContent = 'Copied ✓';
+                setTimeout(function () { copy.textContent = 'Copy'; }, 2000);
+            };
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(input.value).then(done, function () {
+                    input.select();
+                    document.execCommand('copy');
+                    done();
+                });
+            } else {
+                input.select();
+                document.execCommand('copy');
+                done();
+            }
+        });
+    }
+
     // ---------------------------------------------------------------- telegram
 
     var tg = $('tg');

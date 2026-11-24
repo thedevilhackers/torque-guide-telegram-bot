@@ -59,6 +59,9 @@ final class Settings
         'fraud_rate' => ['fraud', 'max_rate'],
         'fraud_calls' => ['fraud', 'max_calls'],
         'fraud_autoblock' => ['fraud', 'auto_block'],
+        'ref_enabled' => ['referral', 'enabled'],
+        'ref_percent' => ['referral', 'percent'],
+        'ref_friend_percent' => ['referral', 'friend_percent'],
     ];
 
     /** Settings stored as text (the others are numbers). */
@@ -91,7 +94,7 @@ final class Settings
                 $config[$section][$key] = $value;
             } elseif ($name === 'report_hour' || $name === 'fraud_calls') {
                 $config[$section][$key] = (int) $value;
-            } elseif ($name === 'fraud_autoblock') {
+            } elseif ($name === 'fraud_autoblock' || $name === 'ref_enabled') {
                 $config[$section][$key] = $value === '1';
             } else {
                 $config[$section][$key] = (float) $value;
@@ -172,7 +175,14 @@ final class Settings
             }
             return $value;
         }
-        if ($name === 'fraud_autoblock') {
+        if ($name === 'ref_percent' || $name === 'ref_friend_percent') {
+            $text = trim(rtrim(trim($value), '%'));
+            if (!preg_match('/^\d{1,3}(\.\d{1,2})?$/', $text) || (float) $text > 100) {
+                throw new UserError('invalid_value', 'Send a percentage from 0 to 100, such as 5.');
+            }
+            return number_format((float) $text, 2, '.', '');
+        }
+        if ($name === 'fraud_autoblock' || $name === 'ref_enabled') {
             $value = strtolower(trim($value));
             if (in_array($value, ['1', 'on', 'yes', 'true'], true)) {
                 return '1';

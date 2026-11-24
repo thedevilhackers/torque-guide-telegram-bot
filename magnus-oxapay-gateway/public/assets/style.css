@@ -1209,3 +1209,13 @@ a { color: var(--highlight); }
     .topbar, .legal-back, .toc { display: none !important; }
     .legal p, .legal li { color: #000; }
 }
+
+/* Invite-link note on the payment form */
+.ref-note {
+    margin: 0 0 16px;
+    padding: 10px 14px;
+    border: 1px dashed var(--accent);
+    border-radius: 12px;
+    font-size: 14px;
+    line-height: 1.45;
+}

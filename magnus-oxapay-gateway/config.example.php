@@ -104,6 +104,18 @@ return [
         'short_description' => '',      // About text on the bot's profile, max 120 characters (empty = standard text)
     ],
 
+    // ----------------------------------------------------------------- referrals
+    // Invite links for customers (panel add-on, /invite). Also in the bot: Settings > Referrals.
+    'referral' => [
+        'enabled' => true,
+        'percent' => 5,               // bonus for the customer who invited, % of the friend's first top-up
+        'friend_percent' => 5,        // welcome bonus for the friend
+        'min_amount' => 10,           // the friend's first top-up must be at least this
+        'max_bonus' => 20,            // most credit either side gets for one referral
+        'max_per_month' => 20,        // most rewarded referrals per customer in 30 days
+        'max_account_age_days' => 30, // only MagnusBilling accounts newer than this (0 = any)
+    ],
+
     // ------------------------------------------------------------ fraud guard
     // Alerts admins about suspicious calls (MagnusBilling credit; 0 = check off). Also in the bot: Settings > Fraud guard.
     'fraud' => [
