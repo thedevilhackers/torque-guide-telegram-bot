@@ -47,9 +47,66 @@ trait BotExtras
         $this->say(
             $chatId,
             "⚠️ <b>Low balance</b>\nAccount <code>" . self::e($username) . '</code> has <b>' . self::e(number_format($credit, 2))
-            . '</b> credit left. Top up now to keep calling.',
-            strlen($username) <= 56 ? ['reply_markup' => ['inline_keyboard' => [[['text' => '💳 Top up now', 'callback_data' => 'usr:' . $username]]]]] : []
+            . '</b> credit left. Tap an amount to top up now:',
+            $this->quickTopupKeyboard($username)
         );
+    }
+
+    /**
+     * One-tap top-up buttons: each one creates the payment straight away (callback qt:<amount>:<username>).
+     *
+     * @param string|null $again amount of the last payment, shown first as "same again"
+     */
+    private function quickTopupKeyboard(string $username, ?string $again = null): array
+    {
+        if (strlen($username) > 56 || !preg_match('/^[\x21-\x7e]+$/', $username)) {
+            return [];
+        }
+        $pay = $this->app->config['payments'];
+        $amounts = [];
+        foreach ((array) $pay['presets'] as $preset) {
+            $preset = (float) $preset;
+            if ($preset >= (float) $pay['min_amount'] && $preset <= (float) $pay['max_amount']) {
+                $amounts[] = $preset;
+            }
+        }
+        $rows = [];
+        if ($again !== null && (float) $again >= (float) $pay['min_amount'] && (float) $again <= (float) $pay['max_amount']) {
+            $rows[] = [['text' => '⚡ ' . $this->payments()->money($again, true) . ' again', 'callback_data' => 'qt:' . self::amountKey($again) . ':' . $username]];
+        }
+        $row = [];
+        foreach (array_slice($amounts, 0, 3) as $amount) {
+            $row[] = ['text' => '💳 ' . $this->payments()->money($amount, true), 'callback_data' => 'qt:' . self::amountKey($amount) . ':' . $username];
+        }
+        if ($row !== []) {
+            $rows[] = $row;
+        }
+        $rows[] = [['text' => 'Other amount', 'callback_data' => 'usr:' . $username]];
+
+        return ['reply_markup' => ['inline_keyboard' => $rows]];
+    }
+
+    /** Short amount for callback data: 25, 12.5 */
+    private static function amountKey($amount): string
+    {
+        return rtrim(rtrim(number_format((float) $amount, 2, '.', ''), '0'), '.');
+    }
+
+    /**
+     * A one-tap top-up button was pressed.
+     */
+    private function quickTopup(string $chatId, string $data): void
+    {
+        $parts = explode(':', $data, 3);
+        if (count($parts) !== 3 || !preg_match('/^\d{1,7}(\.\d{1,2})?$/', $parts[1])) {
+            return;
+        }
+        if (!$this->app->db()->rateLimit('tg_quick:' . $chatId, 10, 600)) {
+            $this->say($chatId, 'You have started several payments in a short time. Please wait a few minutes.');
+            return;
+        }
+        $this->clearSession($chatId);
+        $this->createPayment($chatId, $parts[2], $parts[1]);
     }
 
     public function dailyReport(): void

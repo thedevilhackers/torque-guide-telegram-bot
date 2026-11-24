@@ -1000,7 +1000,9 @@ test('cron: low-balance alert once per drop, again after recovery', function () 
     $alert = messagesTo($fake, '555');
     $alert = end($alert);
     check(strpos($alert['text'], 'Low balance') !== false && strpos($alert['text'], '1.50') !== false, 'alert sent');
-    same('usr:alice', $alert['reply_markup']['inline_keyboard'][0][0]['callback_data'], 'top up button');
+    $keys = $alert['reply_markup']['inline_keyboard'];
+    same(['qt:10:alice', 'qt:25:alice', 'qt:50:alice'], array_column($keys[0], 'callback_data'), 'one-tap amounts');
+    same('usr:alice', end($keys)[0]['callback_data'], 'other amount');
     $before = count(messagesTo($fake, '555'));
     $app->cron()->lowBalance();
     same($before, count(messagesTo($fake, '555')), 'not repeated');
@@ -1485,6 +1487,34 @@ test('panel add-on installer: menu items, permissions and exact undo', function 
     [$code] = addonCli($db, 'apply --addon-path=/pay/panel/ --undo=' . escapeshellarg($db . '.u2'));
     same(1, $code, 'apply refuses');
     @unlink($db); @unlink($undo);
+});
+
+test('one-tap top-up: amount buttons create the payment at once', function () {
+    [$app, $fake] = makeApp();
+    linkChat($app, $fake, 555, 'alice');
+    $reply = tgTap($app, $fake, 555, 'qt:25:alice');
+    check(strpos($reply['text'], 'Payment created') !== false, 'payment created');
+    $pay = $reply['reply_markup']['inline_keyboard'][0][0];
+    check(strpos($pay['text'], 'Pay') === 0 && strpos($pay['url'], 'http') === 0, 'Pay button');
+    $order = $app->payments()->ordersForUsername('alice', 1)[0];
+    same('25.00', number_format((float) $order['amount'], 2, '.', ''));
+    same('555', (string) $order['tg_chat_id'], 'updates go to this chat');
+
+    // After the payment is credited, the message offers the same amount again.
+    $app->bot()->notify('credited', $app->payments()->getOrder((string) $order['id']));
+    $done = messagesTo($fake, '555');
+    $done = end($done);
+    same('qt:25:alice', $done['reply_markup']['inline_keyboard'][0][0]['callback_data'], 'same again');
+
+    // Junk and too many taps are handled.
+    $before = count($app->payments()->ordersForUsername('alice', 50));
+    tgTap($app, $fake, 555, 'qt:abc:alice');
+    same($before, count($app->payments()->ordersForUsername('alice', 50)), 'bad amount ignored');
+    for ($i = 0; $i < 11; $i++) {
+        tgTap($app, $fake, 556, 'qt:10:alice');
+    }
+    $last = messagesTo($fake, '556');
+    check(strpos(end($last)['text'], 'wait a few minutes') !== false, 'rate limited');
 });
 
 test('telegram: unexpected errors reply politely instead of crashing', function () {

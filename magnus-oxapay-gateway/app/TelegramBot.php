@@ -389,6 +389,8 @@ final class TelegramBot
             $this->startTopup($chatId, null, null);
         } elseif (strpos($data, 'usr:') === 0) {
             $this->startTopup($chatId, substr($data, 4), null);
+        } elseif (strpos($data, 'qt:') === 0) {
+            $this->quickTopup($chatId, $data);
         } elseif ($data === 'unlink') {
             $this->app->customers()->unlink($chatId);
             $this->say($chatId, 'Your Telegram is no longer linked to an account. Ask us for a new invite link to link it again.');
@@ -1840,8 +1842,12 @@ final class TelegramBot
                 break;
         }
 
+        $customerButtons = [];
+        if ($event === 'credited' && (string) ($order['kind'] ?? 'topup') === 'topup') {
+            $customerButtons = $this->quickTopupKeyboard((string) $order['username'], (string) $order['amount']);
+        }
         if ($customer !== null && !empty($order['tg_chat_id'])) {
-            $this->say((string) $order['tg_chat_id'], $customer);
+            $this->say((string) $order['tg_chat_id'], $customer, $customerButtons);
         }
         if ($event === 'credited' && $customer !== null) {
             foreach ($this->app->customers()->chatsForUsername((string) $order['username']) as $linkedChat) {
@@ -1849,7 +1855,7 @@ final class TelegramBot
                     continue;
                 }
                 try {
-                    $this->say($linkedChat, $customer);
+                    $this->say($linkedChat, $customer, $customerButtons);
                 } catch (\Throwable $e) {
                     $this->app->log('warning', 'Linked customer notification failed', ['chat' => $linkedChat, 'error' => $e->getMessage()]);
                 }
