@@ -47,7 +47,11 @@ $body = static function () use ($view, $bot): void {
         <dl class="details receipt">
             <div><dt>Account</dt><dd><?= Web::e($view['username']) ?></dd></div>
             <div><dt>Amount</dt><dd><?= Web::e($view['amount_display']) ?></dd></div>
-            <div><dt>Credit</dt><dd><?= Web::e($view['credit']) ?><?= $view['bonus_percent'] > 0 ? ' <span class="chip">+' . Web::e((string) $view['bonus_percent']) . '%</span>' : '' ?></dd></div>
+            <?php if ($view['bundle'] !== null): ?>
+                <div><dt>Bundle</dt><dd>📦 <?= Web::e($view['bundle']) ?></dd></div>
+            <?php else: ?>
+                <div><dt>Credit</dt><dd><?= Web::e($view['credit']) ?><?= $view['bonus_percent'] > 0 ? ' <span class="chip">+' . Web::e((string) $view['bonus_percent']) . '%</span>' : '' ?></dd></div>
+            <?php endif; ?>
             <div><dt>Date</dt><dd id="st-date" data-ts="<?= (int) ($view['credited_at'] ?? $view['created_at']) ?>"><?= Web::e(date('d M Y, H:i', (int) ($view['credited_at'] ?? $view['created_at']))) ?></dd></div>
             <div>
                 <dt>Order</dt>

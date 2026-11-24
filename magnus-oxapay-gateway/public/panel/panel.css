@@ -143,3 +143,9 @@ details.danger summary { color: var(--err); }
 
 .copy { display: flex; gap: 8px; margin-bottom: 10px; }
 .copy input { flex: 1; font: 13px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background: #f7f9fc; }
+
+.bundles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin: 6px 0 10px; }
+.bundle { display: grid; gap: 4px; align-content: start; border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
+.bundle.on { border-color: var(--ok); background: var(--ok-soft); }
+.bundle .price { font-size: 20px; margin: 4px 0 8px; }
+.bundle .btn { width: 100%; }

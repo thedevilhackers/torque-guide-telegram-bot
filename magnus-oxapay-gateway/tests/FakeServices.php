@@ -34,6 +34,9 @@ final class FakeServices
     public $liveCalls = [];
     /** MagnusBilling setting "API allow multiple user/email" (default 0). */
     public $apiAllowSameEmail = false;
+    /** @var callable|null called with (user id, offer id) when a user's Offer is changed */
+    public $onOfferChange = null;
+
     /** Chats the bot has never talked to (setMyCommands for them fails). */
     public $unknownChats = [];
 
@@ -190,10 +193,13 @@ final class FakeServices
 
         if ($post['module'] === 'user' && $post['action'] === 'save' && empty($post['createUser']) && (int) $post['id'] > 0) {
             $id = (int) $post['id'];
-            foreach (['active', 'id_plan'] as $field) {
+            foreach (['active', 'id_plan', 'id_offer'] as $field) {
                 if (isset($post[$field])) {
                     $this->users[$id][$field] = (int) $post[$field];
                 }
+            }
+            if (isset($post['id_offer']) && $this->onOfferChange !== null) {
+                ($this->onOfferChange)($id, (int) $post['id_offer']); // like MagnusBilling's UserController
             }
             return self::json(['success' => true, 'rows' => [$this->users[$id]], 'msg' => 'Operation was successful.']);
         }

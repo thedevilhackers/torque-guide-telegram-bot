@@ -57,6 +57,9 @@ if ($isPost) {
             case 'topup':
                 $result = $panel->topup((string) ($input['amount'] ?? ''), (string) ($input['promo'] ?? ''), Web::clientIp($app));
                 break;
+            case 'bundle':
+                $result = $panel->buyBundle((int) ($input['id'] ?? 0), Web::clientIp($app));
+                break;
             case 'telegram':
                 $result = $panel->telegramLink();
                 break;
@@ -131,7 +134,7 @@ $loginUrl = (string) (($app->config['panel']['login_url'] ?? '') ?: $app->db()->
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex">
     <title><?= $e($tab === 'topup' ? 'Top up' : 'Telegram & security') ?> · <?= $e($site['name']) ?></title>
-    <link rel="stylesheet" href="panel.css?v=2">
+    <link rel="stylesheet" href="panel.css?v=3">
 </head>
 <body>
 <main class="wrap">
@@ -196,6 +199,32 @@ $loginUrl = (string) (($app->config['panel']['login_url'] ?? '') ?: $app->db()->
                     <p class="msg" id="topup-msg" role="status" hidden></p>
                 </form>
             </section>
+
+            <?php if ($view['bundles']['for_sale'] !== []): $active = $view['bundles']['active']; ?>
+                <section class="card">
+                    <h2>📦 Minute bundles</h2>
+                    <?php if ($active !== null): ?>
+                        <p class="msg ok">Active: <b><?= $e($active['label']) ?></b> (<?= $e($active['includes']) ?>). It renews from your balance every <?= $e($active['period']) ?>.</p>
+                    <?php else: ?>
+                        <p class="muted">Pay once with crypto. The bundle then renews from your balance every period while there is enough credit.</p>
+                    <?php endif; ?>
+                    <div class="bundles">
+                        <?php foreach ($view['bundles']['for_sale'] as $bundle): $isActive = $active !== null && $active['id'] === $bundle['id']; ?>
+                            <div class="bundle<?= $isActive ? ' on' : '' ?>">
+                                <strong><?= $e($bundle['label']) ?></strong>
+                                <span><?= $e($bundle['includes']) ?></span>
+                                <span class="muted small">per <?= $e($bundle['period']) ?></span>
+                                <b class="price"><?= $e($bundle['price']) ?></b>
+                                <button class="btn" type="button" data-bundle="<?= (int) $bundle['id'] ?>"><?= $isActive ? 'Pay next ' . $e($bundle['period']) : 'Buy' ?></button>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                    <?php if ($active !== null): ?>
+                        <p class="small muted">Buying a different bundle replaces the active one.</p>
+                    <?php endif; ?>
+                    <p class="msg" id="bundle-msg" role="status" hidden></p>
+                </section>
+            <?php endif; ?>
 
             <?php if ($view['referral'] !== null): $ref = $view['referral']; ?>
                 <section class="card">
@@ -294,6 +323,6 @@ $loginUrl = (string) (($app->config['panel']['login_url'] ?? '') ?: $app->db()->
 </main>
 <script type="application/json" id="panel-config"><?= json_encode($client, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>
 <script src="qrcode.js?v=1.4.4"></script>
-<script src="panel.js?v=2"></script>
+<script src="panel.js?v=3"></script>
 </body>
 </html>

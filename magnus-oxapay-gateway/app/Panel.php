@@ -114,6 +114,39 @@ final class Panel
             ],
             'two_step' => $this->twoStepOn(),
             'referral' => $this->referral((string) $user['username']),
+            'bundles' => $this->bundles((int) $user['id']),
+        ];
+    }
+
+    /**
+     * @return array{for_sale: array<int,array<string,mixed>>, active: array<string,mixed>|null}
+     */
+    private function bundles(int $userId): array
+    {
+        try {
+            $bundles = new Bundles($this->app, $this->magnus);
+            $forSale = $bundles->forSale();
+
+            return ['for_sale' => $forSale, 'active' => $forSale !== [] ? $bundles->active($userId) : null];
+        } catch (\Throwable $e) {
+            return ['for_sale' => [], 'active' => null]; // no Offers table or none on sale: the section is hidden
+        }
+    }
+
+    /**
+     * Starts paying for a minute bundle for the logged-in account.
+     *
+     * @return array{order:string, payment_url:string, status_url:string}
+     */
+    public function buyBundle(int $offerId, string $ip): array
+    {
+        $this->limit('panel_topup', 10, 600, 'Too many payments started. Please wait a few minutes.');
+        $order = (new Bundles($this->app, $this->magnus))->order($this->username(), $offerId, 'panel', ['ip' => $ip]);
+
+        return [
+            'order' => (string) $order['id'],
+            'payment_url' => (string) ($order['payment_url'] ?? ''),
+            'status_url' => $this->app->baseUrl() . '/status.php?order=' . rawurlencode((string) $order['id']),
         ];
     }
 

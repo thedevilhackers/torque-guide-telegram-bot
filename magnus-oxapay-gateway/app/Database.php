@@ -247,6 +247,10 @@ final class Database
 
         // Columns added after the first release.
         $this->addColumn('orders', 'promo_code', 'VARCHAR(40) NULL');
+        $this->addColumn('orders', 'kind', "VARCHAR(10) NOT NULL DEFAULT 'topup'");
+        $this->addColumn('orders', 'offer_id', 'INTEGER NULL');
+        $this->addColumn('orders', 'offer_label', 'VARCHAR(100) NULL');
+        $this->addColumn('orders', 'bundle_action', 'VARCHAR(10) NULL');
 
         $this->pdo->exec('CREATE TABLE IF NOT EXISTS ' . $this->table('rate_limits') . ' (
             rkey VARCHAR(150) NOT NULL PRIMARY KEY,

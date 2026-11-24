@@ -379,6 +379,24 @@ Telegram shows the description only in an empty chat. To check it, open the bot 
   If a bonus fails, admins get the details to add it by hand.
 - **Settings:** in **🛠 Admin panel → ⚙️ Settings → 🎁 Referrals** you can turn it on or off, change both percentages and see the latest referrals. The other values are under `referral` in `config.php`.
 
+## Minute bundles
+
+Customers can buy your MagnusBilling **Offers** (minute packages) with crypto: in the panel add-on (**Top up → 📦 Minute bundles**) and with `/bundles` in the bot.
+
+**Set it up once:**
+
+1. In MagnusBilling, open **Rates → Offers** and create a bundle. Pick a package type (**Free seconds**, **Unlimited calls** or **Number free calls**), the free time in seconds (30000 = 500 minutes), the billing type (monthly or weekly) and the price.
+2. Still in MagnusBilling, set **Package offer = Yes** on the tariffs the bundle should cover (**Rates → Tariffs** of the customers' plan). Free minutes only count on those tariffs.
+3. In the bot, open **🛠 Admin panel → ⚙️ Settings → 📦 Bundles** and tap **▶️ Sell** next to each bundle you want to offer.
+
+**How payment works:**
+
+- **A new bundle:** after the crypto payment confirms, the gateway gives the customer that Offer. MagnusBilling counts the first period as paid.
+- **Renewals:** MagnusBilling's own daily job (`cron.php PlanCheck`, 23:01) renews the bundle from the customer's balance each period. If the balance is too low, the bundle ends.
+- **Buying the active bundle again:** the price is added to the balance, so the next renewal is already paid.
+- **Buying a different bundle:** it replaces the active one.
+- **Price:** the Offer price in MagnusBilling, converted with `credit_rate`. Promo codes and bonus tiers do not apply to bundles.
+
 ## Fraud guard
 
 Every 5 minutes the gateway reads MagnusBilling's call records. It only reads them and never changes them. If it sees one of the warning signs below, admins get a Telegram alert. A stolen SIP password can run up a large bill in hours, and this catches it early.

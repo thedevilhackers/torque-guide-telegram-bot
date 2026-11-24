@@ -1227,7 +1227,7 @@ test('bot profile: standard description, About text and command menus', function
     $about = telegramCalls($fake, 'setMyShortDescription')[0]['short_description'];
     check(\Gateway\BotProfile::length($about) <= 120 && strpos($about, 'Test Carrier') !== false, 'about fits and names the company');
     $menus = telegramCalls($fake, 'setMyCommands');
-    same(['topup', 'myorders', 'myaccount', 'status', 'support', 'invite', 'help', 'cancel'], commandNames($menus[0]), 'customer menu');
+    same(['topup', 'myorders', 'myaccount', 'status', 'support', 'bundles', 'invite', 'help', 'cancel'], commandNames($menus[0]), 'customer menu');
     check(!isset($menus[0]['scope']), 'customer menu is the default');
     same(['type' => 'chat', 'chat_id' => 999], $menus[1]['scope'], 'admin menu in the admin chat');
     check(in_array('addcredit', commandNames($menus[1]), true) && in_array('topup', commandNames($menus[1]), true), 'admins get both menus');
@@ -1747,6 +1747,127 @@ test('referrals: invite links in the bot and the panel, settings', function () {
     $confirm = tgSay($app, $fake, 999, '7.5');
     tgTap($app, $fake, 999, confirmButton($confirm));
     same(7.5, (float) $app->config['referral']['friend_percent']);
+});
+
+// ------------------------------------------------------------ minute bundles
+
+/**
+ * App with a MagnusBilling-like Offers database shared by every MagnusDb, and a stand-in MagnusBilling that
+ * activates Offers the way its UserController does (pkg_offer_use row, first period paid).
+ *
+ * @return array{0:\Gateway\App, 1:FakeServices, 2:\PDO}
+ */
+function bundleApp(): array
+{
+    $file = tempnam(sys_get_temp_dir(), 'mbo');
+    [$app, $fake] = makeApp(['panel' => ['magnus_db_dsn' => 'sqlite:' . $file]]);
+    $pdo = new \PDO('sqlite:' . $file, null, null, [\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION, \PDO::ATTR_DEFAULT_FETCH_MODE => \PDO::FETCH_ASSOC]);
+    $pdo->exec("CREATE TABLE pkg_user (id INTEGER PRIMARY KEY, username TEXT, credit REAL, active INTEGER, firstname TEXT, lastname TEXT, email TEXT,
+        googleAuthenticator_enable INTEGER DEFAULT 0, google_authenticator_key TEXT DEFAULT '', id_offer INTEGER DEFAULT 0)");
+    $pdo->exec("INSERT INTO pkg_user (id, username, credit, active, firstname, lastname, email) VALUES (7, 'alice', 1.5, 1, 'Alice', '', ''), (8, '100234', 0, 1, '', '', '')");
+    $pdo->exec('CREATE TABLE pkg_offer (id INTEGER PRIMARY KEY, label TEXT, packagetype INTEGER, billingtype INTEGER, freetimetocall INTEGER, price REAL)');
+    $pdo->exec("INSERT INTO pkg_offer VALUES (1, 'India 500', 2, 0, 30000, 9.99), (2, 'Unlimited UK', 0, 0, 0, 25), (3, 'Hidden', 2, 1, 600, 1)");
+    $pdo->exec("CREATE TABLE pkg_offer_use (id INTEGER PRIMARY KEY AUTOINCREMENT, id_user INTEGER, id_offer INTEGER, reservationdate TEXT,
+        releasedate TEXT DEFAULT '0000-00-00 00:00:00', status INTEGER, month_payed INTEGER)");
+    $fake->onOfferChange = static function (int $user, int $offer) use ($pdo): void {
+        $pdo->prepare("UPDATE pkg_offer_use SET status = 0, releasedate = ? WHERE id_user = ? AND status = 1")->execute([date('Y-m-d H:i:s'), $user]);
+        $pdo->prepare('UPDATE pkg_user SET id_offer = ? WHERE id = ?')->execute([$offer, $user]);
+        if ($offer > 0) {
+            $pdo->prepare('INSERT INTO pkg_offer_use (id_user, id_offer, reservationdate, status, month_payed) VALUES (?, ?, ?, 1, 1)')->execute([$user, $offer, date('Y-m-d H:i:s')]);
+        }
+    };
+    $app->db()->kvSet('bundles:for_sale', '[1,2]');
+
+    return [$app, $fake, $pdo];
+}
+
+function payBundle(\Gateway\App $app, FakeServices $fake, string $username, int $offer, array $options = []): array
+{
+    $order = $app->bundles()->order($username, $offer, 'web', $options);
+    $fake->oxapayStatus($order['track_id'], 'Paid');
+    [$body, $hmac] = $fake->webhook($order['track_id'], 'Paid');
+    $app->payments()->handleWebhook($body, $hmac);
+
+    return $app->payments()->getOrder((string) $order['id']);
+}
+
+test('minute bundles: catalogue from MagnusBilling Offers, only those on sale', function () {
+    [$app] = bundleApp();
+    $sale = $app->bundles()->forSale();
+    same(['India 500', 'Unlimited UK'], array_column($sale, 'label'), 'Hidden is not on sale');
+    same('500 free minutes', $sale[0]['includes']);
+    same('Unlimited calls', $sale[1]['includes']);
+    same('month', $sale[0]['period']);
+    same('9.99', $sale[0]['amount']);
+    same('$9.99', $sale[0]['price']);
+    throwsUserError(function () use ($app) { $app->bundles()->order('alice', 3, 'web'); }, 'unknown_bundle');
+});
+
+test('minute bundles: buying activates the Offer, buying it again pays the next renewal', function () {
+    [$app, $fake, $pdo] = bundleApp();
+    linkChat($app, $fake, 555, 'alice');
+    $order = payBundle($app, $fake, 'alice', 1);
+    same('credited', $order['status']);
+    same('bundle', $order['kind']);
+    same('assign', $order['bundle_action']);
+    same(1, $app->bundles()->activeOfferId(7), 'Offer active in MagnusBilling');
+    same([], $fake->refills, 'no credit added for a new bundle');
+    $msg = messagesTo($fake, '555');
+    check(strpos(end($msg)['text'], 'Bundle active') !== false && strpos(end($msg)['text'], 'India 500') !== false, 'customer told');
+
+    $again = payBundle($app, $fake, 'alice', 1);
+    same('renew', $again['bundle_action']);
+    same(1, count($fake->refills), 'price added as credit for the renewal');
+    same(9.99, $fake->refills[0]['credit']);
+    check(strpos($fake->refills[0]['description'], '#' . $again['id']) !== false, 'refill tied to the order');
+
+    $switch = payBundle($app, $fake, 'alice', 2);
+    same('assign', $switch['bundle_action']);
+    same(2, $app->bundles()->activeOfferId(7), 'switched to the other bundle');
+    same('0', (string) $pdo->query('SELECT status FROM pkg_offer_use WHERE id_offer = 1')->fetchColumn(), 'old one released');
+});
+
+test('minute bundles: a lost MagnusBilling reply is not repeated', function () {
+    [$app, $fake] = bundleApp();
+    $order = $app->bundles()->order('alice', 1, 'web');
+    $fake->oxapayStatus($order['track_id'], 'Paid');
+    // The Offer gets activated, but the reply is lost.
+    $realHook = $fake->onOfferChange;
+    $fake->onOfferChange = static function (int $user, int $offer) use ($realHook): void {
+        $realHook($user, $offer);
+        throw new RuntimeException('Request to magnus.test failed: Operation timed out');
+    };
+    [$body, $hmac] = $fake->webhook($order['track_id'], 'Paid');
+    $app->payments()->handleWebhook($body, $hmac);
+    $order = $app->payments()->getOrder((string) $order['id']);
+    same('credited', $order['status'], 'late reply detected');
+    same('assign', $order['bundle_action']);
+    same([], $fake->refills, 'not turned into a renewal');
+});
+
+test('minute bundles: in the panel and the bot, admin chooses what is on sale', function () {
+    [$app, $fake, $pdo] = bundleApp();
+    $panel = new \Gateway\Panel($app, \Gateway\MagnusSession::fromArray(['logged' => true, 'id_user' => 7, 'username' => 'alice'], 'sess-abcdefghijklmnopqrstuvwxyz'),
+        new \Gateway\MagnusDb($app, $pdo));
+    same(['India 500', 'Unlimited UK'], array_column($panel->overview()['bundles']['for_sale'], 'label'));
+    $result = $panel->buyBundle(1, '1.2.3.4');
+    same('bundle', $app->payments()->getOrder($result['order'])['kind']);
+
+    linkChat($app, $fake, 555, 'alice');
+    $list = tgSay($app, $fake, 555, '/bundles');
+    check(strpos($list['text'], 'India 500') !== false, 'bot lists bundles');
+    same('bnd:1', $list['reply_markup']['inline_keyboard'][0][0]['callback_data']);
+    $created = tgTap($app, $fake, 555, 'bnd:2');
+    check(strpos($created['text'], 'Bundle: <b>📦 Unlimited UK</b>') !== false, 'payment created for the bundle');
+    $reply = tgSay($app, $fake, 556, '/bundles');
+    check(strpos($reply['text'], 'Link your Telegram') !== false, 'needs a linked account');
+
+    $screen = tgTap($app, $fake, 999, 'adm:bundles');
+    check(strpos($screen['text'], '⬜ <b>Hidden</b>') !== false && strpos($screen['text'], '✅ <b>India 500</b>') !== false, 'admin sees what is on sale');
+    tgTap($app, $fake, 999, 'adm:bndt:3');
+    same([1, 2, 3], $app->bundles()->saleIds(), 'put on sale');
+    tgTap($app, $fake, 4242, 'adm:bndt:1');
+    same([1, 2, 3], $app->bundles()->saleIds(), 'customers cannot change it');
 });
 
 test('telegram: unexpected errors reply politely instead of crashing', function () {

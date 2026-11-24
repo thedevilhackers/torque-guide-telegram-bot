@@ -29,6 +29,7 @@ final class BotProfile
         'myaccount' => 'My account: balance, SIP lines, caller ID',
         'status' => 'Check a payment by order ID',
         'support' => 'Message our support team',
+        'bundles' => 'Minute bundles',
         'invite' => 'Invite friends, get bonus credit',
         'help' => 'Menu and help',
         'cancel' => 'Stop the current step',

@@ -280,6 +280,11 @@ final class App
         return new Cron($this);
     }
 
+    public function bundles(): Bundles
+    {
+        return new Bundles($this);
+    }
+
     public function referrals(): Referrals
     {
         return new Referrals($this);

@@ -139,6 +139,26 @@
         });
     }
 
+    // ---------------------------------------------------------------- bundles
+
+    Array.prototype.forEach.call(document.querySelectorAll('[data-bundle]'), function (button) {
+        button.addEventListener('click', function () {
+            var msg = $('bundle-msg');
+            var win = pendingTab('Opening the payment page…');
+            busy(button, true, 'Creating payment…');
+            post('bundle', { id: Number(button.getAttribute('data-bundle')) }).then(function (data) {
+                var opened = finishTab(win, data.payment_url);
+                say(msg, opened ? 'The payment page opened in a new tab. The bundle is activated once the payment confirms.' : 'Your payment is ready.',
+                    'ok', opened ? { href: data.status_url, text: 'Payment status' } : { href: data.payment_url, text: 'Open the payment page' });
+            }).catch(function (err) {
+                closeTab(win);
+                say(msg, err.message, 'err');
+            }).then(function () {
+                busy(button, false);
+            });
+        });
+    });
+
     // ----------------------------------------------------------------- invite
 
     var copy = $('ref-copy');

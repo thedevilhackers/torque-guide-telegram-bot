@@ -15,7 +15,7 @@ trait BotExtras
 {
     /** Admin buttons that view-only admins may use. */
     private static $viewerCommands = ['panel', 'recent', 'stats', 'order', 'account', 'find', 'findu', 'sip', 'live',
-        'linked', 'calls', 'cust', 'banks', 'promos', 'settings', 'botprofile', 'fraud', 'ref'];
+        'linked', 'calls', 'cust', 'banks', 'promos', 'settings', 'botprofile', 'fraud', 'ref', 'bundles'];
 
     // ------------------------------------------------------------ public hooks
 
@@ -473,6 +473,14 @@ trait BotExtras
             case 'ref':
                 $this->sendReferralSettings($chatId);
                 return true;
+            case 'bundles':
+                $this->sendBundleSettings($chatId);
+                return true;
+            case 'bndt':
+                $on = $this->app->bundles()->toggle((int) $arg, $this->actor);
+                $this->say($chatId, $on ? '✅ On sale now.' : '⏸ Taken off sale.');
+                $this->sendBundleSettings($chatId);
+                return true;
             case 'reftoggle':
                 $this->askSettingChange($chatId, 'ref_enabled', empty($this->app->config['referral']['enabled']) ? 'on' : 'off');
                 return true;
@@ -525,6 +533,100 @@ trait BotExtras
         }
 
         return false;
+    }
+
+    // ------------------------------------------------------------------ bundles
+
+    /** @return array<int,array<string,mixed>> */
+    private function bundlesForSale(): array
+    {
+        try {
+            return $this->app->bundles()->forSale();
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+
+    /**
+     * /bundles: minute bundles for the linked account, each with a Buy button.
+     */
+    private function sendBundles(string $chatId): void
+    {
+        $bundles = $this->bundlesForSale();
+        if ($bundles === []) {
+            $this->say($chatId, 'There are no minute bundles for sale at the moment.');
+            return;
+        }
+        $username = $this->app->customers()->linkedUsername($chatId);
+        if ($username === null) {
+            $this->say($chatId, 'Link your Telegram to your account first: ask us for an invite link, or open the customer panel and tap Connect Telegram.');
+            return;
+        }
+        $active = null;
+        try {
+            $user = $this->payments()->lookupUser($username);
+            $active = $user !== null ? $this->app->bundles()->active((int) $user['id']) : null;
+        } catch (\Throwable $e) {
+        }
+        $lines = ['📦 <b>Minute bundles</b> for <code>' . self::e($username) . '</code>'];
+        $lines[] = $active !== null
+            ? 'Active now: <b>' . self::e($active['label']) . '</b> (' . self::e($active['includes']) . '). Buying a different one replaces it.'
+            : 'Pay once with crypto. The bundle then renews from your balance every period while there is enough credit.';
+        $lines[] = '';
+        $keyboard = [];
+        foreach ($bundles as $bundle) {
+            $lines[] = '• <b>' . self::e($bundle['label']) . '</b>: ' . self::e($bundle['includes']) . ' per ' . self::e($bundle['period'])
+                . ', <b>' . self::e($bundle['price']) . '</b>';
+            $keyboard[] = [['text' => ($active !== null && $active['id'] === $bundle['id'] ? '🔁 Pay next ' . $bundle['period'] . ': ' : '🛒 ')
+                . $bundle['label'] . ' · ' . $bundle['price'], 'callback_data' => 'bnd:' . $bundle['id']]];
+        }
+        $this->say($chatId, implode("\n", $lines), ['reply_markup' => ['inline_keyboard' => $keyboard]]);
+    }
+
+    private function buyBundle(string $chatId, int $offerId): void
+    {
+        $username = $this->app->customers()->linkedUsername($chatId);
+        if ($username === null) {
+            $this->sendBundles($chatId);
+            return;
+        }
+        if (!$this->app->db()->rateLimit('tg_quick:' . $chatId, 10, 600)) {
+            $this->say($chatId, 'You have started several payments in a short time. Please wait a few minutes.');
+            return;
+        }
+        $order = $this->app->bundles()->order($username, $offerId, 'telegram', ['tg_chat_id' => $chatId]);
+        $this->sendOrderCreated($chatId, $order);
+    }
+
+    private function sendBundleSettings(string $chatId): void
+    {
+        try {
+            $all = $this->app->bundles()->all();
+        } catch (\Throwable $e) {
+            $this->say($chatId, '📦 Could not read the MagnusBilling Offers: ' . self::e($e->getMessage()));
+            return;
+        }
+        $sale = $this->app->bundles()->saleIds();
+        $lines = [
+            '📦 <b>Minute bundles</b>',
+            'Customers buy these with crypto in the panel and with /bundles in the bot. They are your MagnusBilling Offers (Rates → Offers).',
+            'Free minutes only count on tariffs with <b>Package offer = Yes</b> in MagnusBilling.',
+            '',
+        ];
+        $keyboard = [];
+        if ($all === []) {
+            $lines[] = 'No Offers yet. Create one in MagnusBilling under Rates → Offers, then come back here.';
+        }
+        foreach ($all as $bundle) {
+            $on = in_array($bundle['id'], $sale, true);
+            $lines[] = ($on ? '✅' : '⬜') . ' <b>' . self::e($bundle['label']) . '</b>: ' . self::e($bundle['includes']) . ' per ' . self::e($bundle['period'])
+                . ', ' . self::e($bundle['price']);
+            if (strlen((string) $bundle['id']) < 20) {
+                $keyboard[] = [['text' => ($on ? '⏸ Stop selling ' : '▶️ Sell ') . $bundle['label'], 'callback_data' => 'adm:bndt:' . $bundle['id']]];
+            }
+        }
+        $keyboard[] = [['text' => '« Settings', 'callback_data' => 'adm:settings']];
+        $this->say($chatId, implode("\n", $lines), ['reply_markup' => ['inline_keyboard' => $keyboard]]);
     }
 
     // ---------------------------------------------------------------- referrals

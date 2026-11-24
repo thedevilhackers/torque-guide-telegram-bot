@@ -182,6 +182,10 @@ final class TelegramBot
                 $this->sendReferral($chatId);
                 return;
 
+            case '/bundles':
+                $this->sendBundles($chatId);
+                return;
+
             case '/myaccount':
             case '/me':
                 $this->sendMyAccount($chatId);
@@ -395,6 +399,14 @@ final class TelegramBot
             $this->sendReferral($chatId);
             return;
         }
+        if ($data === 'bundles') {
+            $this->sendBundles($chatId);
+            return;
+        }
+        if (strpos($data, 'bnd:') === 0) {
+            $this->buyBundle($chatId, (int) substr($data, 4));
+            return;
+        }
         if ($data === 'calls') {
             $linked = $this->app->customers()->linkedUsername($chatId);
             if ($linked !== null) {
@@ -535,14 +547,22 @@ final class TelegramBot
             ['tg_chat_id' => $chatId]
         );
         $this->clearSession($chatId);
+        $this->sendOrderCreated($chatId, $order);
+    }
 
+    /**
+     * "Payment created" with the Pay button, for top-ups and bundles.
+     */
+    private function sendOrderCreated(string $chatId, array $order): void
+    {
         $payments = $this->payments();
         $view = $payments->publicView($order);
         $lines = [
             '🧾 <b>Payment created</b>',
             'Account: <code>' . self::e($view['username']) . '</code>',
             'Amount: <b>' . self::e($view['amount_display']) . '</b>',
-            'Credit: <b>' . self::e($view['credit']) . '</b>' . ($view['bonus_percent'] > 0 ? ' (includes ' . self::e((string) $view['bonus_percent']) . '% bonus)' : ''),
+            $view['bundle'] !== null ? 'Bundle: <b>📦 ' . self::e($view['bundle']) . '</b>'
+                : 'Credit: <b>' . self::e($view['credit']) . '</b>' . ($view['bonus_percent'] > 0 ? ' (includes ' . self::e((string) $view['bonus_percent']) . '% bonus)' : ''),
             '',
             'Tap <b>Pay</b> to choose a cryptocurrency. The link is valid for ' . (int) $this->app->config['oxapay']['lifetime'] . ' minutes.',
             'I will message you here as soon as the payment is confirmed.',
@@ -1340,6 +1360,7 @@ final class TelegramBot
             [['text' => '📊 Report time', 'callback_data' => 'adm:sethour'], ['text' => '🏦 Bank details', 'callback_data' => 'adm:setbank']],
             [['text' => '🎨 Website theme', 'callback_data' => 'adm:theme'], ['text' => '🤖 Bot profile', 'callback_data' => 'adm:botprofile']],
             [['text' => '🛡 Fraud guard', 'callback_data' => 'adm:fraud'], ['text' => '🎁 Referrals', 'callback_data' => 'adm:ref']],
+            [['text' => '📦 Bundles', 'callback_data' => 'adm:bundles']],
         ];
         if (array_intersect(array_keys($overrides), ['min_amount', 'max_amount', 'currency']) !== []) {
             $keyboard[] = [['text' => '↩️ Reset to config.php', 'callback_data' => 'adm:reset']];
@@ -1571,6 +1592,9 @@ final class TelegramBot
             $keyboard[] = [['text' => '💳 Top up this account', 'callback_data' => 'usr:' . $user['username']]];
         }
         $keyboard[] = [['text' => '📞 My calls', 'callback_data' => 'calls'], ['text' => '🆘 Support', 'callback_data' => 'sup']];
+        if ($this->bundlesForSale() !== []) {
+            $keyboard[] = [['text' => '📦 Minute bundles', 'callback_data' => 'bundles']];
+        }
         if ($this->app->referrals()->enabled()) {
             $keyboard[] = [['text' => '🎁 Invite friends, get bonus credit', 'callback_data' => 'refinv']];
         }
@@ -1867,6 +1891,17 @@ final class TelegramBot
         $adminButtons = $this->orderButtons($order);
         switch ($event) {
             case 'credited':
+                if ((string) ($order['kind'] ?? 'topup') === 'bundle') {
+                    $label = self::e((string) $order['offer_label']);
+                    $customer = ($order['bundle_action'] ?? '') === 'renew'
+                        ? "📦 <b>Payment confirmed</b>\n<b>{$label}</b> was already active on <code>{$user}</code>, so we added "
+                            . self::e(Payments::formatCredit($order['credit'])) . ' credit: it pays for the next renewal. Thank you!'
+                        : "📦 <b>Bundle active</b>\n<b>{$label}</b> is now active on <code>{$user}</code>. It renews from your balance each period. Thank you!";
+                    $admin = "📦 <b>Bundle sold</b> {$amount}\n{$label} for <code>{$user}</code>"
+                        . (($order['bundle_action'] ?? '') === 'renew' ? ' (renewal, added as credit)' : '') . ' · via ' . self::e((string) $order['source'])
+                        . "\nOrder <code>{$id}</code>";
+                    break;
+                }
                 $customer = "✅ <b>Payment confirmed</b>\n" . self::e(Payments::formatCredit($order['credit']))
                     . " credit has been added to <code>{$user}</code>. Thank you!";
                 $admin = "💰 <b>New top-up</b> {$amount}\nAccount: <code>{$user}</code> · credit "

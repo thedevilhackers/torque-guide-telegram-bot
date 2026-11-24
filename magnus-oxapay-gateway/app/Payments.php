@@ -165,7 +165,12 @@ final class Payments
     public function createOrder(array $input, string $source, array $options = []): array
     {
         $username = $this->normalizeUsername($input['username'] ?? '');
-        $amount = $this->parseAmount($input['amount'] ?? '');
+        $bundle = isset($options['bundle']) && is_array($options['bundle']) ? $options['bundle'] : null;
+        // A bundle has a fixed price (it may be below the minimum top-up); a top-up is checked against the limits.
+        $amount = $bundle !== null ? number_format((float) $bundle['amount'], 2, '.', '') : $this->parseAmount($input['amount'] ?? '');
+        if ($bundle !== null && (float) $amount <= 0) {
+            throw new UserError('invalid_amount', 'This bundle has no price set in MagnusBilling.');
+        }
 
         $email = trim((string) ($input['email'] ?? ''));
         if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
@@ -190,7 +195,7 @@ final class Payments
 
         $promoCode = null;
         $promoPercent = 0.0;
-        if (trim((string) ($input['promo'] ?? '')) !== '') {
+        if ($bundle === null && trim((string) ($input['promo'] ?? '')) !== '') {
             $promo = $this->app->promos()->validate((string) $input['promo']);
             $promoCode = (string) $promo['code'];
             $promoPercent = (float) $promo['percent'];
@@ -201,7 +206,10 @@ final class Payments
             throw new UserError('unknown_user', 'No account found with that username.', 404);
         }
 
-        $quote = $this->quote($amount, $promoPercent);
+        $quote = $bundle !== null
+            ? ['amount' => $amount, 'currency' => (string) $this->app->config['payments']['currency'], 'bonus_percent' => 0,
+                'credit' => number_format((float) $bundle['credit'], 4, '.', '')]
+            : $this->quote($amount, $promoPercent);
         $id = bin2hex(random_bytes(12));
         $now = time();
 
@@ -220,6 +228,9 @@ final class Payments
             'reference' => $reference !== '' ? $reference : null,
             'return_url' => $returnUrl,
             'promo_code' => $promoCode,
+            'kind' => $bundle !== null ? 'bundle' : 'topup',
+            'offer_id' => $bundle !== null ? (int) $bundle['id'] : null,
+            'offer_label' => $bundle !== null ? substr((string) $bundle['label'], 0, 100) : null,
             'ip' => isset($options['ip']) ? substr((string) $options['ip'], 0, 45) : null,
             'created_at' => $now,
             'updated_at' => $now,
@@ -236,7 +247,8 @@ final class Payments
             'callback_url' => $base . '/webhook.php',
             'return_url' => $returnUrl ?? $base . '/status.php?order=' . $id,
             'order_id' => $id,
-            'description' => substr($this->app->config['site']['name'] . ' top-up for ' . $user['username'], 0, 250),
+            'description' => substr($this->app->config['site']['name'] . ($bundle !== null ? ' bundle ' . $bundle['label'] : ' top-up')
+                . ' for ' . $user['username'], 0, 250),
             'sandbox' => (bool) $ox['sandbox'],
         ];
         if ($email !== '') {
@@ -428,6 +440,7 @@ final class Payments
             'created_at' => (int) $order['created_at'],
             'expires_at' => $order['expires_at'] !== null ? (int) $order['expires_at'] : null,
             'credited_at' => $order['credited_at'] !== null ? (int) $order['credited_at'] : null,
+            'bundle' => (string) ($order['kind'] ?? 'topup') === 'bundle' ? (string) $order['offer_label'] : null,
         ];
     }
 
@@ -631,17 +644,22 @@ final class Payments
         $order = $this->getOrder($id) ?? $before;
         $magnus = $this->app->magnus();
 
+        $isBundle = (string) ($order['kind'] ?? 'topup') === 'bundle';
         try {
-            // If an earlier attempt reached MagnusBilling but its reply was lost, do not add credit twice.
-            $refill = $magnus->findRefillContaining($id);
-            if ($refill !== null) {
-                $this->app->log('warning', 'Refill already present in MagnusBilling, not adding again', ['order' => $id]);
+            if ($isBundle) {
+                $refill = $this->app->bundles()->deliver($order);
             } else {
-                $refill = $magnus->addCredit(
-                    (int) $order['magnus_user_id'],
-                    self::formatCredit($order['credit']),
-                    $this->refillDescription($order)
-                );
+                // If an earlier attempt reached MagnusBilling but its reply was lost, do not add credit twice.
+                $refill = $magnus->findRefillContaining($id);
+                if ($refill !== null) {
+                    $this->app->log('warning', 'Refill already present in MagnusBilling, not adding again', ['order' => $id]);
+                } else {
+                    $refill = $magnus->addCredit(
+                        (int) $order['magnus_user_id'],
+                        self::formatCredit($order['credit']),
+                        $this->refillDescription($order)
+                    );
+                }
             }
 
             $this->transition($id, ['crediting'], 'credited', [
@@ -660,7 +678,11 @@ final class Payments
             // reply time out after the credit was already added. Look for the refill before calling it a failure.
             $saved = null;
             try {
-                $saved = $magnus->findRefillContaining($id);
+                if ($isBundle) {
+                    $saved = $this->app->bundles()->delivered($order) ? ($magnus->findRefillContaining($id) ?? []) : null;
+                } else {
+                    $saved = $magnus->findRefillContaining($id);
+                }
             } catch (\Throwable $ignored) {
             }
             if ($saved !== null) {
