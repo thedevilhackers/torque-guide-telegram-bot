@@ -223,3 +223,21 @@ test("update 10 brings in the options with their price for each tuning type", ()
   const addons = db().tuneOptions.filter((entry) => entry.kind === "addon").map((entry) => entry.id);
   assert.deepEqual(addons.slice(0, 3), ["active-grille-shutter", "anti-lag", "checksum"]);
 });
+
+test("update 11 adds gearbox and truck options and their prices, keeping the owner's changes", () => {
+  const before = seedData();
+  before.catalogVersion = 10;
+  const asReleased = (id, prices, extra = {}) => Object.assign(before.tuneOptions.find((entry) => entry.id === id), { prices, ...extra });
+  asReleased("dsg-farts", { "options-car": 1, "stage-1": 0.5, "stage-2": 0.5 });
+  asReleased("idle-rpm", { "options-car": 0.5, "stage-1": 0.5, "stage-2": 0.5 });
+  // The owner set their own rev limiter prices.
+  asReleased("rev-limiter", { "options-car": 0.7 }, { credits: 0.7 });
+  before.tuneOptions = before.tuneOptions.filter((entry) => !["kickdown-off", "pto-rpm"].includes(entry.id));
+  replaceData(before);
+  const option = (id) => db().tuneOptions.find((entry) => entry.id === id);
+  assert.equal(option("dsg-farts").prices["tcu-stage-1"], 0.5);
+  assert.equal(option("idle-rpm").prices["truck-agri-stage-1"], 0.5);
+  assert.deepEqual(option("rev-limiter").prices, { "options-car": 0.7 });
+  assert.deepEqual(option("kickdown-off").prices, { "options-tcu": 0.5, "tcu-stage-1": 0.2 });
+  assert.ok(option("pto-rpm"));
+});

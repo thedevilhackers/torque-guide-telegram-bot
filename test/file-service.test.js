@@ -445,7 +445,7 @@ test("options have their own price for each tuning type, and only-options types 
 
   const catalog = (await person.request("/api/portal/catalog")).data;
   const launch = catalog.options.find((entry) => entry.id === "launch-control");
-  assert.deepEqual(launch.prices, { "options-car": 1, "stage-1": 0.5, "stage-2": 0.5, "stage-3": 0.5 });
+  assert.deepEqual(launch.prices, { "options-car": 1, "stage-1": 0.5, "stage-2": 0.5, "stage-3": 0.5, "options-tcu": 1, "tcu-stage-1": 0.5 });
   assert.equal(catalog.options.find((entry) => entry.id === "options-car").optionsOnly, true);
   assert.ok(!catalog.options.some((entry) => /warranty|readiness|dtc|maf/i.test(entry.name)));
 
@@ -458,8 +458,12 @@ test("options have their own price for each tuning type, and only-options types 
   const nothing = await place("options-car", []);
   assert.equal(nothing.status, 400);
   assert.match(nothing.data.error, /at least one option/);
-  // TCU tuning has no options, so car options are refused with it.
+  // Gearbox and truck tuning have their own options; car-only options are refused with them.
   assert.equal((await place("tcu-stage-1", ["pops-bangs"])).status, 400);
+  assert.equal((await place("tcu-stage-1", ["kickdown-off", "faster-shifts"])).data.order.credits, 1.2, "faster shifts are included with TCU tuning");
+  assert.equal((await place("options-tcu", ["launch-control"])).data.order.credits, 1);
+  assert.equal((await place("options-truck-agri", ["pto-rpm", "idle-rpm"])).data.order.credits, 1);
+  assert.equal((await place("truck-agri-stage-1", ["vmax-off"])).status, 400, "no speed limiter removal on trucks");
 
   // The admin adds an option with its own prices; unknown tuning types are dropped.
   const added = await admin.admin("/api/admin/tuneOptions", { method: "POST", body: { name: "Burble on lift", kind: "addon", credits: "0.5", prices: { "stage-1": "0.3", "stage-2": "0.4", nope: "9" }, active: true } });

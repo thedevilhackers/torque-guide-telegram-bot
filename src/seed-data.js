@@ -461,29 +461,38 @@ const tuneOption = (id, name, credits, description = "", kind = "tune") => ({ id
 // offered only with the tuning types it has a price for. Left out on purpose: anything that removes or
 // hides emissions equipment (AdBlue/SCR, DPF, EGR, OPF, decat, cat heating, lambda/O2, NOx, EVAP,
 // secondary air, Eolys/FAP, swirl flaps, readiness, smoke maps, and DTC or MAF removal), immobiliser
-// removal, and warranty patches that hide a tune from the dealer.
+// removal, warranty patches that hide a tune from the dealer, and speed limiter removal on trucks
+// (required on transport vehicles in India). Gearbox (TCU) and truck options are priced like their car
+// equivalents until the owner sets their own.
 const option = (id, name, description, prices) => ({ id, name, kind: "addon", credits: prices["stage-1"] ?? Object.values(prices)[0], description, prices, active: true });
 const TUNING_OPTIONS = [
   option("active-grille-shutter", "Active grille shutter", "Shutters kept open for cooling.", { "stage-1": 0.5 }),
   option("anti-lag", "Anti-lag", "Keeps the turbo spooled off throttle. For track use.", { "options-car": 1, "stage-1": 1, "stage-2": 1, "stage-3": 1 }),
-  option("checksum", "Checksum correction", "Checksums corrected on a file you've edited.", { "options-car": 0.2 }),
+  option("checksum", "Checksum correction", "Checksums corrected on a file you've edited.", { "options-car": 0.2, "options-tcu": 0.2, "options-truck-agri": 0.2 }),
+  option("cruise-control", "Cruise control activation", "Turns on cruise control where the ECU supports it.", { "options-truck-agri": 0.5, "truck-agri-stage-1": 0.5 }),
   option("cod-off", "Cylinder on demand off", "All cylinders kept running.", { "options-car": 0.5, "stage-1": 0.2, "stage-2": 0.2 }),
-  option("dsg-farts", "DSG farts", "A crack on each upshift.", { "options-car": 1, "stage-1": 0.5, "stage-2": 0.5 }),
+  option("dsg-farts", "DSG farts", "A crack on each upshift.", { "options-car": 1, "stage-1": 0.5, "stage-2": 0.5, "options-tcu": 1, "tcu-stage-1": 0.5 }),
   option("e85-flexfuel", "E85 FlexFuel", "Ethanol fuelling on top of the tune. Name the blend in the info.", { "options-car": 2, "stage-1": 2, "stage-2": 2 }),
   option("exhaust-flaps", "Exhaust flaps", "Control of the exhaust valve flaps.", { "options-car": 0.5, "stage-1": 0.2, "stage-2": 0.2 }),
+  option("faster-shifts", "Faster shifts", "Quicker gear changes. Included with TCU tuning.", { "options-tcu": 0.5, "tcu-stage-1": 0 }),
   option("hard-cut", "Hard cut limiter (flames)", "", { "options-car": 1, "stage-1": 1, "stage-2": 0.5, "stage-3": 1 }),
-  option("start-fix", "Hot / cold start fix", "Cures hard starting.", { "options-car": 0.5, "stage-1": 0.5, "stage-2": 0.5 }),
-  option("idle-rpm", "Idle RPM", "", { "options-car": 0.5, "stage-1": 0.5, "stage-2": 0.5 }),
+  option("start-fix", "Hot / cold start fix", "Cures hard starting.", { "options-car": 0.5, "stage-1": 0.5, "stage-2": 0.5, "options-truck-agri": 0.5, "truck-agri-stage-1": 0.5 }),
+  option("idle-rpm", "Idle RPM", "", { "options-car": 0.5, "stage-1": 0.5, "stage-2": 0.5, "options-truck-agri": 0.5, "truck-agri-stage-1": 0.5 }),
   option("injector-scaling", "Injector scaling", "For bigger injectors.", { "stage-1": 1, "stage-3": 0 }),
-  option("launch-control", "Launch control", "", { "options-car": 1, "stage-1": 0.5, "stage-2": 0.5, "stage-3": 0.5 }),
+  option("kickdown-off", "Kickdown off", "No downshift when the pedal is floored.", { "options-tcu": 0.5, "tcu-stage-1": 0.2 }),
+  option("launch-control", "Launch control", "", { "options-car": 1, "stage-1": 0.5, "stage-2": 0.5, "stage-3": 0.5, "options-tcu": 1, "tcu-stage-1": 0.5 }),
+  option("manual-hold", "Manual mode hold", "No automatic upshift at the rev limit in manual mode.", { "options-tcu": 0.5, "tcu-stage-1": 0.2 }),
   option("map-sensor", "MAP sensor set", "Scaling for an upgraded boost sensor.", { "options-car": 1, "stage-1": 0.5, "stage-3": 0 }),
   option("neutral-rpm", "Neutral RPM", "Rev limit when standing still.", { "options-car": 0.5, "stage-1": 0.2, "stage-2": 0.2 }),
   option("performance-gauge", "Performance gauge (BMW / Mini / VAG)", "Turns on the dashboard performance display.", { "options-car": 0.5, "stage-1": 0, "stage-2": 0, "stage-3": 0 }),
   option("pops-bangs", "Pop & bang / crackle map", "Overrun crackle, petrol cars only.", { "options-car": 1, "stage-1": 1, "stage-2": 1, "stage-3": 1 }),
   option("pops-bangs-button", "Pop & bang / crackle map (sport / button)", "Crackle only in sport mode or on a button.", { "options-car": 1.2, "stage-1": 1.2, "stage-2": 1.2, "stage-3": 1 }),
-  option("rev-limiter", "Rev limiter", "", { "options-car": 0.5, "stage-1": 0.2, "stage-2": 0 }),
+  option("pto-rpm", "PTO / work RPM", "Engine speed for power take-off work.", { "options-truck-agri": 0.5, "truck-agri-stage-1": 0.5 }),
+  option("rev-limiter", "Rev limiter", "", { "options-car": 0.5, "stage-1": 0.2, "stage-2": 0, "options-truck-agri": 0.5, "truck-agri-stage-1": 0.2 }),
+  option("shift-points", "Higher shift points", "Upshifts later in sport and manual modes.", { "options-tcu": 0.5, "tcu-stage-1": 0.2 }),
   option("start-stop-off", "Start / stop system off", "Engine start-stop off by default.", { "options-car": 0.5, "stage-1": 0.5, "stage-2": 0.2 }),
   option("startup-roar", "Startup roar", "A louder flare on start-up.", { "options-car": 1, "stage-1": 0.5 }),
+  option("tcu-torque-limit", "Gearbox torque limits raised", "Included with TCU tuning.", { "options-tcu": 0.5, "tcu-stage-1": 0 }),
   option("torque-monitoring", "Torque monitoring off", "", { "options-car": 0.5, "stage-1": 0.5, "stage-2": 0 }),
   option("vmax-custom", "V-Max limited to a custom speed", "Name the speed in the info.", { "stage-1": 0.5 }),
   option("vmax-off", "V-Max off", "Top-speed limiter removed.", { "options-car": 0.5, "stage-1": 0, "stage-2": 0 })
@@ -602,6 +611,23 @@ export const CATALOG_UPDATES = [
     version: 10,
     add: { tuneOptions: SEED_TUNE_OPTIONS },
     replace: { tuneOptions: LAUNCH_OPTIONS.map((from) => ({ from, to: SEED_TUNE_OPTIONS.find((entry) => entry.id === from.id) })) },
+    order: { tuneOptions: SEED_TUNE_OPTIONS.map((entry) => entry.id) }
+  },
+  // Gearbox (TCU) and truck / agriculture options: six existing options gain prices for those tuning
+  // types (where the owner hasn't changed them), and eight new ones are added.
+  {
+    version: 11,
+    add: { tuneOptions: SEED_TUNE_OPTIONS },
+    replace: {
+      tuneOptions: [
+      option("checksum", "Checksum correction", "Checksums corrected on a file you've edited.", { "options-car": 0.2 }),
+      option("dsg-farts", "DSG farts", "A crack on each upshift.", { "options-car": 1, "stage-1": 0.5, "stage-2": 0.5 }),
+      option("start-fix", "Hot / cold start fix", "Cures hard starting.", { "options-car": 0.5, "stage-1": 0.5, "stage-2": 0.5 }),
+      option("idle-rpm", "Idle RPM", "", { "options-car": 0.5, "stage-1": 0.5, "stage-2": 0.5 }),
+      option("launch-control", "Launch control", "", { "options-car": 1, "stage-1": 0.5, "stage-2": 0.5, "stage-3": 0.5 }),
+      option("rev-limiter", "Rev limiter", "", { "options-car": 0.5, "stage-1": 0.2, "stage-2": 0 })
+      ].map((from) => ({ from, to: SEED_TUNE_OPTIONS.find((entry) => entry.id === from.id) }))
+    },
     order: { tuneOptions: SEED_TUNE_OPTIONS.map((entry) => entry.id) }
   }
 ];
