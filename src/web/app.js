@@ -3,11 +3,19 @@ import { fileURLToPath } from "node:url";
 import { UPLOAD_DIR, registerAdminRoutes } from "./admin-api.js";
 import { CONTENT_TYPES, HttpError, applySecurityHeaders, clientIp, sendBuffer, sendJson, serveFile } from "./http.js";
 import { renderPage, robotsTxt, sitemapXml } from "./pages.js";
+import { CITY_PAGES } from "./seo.js";
 import { registerPortalRoutes } from "./portal-api.js";
 import { registerPublicRoutes } from "./public-api.js";
 
 const PUBLIC_DIR = fileURLToPath(new URL("../../public/", import.meta.url));
-const PAGES = { "/": "index.html", "/files": "files.html", "/shop": "shop.html", "/tools": "tools.html", "/admin": "admin/index.html" };
+const PAGES = {
+  "/": "index.html",
+  ...Object.fromEntries(Object.entries(CITY_PAGES).map(([file, city]) => [city.path, file])),
+  "/files": "files.html",
+  "/shop": "shop.html",
+  "/tools": "tools.html",
+  "/admin": "admin/index.html"
+};
 const UPLOAD_FILE = /^\/uploads\/([a-f0-9]{32}\.(png|jpg|webp))$/;
 
 function compile(path) {

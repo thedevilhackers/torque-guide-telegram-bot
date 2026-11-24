@@ -417,9 +417,12 @@ export const WORKSHOP_ADDRESS = "L-12, Argora Housing Colony, Ranchi, Jharkhand 
 
 export const DEFAULT_SETTINGS = {
   businessName: "Unity Performance",
+  // Shown on the home page's About section and sent to search engines as the founder.
+  ownerName: "",
+  ownerTitle: "Founder",
   tagline: "Performance · Protection · Perfection",
   heroTitle: "More power. More precision. More performance.",
-  heroSubtitle: "ECU remapping, ceramic coating, detailing, diagnostics and servicing. All under one roof.",
+  heroSubtitle: "Car tuning and ECU remapping in Ranchi, with ceramic coating, detailing, diagnostics and servicing. All under one roof.",
   heroImage: "",
   announcement: "",
   currency: "INR",
@@ -629,6 +632,13 @@ export const CATALOG_UPDATES = [
       ].map((from) => ({ from, to: SEED_TUNE_OPTIONS.find((entry) => entry.id === from.id) }))
     },
     order: { tuneOptions: SEED_TUNE_OPTIONS.map((entry) => entry.id) }
+  },
+  // The home page's sub-headline names Ranchi, for local search, unless the owner has rewritten it.
+  {
+    version: 12,
+    settings: {
+      heroSubtitle: ["ECU remapping, ceramic coating, detailing, diagnostics and servicing. All under one roof.", DEFAULT_SETTINGS.heroSubtitle]
+    }
   }
 ];
 

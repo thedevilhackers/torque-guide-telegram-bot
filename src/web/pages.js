@@ -2,6 +2,7 @@ import { readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { settings } from "../db.js";
 import { isHttps } from "./http.js";
+import { CITY_PAGES, faqHtml, founderHtml, structuredData } from "./seo.js";
 
 // The website's pages, sent with the site's full address filled in (link previews and search
 // engines need absolute links) and the business details as structured data for search engines.
@@ -17,26 +18,6 @@ export function siteOrigin(req) {
   return `${isHttps(req) ? "https" : "http"}://${/^[A-Za-z0-9.-]+(:\d+)?$/.test(host) ? host : "localhost"}`;
 }
 
-// schema.org details for search engines, from the admin panel's settings.
-function structuredData(origin) {
-  const current = settings();
-  const data = {
-    "@context": "https://schema.org",
-    "@type": "AutoRepair",
-    name: current.businessName,
-    url: `${origin}/`,
-    image: `${origin}/brand/share.jpg`,
-    logo: `${origin}/brand/logo.png`,
-    ...(current.phone && { telephone: current.phone }),
-    ...(current.email && { email: current.email }),
-    ...(current.address && { address: current.address }),
-    ...(Number.isFinite(current.latitude) && Number.isFinite(current.longitude) && { geo: { "@type": "GeoCoordinates", latitude: current.latitude, longitude: current.longitude } }),
-    sameAs: [current.instagram, current.facebook, current.tiktok, current.youtube].filter(Boolean)
-  };
-  // "<" is escaped so no setting can close the script element.
-  return `<script type="application/ld+json">${JSON.stringify(data).replace(/</g, "\\u003c")}</script>`;
-}
-
 export function renderPage(req, root, page) {
   const file = join(root, page);
   const { mtimeMs } = statSync(file);
@@ -46,7 +27,11 @@ export function renderPage(req, root, page) {
     pageCache.set(file, cached);
   }
   const origin = siteOrigin(req);
-  return cached.html.replaceAll("%ORIGIN%", origin).replace("<!--structured-data-->", () => structuredData(origin));
+  return cached.html
+    .replaceAll("%ORIGIN%", origin)
+    .replace("<!--structured-data-->", () => structuredData(origin, page))
+    .replace("<!--faq-->", () => faqHtml(page))
+    .replace("<!--founder-->", () => founderHtml());
 }
 
 export function robotsTxt(req) {
@@ -55,6 +40,7 @@ export function robotsTxt(req) {
 
 export function sitemapXml(req) {
   const origin = siteOrigin(req).replace(/&/g, "&amp;");
-  const urls = ["/", "/files", "/tools", "/shop"].map((path) => `  <url><loc>${origin}${path}</loc></url>`).join("\n");
+  const paths = ["/", ...Object.values(CITY_PAGES).map((city) => city.path), "/files", "/tools", "/shop"];
+  const urls = paths.map((path) => `  <url><loc>${origin}${path}</loc></url>`).join("\n");
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>\n`;
 }

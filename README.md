@@ -46,6 +46,8 @@ There are no card payments: customers pay on collection or delivery once you con
 
 **Sharing and search.** Links to the site shared on WhatsApp, Instagram or Facebook show a preview with your banner. Pages carry your business details for search engines, along with `robots.txt` and `sitemap.xml`; the admin panel stays out of search results.
 
+**Local search (SEO).** The home page's title, description and sub-headline name car tuning and ECU remapping in Ranchi. Its **About** section presents the workshop as an organised tuning startup from Ranchi, with the owner's name and title once they're set in **Admin → Settings → Business**, and a **Questions** section answers what people search for (cost, safety, diesel cars, going back to stock, Kolkata and Shillong). Three city pages target local searches: `/car-tuning-ranchi`, `/car-tuning-kolkata` and `/car-tuning-shillong`. The Kolkata and Shillong pages say plainly that the workshop is in Ranchi, and offer a visit by appointment or the online file service. Search engines also get the business as structured data: the postal address, areas served (Ranchi, Kolkata, Shillong, Jharkhand, West Bengal, Meghalaya, India), price level, founder and the questions and answers. The questions live in `src/web/seo.js`, which sends the same text to the page and to search engines. The wording avoids claims the site can't back up ("best in India", "cheapest", dyno results, emissions removal); a test checks for them.
+
 ## Instant alerts
 
 1. In **Admin → Settings → Telegram alerts**, press **Connect a Telegram chat**.
@@ -200,7 +202,7 @@ Web services with disks need a paid instance type (the blueprint uses Starter). 
 
 ## Home page and file service
 
-The home page is `public/index.html` with `public/js/home.js` and `public/css/site.css`. The file service is `public/files.html` with `public/js/files.js`, `public/js/lux.js` and `public/css/lux.css`. A fiery landing page and a black-and-gold page were tried as the home page and removed; they remain in the git history.
+The home page is `public/index.html` with `public/js/home.js` and `public/css/site.css`. The city pages are `public/car-tuning-*.html` with `public/js/city.js`; their questions, and the structured data for every page, are in `src/web/seo.js`. The file service is `public/files.html` with `public/js/files.js`, `public/js/lux.js` and `public/css/lux.css`. A fiery landing page and a black-and-gold page were tried as the home page and removed; they remain in the git history.
 
 ## Brand
 

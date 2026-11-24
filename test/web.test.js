@@ -130,12 +130,64 @@ test("pages carry link previews, structured data and the site's own address", as
   assert.equal((await request("/brand/share.jpg")).headers.get("cache-control"), "public, max-age=86400");
 });
 
+test("local search: city pages, questions, areas served and the founder", async (t) => {
+  const { request, login, close } = await startApp();
+  t.after(close);
+  const jsonLd = (html) => [...html.matchAll(/<script type="application\/ld\+json">(.*?)<\/script>/g)].map((match) => JSON.parse(match[1]));
+
+  const home = (await request("/")).data.toString();
+  assert.match(home, /<title>Car Tuning &amp; ECU Remapping in Ranchi/);
+  assert.match(home, /<meta name="description" content="[^"]*Ranchi[^"]*Kolkata, Shillong/);
+  for (const path of ["/car-tuning-ranchi", "/car-tuning-kolkata", "/car-tuning-shillong"]) assert.match(home, new RegExp(`href="${path}"`), `home links to ${path}`);
+  const [business, faq] = jsonLd(home);
+  assert.equal(business["@type"], "AutoRepair");
+  assert.deepEqual(business.areaServed.filter((area) => area["@type"] === "City").map((area) => area.name), ["Ranchi", "Kolkata", "Shillong"]);
+  assert.deepEqual(business.address, { "@type": "PostalAddress", streetAddress: "L-12, Argora Housing Colony", addressLocality: "Ranchi", addressRegion: "Jharkhand", postalCode: "834002", addressCountry: "IN" });
+  assert.equal(business.founder, undefined, "no founder until the owner's name is set");
+  assert.equal(faq["@type"], "FAQPage");
+  // Every question sent to search engines is on the page too.
+  for (const { name } of faq.mainEntity) assert.ok(home.includes(`<summary>${name.replace(/&/g, "&amp;").replace(/'/g, "&#39;")}</summary>`), name);
+  assert.doesNotMatch(home, /<!--(faq|founder)-->/);
+
+  for (const [path, city] of [["/car-tuning-ranchi", "Ranchi"], ["/car-tuning-kolkata", "Kolkata"], ["/car-tuning-shillong", "Shillong"]]) {
+    const page = await request(path);
+    assert.equal(page.status, 200, path);
+    const html = page.data.toString();
+    assert.match(html, new RegExp(`<link rel="canonical" href="http://127\\.0\\.0\\.1:\\d+${path}">`), path);
+    assert.match(html, new RegExp(`<h1[^>]*>Car tuning &amp; ECU remapping (in|for) ${city}\\.</h1>`), path);
+    const types = jsonLd(html).map((block) => block["@type"]);
+    assert.deepEqual(types, ["AutoRepair", "Service", "BreadcrumbList", "FAQPage"], path);
+    assert.match(html, /<details class="faq-item/, path);
+    assert.match((await request("/sitemap.xml")).data.toString(), new RegExp(`${path}</loc>`), path);
+  }
+  // The workshop is in Ranchi; the other city pages say so rather than suggest a branch there.
+  for (const path of ["/car-tuning-kolkata", "/car-tuning-shillong"]) assert.match((await request(path)).data.toString(), /Our workshop is in Ranchi, Jharkhand\./, path);
+  // Claims the site can't back up stay out of every page.
+  for (const path of ["/", "/car-tuning-ranchi", "/car-tuning-kolkata", "/car-tuning-shillong"]) {
+    const text = (await request(path)).data.toString();
+    assert.doesNotMatch(text, /best (car )?tun(ing|er)s? in India|India's best|No\. ?1|number one|cheapest|guaranteed/i, path);
+    assert.doesNotMatch(text, /(DPF|EGR|AdBlue|cat(alyst)?) (delete|removal|off)\b/i, path);
+  }
+
+  // The owner's name, once set in the admin panel, appears in the About section and as the founder.
+  await login();
+  const { data } = await request("/api/admin/settings");
+  assert.equal(data.settings.ownerName, "");
+  const saved = await request("/api/admin/settings", { method: "PUT", admin: true, body: { ...data.settings, ownerName: "A <Test> Owner", ownerTitle: "Founder & lead tuner" } });
+  assert.equal(saved.status, 200);
+  const named = (await request("/")).data.toString();
+  assert.match(named, /<span class="founder-name">A &lt;Test&gt; Owner<\/span> <span class="founder-title">Founder &amp; lead tuner<\/span>/);
+  assert.deepEqual(jsonLd(named)[0].founder, { "@type": "Person", name: "A <Test> Owner", jobTitle: "Founder & lead tuner" });
+  assert.doesNotMatch(named, /<script type="application\/ld\+json">[^<]*<Test>/, "the name can't break out of the structured data");
+  await request("/api/admin/settings", { method: "PUT", admin: true, body: { ...data.settings } });
+});
+
 test("nothing tells customers the workshop has a dyno", async (t) => {
   const { request, close } = await startApp();
   t.after(close);
   const claim = /on (our|the) dyno|dyno (run|sheet|power run)|confirmed on the dyno|verified on our dyno/i;
-  for (const path of ["/", "/files", "/shop", "/api/site", "/api/products"]) assert.doesNotMatch((await request(path)).data.toString(), claim, path);
-  for (const file of ["public/index.html", "public/files.html", "public/js/home.js", "public/js/files.js", "public/js/common.js", "public/admin/admin.js", "src/conversation.js", "src/dyno-chart.js"]) {
+  for (const path of ["/", "/files", "/shop", "/car-tuning-ranchi", "/car-tuning-kolkata", "/car-tuning-shillong", "/api/site", "/api/products"]) assert.doesNotMatch((await request(path)).data.toString(), claim, path);
+  for (const file of ["public/index.html", "public/files.html", "src/web/seo.js", "public/js/home.js", "public/js/files.js", "public/js/common.js", "public/admin/admin.js", "src/conversation.js", "src/dyno-chart.js"]) {
     assert.doesNotMatch(readFileSync(new URL(`../${file}`, import.meta.url), "utf8").replace(/dyno-chart|dynoChart|dyno-\w+/g, ""), claim, file);
   }
 });
@@ -147,7 +199,7 @@ test("public pages and APIs", async (t) => {
   const home = await request("/");
   assert.equal(home.status, 200);
   assert.match(home.headers.get("content-security-policy"), /script-src 'self'/);
-  assert.match(home.data.toString(), /<title>Unity Performance/);
+  assert.match(home.data.toString(), /<title>[^<]*Unity Performance<\/title>/);
   assert.equal((await request("/shop")).status, 200);
   assert.equal((await request("/admin")).status, 200);
   assert.equal((await request("/..%2Fpackage.json")).status, 404);

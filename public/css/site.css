@@ -1934,6 +1934,103 @@ a.photo-card:hover .photo-caption {
   }
 }
 
+/* ---------- About, questions & city pages ---------- */
+
+.founder {
+  margin-top: 24px;
+  color: var(--text-2);
+  font-size: 17px;
+}
+
+.founder-name {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.founder-title::before {
+  content: "· ";
+}
+
+.area-links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 36px;
+}
+
+.area-links-label {
+  margin-right: 6px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.area-links a {
+  padding: 8px 16px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--text);
+  font-size: 14px;
+  transition: border-color 0.2s var(--ease);
+}
+
+.area-links a:hover {
+  border-color: rgba(var(--glow), 0.7);
+}
+
+.faq-list {
+  display: grid;
+  gap: 10px;
+  max-width: 860px;
+}
+
+.faq-item {
+  padding: 0 22px;
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.faq-item summary {
+  position: relative;
+  padding: 20px 32px 20px 0;
+  font-size: 17px;
+  font-weight: 600;
+  list-style: none;
+  cursor: pointer;
+}
+
+.faq-item summary::-webkit-details-marker {
+  display: none;
+}
+
+.faq-item summary::after {
+  content: "+";
+  position: absolute;
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
+  color: var(--muted);
+  font-size: 22px;
+  font-weight: 400;
+}
+
+.faq-item[open] summary::after {
+  content: "–";
+}
+
+.faq-item p {
+  margin: 0 0 20px;
+  color: var(--text-2);
+}
+
+.footer-areas {
+  font-size: 13px;
+}
+
+.city-hero .lead {
+  max-width: 760px;
+}
+
 /* ---------- Floating WhatsApp button ---------- */
 
 .whatsapp-fab {

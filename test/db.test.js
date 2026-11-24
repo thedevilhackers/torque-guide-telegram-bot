@@ -241,3 +241,18 @@ test("update 11 adds gearbox and truck options and their prices, keeping the own
   assert.deepEqual(option("kickdown-off").prices, { "options-tcu": 0.5, "tcu-stage-1": 0.2 });
   assert.ok(option("pto-rpm"));
 });
+
+test("update 12 names Ranchi in the home page's sub-headline, unless the owner rewrote it", () => {
+  const before = seedData();
+  before.catalogVersion = 11;
+  before.settings.heroSubtitle = "ECU remapping, ceramic coating, detailing, diagnostics and servicing. All under one roof.";
+  replaceData(before);
+  assert.equal(db().settings.heroSubtitle, DEFAULT_SETTINGS.heroSubtitle);
+  assert.match(DEFAULT_SETTINGS.heroSubtitle, /in Ranchi/);
+
+  const edited = seedData();
+  edited.catalogVersion = 11;
+  edited.settings.heroSubtitle = "Our own words.";
+  replaceData(edited);
+  assert.equal(db().settings.heroSubtitle, "Our own words.");
+});

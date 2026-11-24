@@ -922,7 +922,9 @@ const COLLECTION_VIEWS = {
 const SETTINGS_SECTIONS = [
   ["Business", [
     { name: "businessName", label: "Business name" },
-    { name: "tagline", label: "Tagline" }
+    { name: "tagline", label: "Tagline" },
+    { name: "ownerName", label: "Owner / founder name", help: "Shown in the About section on the home page and given to Google as the founder." },
+    { name: "ownerTitle", label: "Owner's title", placeholder: "Founder", help: "For example Founder, Founder & lead tuner, or Owner." }
   ]],
   ["Home page", [
     { name: "heroTitle", label: "Headline" },

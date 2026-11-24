@@ -251,6 +251,8 @@ export function validateSettings(input) {
   if ((latitude === null) !== (longitude === null)) throw new InputError("Enter both latitude and longitude, or neither.");
   return {
     businessName: text(input.businessName, "Business name", { required: true, max: 60 }),
+    ownerName: text(input.ownerName, "Owner / founder name", { max: 60 }),
+    ownerTitle: text(input.ownerTitle, "Owner's title", { max: 60 }),
     tagline: text(input.tagline, "Tagline", { max: 80 }),
     heroTitle: text(input.heroTitle, "Headline", { required: true, max: 60 }),
     heroSubtitle: text(input.heroSubtitle, "Sub-headline", { max: 200 }),

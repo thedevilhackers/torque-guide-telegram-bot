@@ -121,6 +121,17 @@ Files go to fast-chiptuningfiles.com by hand for now (see "When a real order com
 
 Until both are done, each file order in the admin panel shows the steps for sending by hand.
 
+## Part 5: Getting found on Google
+
+The website now targets searches like "car tuning Ranchi", "ECU remapping Ranchi", "car tuning Kolkata" and "car tuning Shillong". To get the most from it:
+
+1. **Add the owner's name.** In https://unityperformance.co/admin → **Settings → Business**, fill in **Owner / founder name** and **Owner's title** (for example "Founder & lead tuner") and save. It appears in the About section on the home page and is given to Google as the founder.
+2. **Google Business Profile** (the most important step for "near me" and Maps searches). Go to https://business.google.com, add "Unity Motorsports Performance" as a car tuning / auto repair business at L-12, Argora Housing Colony, Ranchi 834002, with the website https://unityperformance.co, your phone number and opening hours. Google verifies it by phone, video or post.
+3. **Google Search Console.** Go to https://search.google.com/search-console, add `unityperformance.co` (verify it with the DNS record it gives you), then under **Sitemaps** submit `https://unityperformance.co/sitemap.xml`. Google then reads the new pages within days instead of weeks.
+4. **Reviews.** Ask each happy customer to leave a Google review on your Business Profile. Real reviews do more for local ranking than any keyword.
+5. **Same details everywhere.** Use exactly the same name, address and phone number on Instagram, Facebook, JustDial and IndiaMART as on the website.
+6. **Map pin.** In admin **Settings → Contact & location**, enter the workshop's latitude and longitude (from Google Maps: press and hold on the workshop, then copy the numbers).
+
 ## Everyday commands (on the server)
 
 | What | Command |
