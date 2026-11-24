@@ -156,10 +156,54 @@ if [[ $DOMAIN =~ ^[0-9.]+$ ]] || [[ ! $DOMAIN =~ ^([a-z0-9]([a-z0-9-]*[a-z0-9])?
     die "\"$DOMAIN\" is not a domain name. The Webphone only works when MagnusBilling is opened with a domain, not an IP address."
 fi
 
-AST_USER=$(get_conf $ETC/asterisk.conf options runuser); AST_USER=${AST_USER:-root}
-AST_GROUP=$(get_conf $ETC/asterisk.conf options rungroup); AST_GROUP=${AST_GROUP:-$AST_USER}
-MODDIR=$(awk -F'=>' '/^[[:space:]]*astmoddir/ { gsub(/[[:space:]]/, "", $2); print $2; exit }' $ETC/asterisk.conf 2>/dev/null)
-MODDIR=${MODDIR:-/usr/lib/asterisk/modules}
+# A setting from asterisk.conf in any section ("key = value" or "key => value"), e.g. runuser or astlogdir.
+ast_setting() {
+    awk -v key="$1" '$0 ~ "^[[:space:]]*" key "[[:space:]]*=" { sub(/^[^=]*=>?[[:space:]]*/, ""); sub(/[[:space:]]*;.*$/, ""); sub(/[[:space:]]+$/, ""); print; exit }' \
+        "$ETC/asterisk.conf" 2>/dev/null || true
+}
+
+# The user Asterisk runs as: the running daemon first, then asterisk.conf, then "asterisk" if that user exists.
+# (MagnusBilling 8 starts Asterisk as "asterisk" from systemd and keeps runuser under [directories].)
+detect_ast_user() {
+    local pid="" uid="" user=""
+    pid=$(systemctl show -p MainPID --value asterisk 2>/dev/null || true)
+    [[ $pid =~ ^[1-9][0-9]*$ ]] || pid=$(cat "$RUNDIR/asterisk.pid" 2>/dev/null || true)
+    if [[ $pid =~ ^[1-9][0-9]*$ ]]; then
+        uid=$(ps -o uid= -p "$pid" 2>/dev/null | tr -d ' ' || true)
+        [[ -n $uid ]] && user=$(id -nu "$uid" 2>/dev/null || true)
+    fi
+    [[ -n $user ]] || user=$(ast_setting runuser)
+    if [[ -z $user ]] && id asterisk >/dev/null 2>&1; then user=asterisk; fi
+    id "${user:-root}" >/dev/null 2>&1 || user=root
+    printf '%s' "${user:-root}"
+}
+
+# can_read FILE: Asterisk's user can read FILE (and get to it through its folders).
+can_read() {
+    if [[ $AST_USER == root ]]; then [[ -r $1 ]]; return; fi
+    if command -v runuser >/dev/null; then
+        runuser -u "$AST_USER" -- test -r "$1"
+    else
+        su -s /bin/sh "$AST_USER" -c 'test -r "$0"' "$1"
+    fi
+}
+
+https_up() { ast 'http show status' | grep -Eq "^HTTPS Server Enabled and Bound to .*:${PORT}[[:space:]]*\$"; }
+
+# Recent certificate errors from Asterisk's log (why it turned HTTPS off).
+show_tls_errors() {
+    local log
+    log=$(ls -t "$LOGDIR"/messages* 2>/dev/null | head -1 || true)
+    [[ -n $log ]] || return 0
+    { grep -E 'TLS/SSL error|TLS server failed' "$log" 2>/dev/null || true; } | tail -n 3 | while IFS= read -r line; do info "Asterisk log: $line"; done
+    return 0
+}
+
+MODDIR=$(ast_setting astmoddir); MODDIR=${MODDIR:-/usr/lib/asterisk/modules}
+LOGDIR=$(ast_setting astlogdir); LOGDIR=${LOGDIR:-/var/log/asterisk}
+RUNDIR=$(ast_setting astrundir); RUNDIR=${RUNDIR:-/var/run/asterisk}
+AST_USER=$(detect_ast_user)
+AST_GROUP=$(id -gn "$AST_USER" 2>/dev/null || echo "$AST_USER")
 PROBLEMS=0
 
 printf '%sMagnusBilling Webphone check%s for %s (wss://%s:%s/ws)\n' "$c_bold" "$c_off" "$DOMAIN" "$DOMAIN" "$PORT"
@@ -181,8 +225,8 @@ check_all() {
 
     step "DNS"
     local ips local_ips ip cf=0 here=0
-    ips=$(getent ahostsv4 "$DOMAIN" 2>/dev/null | awk '{print $1}' | sort -u | paste -sd ' ' -)
-    local_ips=" $(ip -4 -o addr show 2>/dev/null | awk '{split($4, a, "/"); printf "%s ", a[1]}')"
+    ips=$(getent ahostsv4 "$DOMAIN" 2>/dev/null | awk '{print $1}' | sort -u | paste -sd ' ' - || true)
+    local_ips=" $(ip -4 -o addr show 2>/dev/null | awk '{split($4, a, "/"); printf "%s ", a[1]}' || true)"
     if [[ -z ${ips// /} ]]; then
         bad "$DOMAIN does not resolve. Add an A record pointing to this server."
     else
@@ -207,6 +251,7 @@ check_all() {
     bound=$(printf '%s\n' "$status" | sed -n 's/^HTTPS Server Enabled and Bound to //p' | head -1)
     if [[ -z $bound ]]; then
         bad "Asterisk HTTPS is off (http.conf), or its certificate failed to load."
+        show_tls_errors
     elif [[ $bound != *":$PORT" ]]; then
         bad "Asterisk HTTPS listens on $bound, not port $PORT."
     elif [[ $bound == 127.* ]]; then
@@ -216,11 +261,14 @@ check_all() {
     fi
     if printf '%s\n' "$status" | grep -Eq '^/ws[[:space:]]+=>'; then ok "/ws endpoint registered"; else bad "/ws endpoint missing (res_http_websocket not loaded)"; fi
 
-    local cert
+    local cert key
     cert=$(get_conf $ETC/http.conf general tlscertfile)
+    key=$(get_conf $ETC/http.conf general tlsprivatekey)
     if [[ -n $cert ]]; then
         if [[ ! -r $cert ]]; then
             bad "Certificate file in http.conf not found: $cert"
+        elif ! can_read "$cert" || { [[ -n $key ]] && ! can_read "$key"; }; then
+            bad "Asterisk runs as \"$AST_USER\" and cannot read $cert${key:+ or $key}, so it turns HTTPS off."
         elif ! openssl x509 -in "$cert" -noout -checkend 0 >/dev/null 2>&1; then
             bad "The certificate in http.conf has expired: $cert"
         elif ! openssl x509 -in "$cert" -noout -checkhost "$DOMAIN" 2>/dev/null | grep -q 'does match'; then
@@ -304,6 +352,9 @@ fi
 
 printf '\nThis will change: %s/http.conf, %s/pjsip.conf, %s/modules.conf (backups kept), copy the certificate to %s,\nopen TCP %s in the firewall and reload Asterisk (calls in progress are not dropped).\n' "$ETC" "$ETC" "$ETC" "$KEY_DIR" "$PORT"
 confirm "Fix it now?" || { printf 'Nothing changed.\n'; exit 0; }
+HTTPS_WAS_UP=0
+if https_up; then HTTPS_WAS_UP=1; fi
+HTTP_BACKUP=""
 
 # ------------------------------------------------------------------ certificate
 
@@ -358,7 +409,10 @@ fi
 install -d -m 0750 -o "$AST_USER" -g "$AST_GROUP" "$KEY_DIR"
 install -m 0640 -o "$AST_USER" -g "$AST_GROUP" "$SRC_CERT" "$CERT_DEST"
 install -m 0600 -o "$AST_USER" -g "$AST_GROUP" "$SRC_KEY" "$KEY_DEST"
-ok "Copied to $CERT_DEST and $KEY_DEST (readable by $AST_USER)"
+if ! can_read "$CERT_DEST" || ! can_read "$KEY_DEST"; then
+    die "Asterisk runs as \"$AST_USER\" but cannot read $CERT_DEST. Check the permissions of $KEY_DIR and the folders above it. http.conf was not changed."
+fi
+ok "Copied to $CERT_DEST and $KEY_DEST (readable by Asterisk's user, $AST_USER)"
 
 if [[ -n $LINEAGE ]]; then
     mkdir -p "$(dirname "$HOOK")"
@@ -381,6 +435,7 @@ fi
 step "Asterisk configuration"
 [[ -f $ETC/http.conf ]] || printf '[general]\n' > "$ETC/http.conf"
 backup "$ETC/http.conf"
+HTTP_BACKUP=$ETC/http.conf.bak-$STAMP
 set_conf "$ETC/http.conf" general enabled yes
 [[ -n $(get_conf "$ETC/http.conf" general bindaddr) ]] || set_conf "$ETC/http.conf" general bindaddr 127.0.0.1
 set_conf "$ETC/http.conf" general tlsenable yes
@@ -430,10 +485,24 @@ for m in res_http_websocket.so res_pjsip_transport_websocket.so res_srtp.so; do
         ast "module load $m" >/dev/null
     fi
 done
+touch "$ETC/http.conf"   # a changed file makes Asterisk load the certificate again, even if HTTPS was off
 ast 'module reload http' >/dev/null
 ast 'pjsip reload' >/dev/null
 sleep 2
 ok "Reloaded http and pjsip"
+if https_up; then
+    ok "Asterisk HTTPS is running on port $PORT"
+else
+    warn "Asterisk did not start HTTPS on port $PORT."
+    show_tls_errors
+    if [[ $HTTPS_WAS_UP -eq 1 && -f $HTTP_BACKUP ]]; then
+        cp -p "$HTTP_BACKUP" "$ETC/http.conf"
+        touch "$ETC/http.conf"
+        ast 'module reload http' >/dev/null
+        sleep 1
+        warn "Put the previous http.conf back, so HTTPS keeps working as it did before."
+    fi
+fi
 
 if ! ast 'pjsip show transports' | grep -Eq '[[:space:]]wss[[:space:]]'; then
     if [[ $ALLOW_RESTART -eq 1 ]]; then

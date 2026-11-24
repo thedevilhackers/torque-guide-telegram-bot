@@ -74,8 +74,10 @@ Replace `DOMAIN` with your domain.
 firewall-cmd --permanent --zone=public --add-port=8089/tcp && firewall-cmd --reload
 ```
 
+Asterisk on MagnusBilling 8 runs as the `asterisk` user, so that user must be able to open the folder and read both files:
+
 ```bash
-install -d -o asterisk -g asterisk /etc/asterisk/keys
+install -d -m 0750 -o asterisk -g asterisk /etc/asterisk/keys
 install -m 0640 -o asterisk -g asterisk /etc/letsencrypt/live/DOMAIN/fullchain.pem /etc/asterisk/keys/webphone.crt
 install -m 0600 -o asterisk -g asterisk /etc/letsencrypt/live/DOMAIN/privkey.pem /etc/asterisk/keys/webphone.key
 ```
@@ -100,9 +102,10 @@ protocol = wss
 bind = 0.0.0.0
 ```
 
-Then reload and check:
+Then reload and check. Asterisk only reloads `http.conf` if the file has changed, so `touch` it first. This also matters when HTTPS is off because an earlier certificate failed to load:
 
 ```bash
+touch /etc/asterisk/http.conf
 asterisk -rx "module reload http"
 asterisk -rx "pjsip reload"
 asterisk -rx "pjsip show transports"
