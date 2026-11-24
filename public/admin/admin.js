@@ -166,6 +166,22 @@ function buildField(field, value) {
     );
     return { element, read: () => inputs.filter(([, input]) => input.checked).map(([optionValue]) => optionValue) };
   }
+  // A price per tuning type: tick the types an option goes with and set its price for each.
+  if (field.type === "prices") {
+    const rows = field.tunes.map(([id, label]) => {
+      const offered = h("input", { type: "checkbox", checked: Object.hasOwn(value ?? {}, id) });
+      const price = h("input", { type: "number", step: "0.01", min: "0", "aria-label": `Price with ${label}` });
+      price.value = value?.[id] ?? "";
+      price.disabled = !offered.checked;
+      offered.addEventListener("change", () => {
+        price.disabled = !offered.checked;
+        if (offered.checked && price.value === "") price.value = "0.5";
+      });
+      return { id, offered, price, element: h("label", { class: "price-row" }, offered, h("span", { text: label }), price) };
+    });
+    const element = h("div", { class: `field${field.full ? " full" : ""}` }, h("span", { text: field.label }), h("div", { class: "price-rows" }, ...rows.map((row) => row.element)), field.help ? h("span", { class: "help", text: field.help }) : null);
+    return { element, read: () => Object.fromEntries(rows.filter((row) => row.offered.checked).map((row) => [row.id, row.price.value])) };
+  }
   if (field.type === "select") {
     const select = h("select", { name: field.name }, ...field.options.map(([optionValue, label]) => h("option", { value: optionValue, text: label, selected: String(value) === String(optionValue) })));
     return { element: wrap(select), read: () => select.value };
@@ -220,6 +236,16 @@ function formModal({ title, fields, values = {}, submitLabel = "Save", onSubmit,
   const error = h("p", { class: "error", role: "alert", hidden: true });
   const save = h("button", { class: "btn btn-primary", type: "submit", text: submitLabel });
   const form = h("form", { class: "form-grid", novalidate: true }, before ?? null, ...built.map(([, item]) => item.element), h("div", { class: "full" }, error));
+  // Fields shown only for one value of another field (showIf: [name, value]).
+  for (const field of fields.filter((entry) => entry.showIf)) {
+    const [name, wanted] = field.showIf;
+    const control = built.find(([key]) => key === name)?.[1].element.querySelector("select, input");
+    const item = built.find(([key]) => key === field.name)?.[1];
+    if (!control || !item) continue;
+    const update = () => (item.element.hidden = control.value !== wanted);
+    control.addEventListener("change", update);
+    update();
+  }
   const footer = [];
   if (onDelete) {
     const remove = h("button", { class: "btn btn-danger spacer", type: "button", text: "Delete" });
@@ -597,11 +623,11 @@ async function collectionView(main, id, config) {
   const { items } = await api(`/api/admin/${config.name}`);
   const context = config.load ? await config.load() : {};
   const fields = config.fields(context, items);
-  const edit = (item) =>
+  const edit = (item, defaults = config.defaults, title = `New ${config.singular}`) =>
     formModal({
-      title: item ? `Edit ${config.label(item)}` : `New ${config.singular}`,
+      title: item ? `Edit ${config.label(item)}` : title,
       fields,
-      values: item ? config.toForm?.(item) ?? item : config.defaults ?? {},
+      values: item ? config.toForm?.(item) ?? item : defaults ?? {},
       before: item && config.before ? config.before(item) : null,
       onSubmit: async (values) => {
         await api(item ? `/api/admin/${config.name}/${item.id}` : `/api/admin/${config.name}`, { method: item ? "PUT" : "POST", body: values });
@@ -621,11 +647,17 @@ async function collectionView(main, id, config) {
   const draw = () => {
     const query = input.value.trim().toLowerCase();
     const rows = items.filter((item) => !query || config.search(item, context).toLowerCase().includes(query));
-    holder.replaceChildren(dataTable(config.columns(context), rows, { onRowClick: edit, empty: `No ${config.title.toLowerCase()} yet.` }));
+    holder.replaceChildren(dataTable(config.columns(context, items), rows, { onRowClick: (item) => edit(item), empty: `No ${config.title.toLowerCase()} yet.` }));
   };
   input.addEventListener("input", draw);
   main.replaceChildren(
-    pageHead(config.title, config.subtitle, h("button", { class: "btn btn-primary", type: "button", text: `New ${config.singular}`, onclick: () => edit(null) })),
+    pageHead(
+      config.title,
+      config.subtitle,
+      ...(config.newButtons ?? [[`New ${config.singular}`, config.defaults]]).map(([label, defaults], index) =>
+        h("button", { class: `btn${index === 0 ? " btn-primary" : ""}`, type: "button", text: label, onclick: () => edit(null, defaults, label) })
+      )
+    ),
     h("div", { class: "toolbar" }, input),
     holder
   );
@@ -798,23 +830,50 @@ const COLLECTION_VIEWS = {
     name: "tuneOptions",
     title: "Tune options",
     singular: "tune option",
-    subtitle: "What a file order can include on the file service, and its cost in credits. Customers choose one tune and any add-ons.",
+    subtitle: "What a file order can include on the file service. Customers choose one tuning type, then press “+ Add options” to add options for that type, each at its price for that type.",
     label: (option) => option.name,
     defaults: { kind: "tune", credits: 1, active: true },
+    newButtons: [
+      ["New tuning type", { kind: "tune", credits: 1, active: true }],
+      ["Add option", { kind: "addon", credits: 0.5, active: true, prices: {} }]
+    ],
     search: (option) => `${option.name} ${option.description}`,
-    fields: () => [
-      { name: "name", label: "Name", full: true, placeholder: "Stage 1" },
-      { name: "kind", label: "Type", type: "select", options: [["tune", "Tune (customers choose one)"], ["addon", "Add-on (optional extras)"]] },
-      { name: "credits", label: "Credits", type: "number", step: "0.01", min: "0", help: "Up to two decimals, e.g. 1.20." },
+    fields: (_, items) => [
+      { name: "name", label: "Name", full: true, placeholder: "Car tuning (Stage 1) or Launch control" },
+      { name: "kind", label: "Type", type: "select", options: [["tune", "Tuning type (customers choose one)"], ["addon", "Option (added to a tuning type)"]] },
+      { name: "credits", label: "Credits", type: "number", step: "0.01", min: "0", help: "Up to two decimals, e.g. 1.20. For an option, the price with any tuning type not set below." },
       { name: "description", label: "Description", type: "textarea", full: true, help: "One short line shown under the name." },
+      {
+        name: "prices",
+        label: "Offered with, and its price for each",
+        type: "prices",
+        full: true,
+        showIf: ["kind", "addon"],
+        tunes: items.filter((item) => item.kind === "tune").map((item) => [item.id, item.name]),
+        help: "Tick each tuning type this option goes with and set its price there. Leave all unticked to offer it with every tuning type at the credits above."
+      },
       { name: "active", label: "Offer on the file service", type: "checkbox" }
     ],
-    columns: () => [
-      { label: "Option", cell: (option) => [option.name, h("span", { class: "sub", text: option.description })] },
-      { label: "Type", cell: (option) => (option.kind === "tune" ? "Tune" : "Add-on") },
-      { label: "Credits", class: "num", cell: (option) => creditNumber(option.credits) },
-      { label: "Visibility", cell: (option) => pill(option.active ? "active" : "hidden", option.active ? "Offered" : "Hidden") }
-    ]
+    columns: (_, items) => {
+      const tuneName = (id) => items?.find((item) => item.id === id)?.name ?? id;
+      const prices = (option) => Object.values(option.prices ?? {});
+      return [
+        { label: "Option", cell: (option) => [option.name, h("span", { class: "sub", text: option.description })] },
+        { label: "Type", cell: (option) => (option.kind === "tune" ? "Tuning type" : "Option") },
+        {
+          label: "Credits",
+          class: "num",
+          cell: (option) => {
+            const list = prices(option);
+            if (option.kind !== "addon" || !list.length) return creditNumber(option.credits);
+            const [low, high] = [Math.min(...list), Math.max(...list)];
+            return low === high ? creditNumber(low) : `${creditNumber(low)}–${creditNumber(high)}`;
+          }
+        },
+        { label: "Offered with", cell: (option) => (option.kind !== "addon" ? "—" : Object.keys(option.prices ?? {}).length ? Object.keys(option.prices).map(tuneName).join(", ") : "All tuning types") },
+        { label: "Visibility", cell: (option) => pill(option.active ? "active" : "hidden", option.active ? "Offered" : "Hidden") }
+      ];
+    }
   },
   creditPacks: {
     name: "creditPacks",

@@ -516,14 +516,57 @@ async function viewNew() {
     ecuList
   );
 
-  // ---- Tuning: one tuning type, then its options ----
+  // ---- Tuning: one tuning type, then "+ Add options" shows the options for that type, at its prices ----
   const optionCard = (type, name, option) =>
-    h("label", { class: "choice" }, h("input", { type, name, value: option.id }), h("span", { class: "choice__body" }, h("span", { class: "choice__name", text: option.name }), option.description ? h("small", { text: option.description }) : null), h("b", { class: "choice__cost", text: credits(option.credits) }));
-  const addonsBox = h("div", { class: "choices" }, ...addons.map((option) => optionCard("checkbox", "addonIds", option)));
-  const addonsHint = h("p", { class: "fineprint", text: "Choose a tuning type to see its options." });
+    h("label", { class: "choice", dataset: { option: option.id } }, h("input", { type, name, value: option.id }), h("span", { class: "choice__body" }, h("span", { class: "choice__name", text: option.name }), option.description ? h("small", { text: option.description }) : null), h("b", { class: "choice__cost", text: credits(option.credits) }));
+  // An option's price with a tuning type, or null where it isn't offered with it (as on the server).
+  const priceWith = (option, tuneId) => {
+    const prices = option.prices ?? {};
+    if (!Object.keys(prices).length) return option.credits;
+    return Object.hasOwn(prices, tuneId) ? prices[tuneId] : null;
+  };
+  const chosenTune = () => tunes.find((option) => option.id === value("tuneId"));
+  const optionCards = addons.map((option) => [option, optionCard("checkbox", "addonIds", option)]);
+  const optionsFilter = h("input", { type: "search", placeholder: "Search options", autocomplete: "off", "aria-label": "Search options" });
+  const optionsGrid = h("div", { class: "choices" }, ...optionCards.map(([, card]) => card));
+  const optionsList = h("div", { class: "options-list", hidden: true }, optionsFilter, optionsGrid);
+  const optionsToggle = h("button", { class: "btn btn--small options-toggle", type: "button" });
+  const optionsHint = h("p", { class: "fineprint" });
+  const optionsPicked = h("p", { class: "options-picked" });
+  let optionsOpen = false;
+  optionsToggle.addEventListener("click", () => {
+    optionsOpen = !optionsOpen;
+    drawOptions();
+    if (optionsOpen) optionsFilter.focus();
+  });
+  optionsFilter.addEventListener("input", () => drawOptions());
+  // Shows the options offered with the chosen tuning type, at its prices; options it doesn't offer are untaken.
+  function drawOptions() {
+    const tune = chosenTune();
+    const query = optionsFilter.value.trim().toLowerCase();
+    let offered = 0;
+    for (const [option, card] of optionCards) {
+      const price = tune ? priceWith(option, tune.id) : null;
+      const box = card.querySelector("input");
+      if (price === null) box.checked = false;
+      else offered++;
+      card.querySelector(".choice__cost").textContent = price === null ? "" : price === 0 ? "Included" : `+${credits(price)}`;
+      card.hidden = price === null || (query && !option.name.toLowerCase().includes(query));
+    }
+    const picked = optionCards.filter(([, card]) => card.querySelector("input").checked).map(([option]) => option.name);
+    if (tune?.optionsOnly && offered) optionsOpen = true;
+    optionsHint.textContent = !tune ? "Choose a tuning type to see its options." : offered ? "" : "There are no options for this tuning type.";
+    optionsHint.hidden = Boolean(tune && offered);
+    optionsToggle.hidden = !tune || !offered;
+    optionsToggle.textContent = optionsOpen ? "Hide options" : `+ Add options (${offered})`;
+    optionsList.hidden = !optionsOpen || !tune || !offered;
+    optionsFilter.hidden = offered < 8;
+    optionsPicked.textContent = picked.length ? `Added: ${picked.join(", ")}` : "";
+    optionsPicked.hidden = !picked.length || optionsOpen;
+  }
   const tuningPanel = panel("ϟ", "Tuning",
     h("div", { class: "choices", dataset: { need: "tuneId" } }, ...tunes.map((option) => optionCard("radio", "tuneId", option))),
-    addons.length ? [group("Tuning options"), addonsHint, addonsBox] : null
+    addons.length ? [h("div", { class: "group-row", dataset: { need: "addonIds" } }, group("Tuning options"), optionsToggle), optionsHint, optionsPicked, optionsList] : null
   );
 
   // ---- Service: modified parts, time frame, info and extra files ----
@@ -588,17 +631,21 @@ async function viewNew() {
     ["Model", () => value("model"), () => model],
     ["Engine", () => value("engine"), () => engine],
     ["Tuning type", () => value("tuneId"), () => focusTarget("tuneId")],
+    ["At least one option", () => !chosenTune()?.optionsOnly || new FormData(form).getAll("addonIds").length > 0, () => focusTarget("addonIds")],
     ["Modified parts", () => value("modifiedParts"), () => form.elements.modifiedParts],
     ["Time frame", () => value("timeFrame"), () => form.elements.timeFrame],
     ["Confirmation", () => confirmBox.checked, () => focusTarget("confirmed")]
   ];
   const cost = () => {
-    const tune = tunes.find((option) => option.id === value("tuneId"));
+    const tune = chosenTune();
+    if (!tune) return 0;
     const chosenAddons = new Set(new FormData(form).getAll("addonIds"));
-    return Math.round(((tune?.credits ?? 0) + addons.filter((option) => chosenAddons.has(option.id)).reduce((sum, option) => sum + option.credits, 0)) * 100) / 100;
+    return Math.round((tune.credits + addons.filter((option) => chosenAddons.has(option.id)).reduce((sum, option) => sum + (priceWith(option, tune.id) ?? 0), 0)) * 100) / 100;
   };
   const missing = () => REQUIRED.filter(([, done]) => !done());
   const drawBar = () => {
+    // Options first: changing the tuning type unticks options it doesn't offer.
+    drawOptions();
     const needed = cost();
     const short = Math.round((needed - customer.credits) * 100) / 100;
     total.textContent = credits(needed);
@@ -617,8 +664,6 @@ async function viewNew() {
     );
     send.textContent = short > 0 && !todo.length ? "Buy credits" : "Send file";
     send.disabled = todo.length > 0;
-    addonsHint.hidden = Boolean(value("tuneId"));
-    addonsBox.hidden = !value("tuneId");
   };
   form.addEventListener("change", drawBar);
   form.addEventListener("input", drawBar);

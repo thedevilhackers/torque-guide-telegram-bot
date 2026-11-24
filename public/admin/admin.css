@@ -836,6 +836,28 @@ dialog.modal::backdrop {
   }
 }
 
+[hidden] {
+  display: none !important;
+}
+
+.price-rows {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 6px 16px;
+}
+
+.price-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) 88px;
+  gap: 10px;
+  align-items: center;
+  font-size: 14px;
+}
+
+.price-row input[type="number"] {
+  width: 100%;
+}
+
 .field {
   display: grid;
   gap: 5px;

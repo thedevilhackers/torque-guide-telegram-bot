@@ -1077,6 +1077,33 @@ textarea {
   font-weight: 600;
 }
 
+.group-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.group-row .group-title {
+  flex: 1;
+}
+
+.options-toggle {
+  margin-top: 10px;
+  border-color: var(--accent-fill);
+  color: var(--ivory);
+}
+
+.options-list {
+  display: grid;
+  gap: 12px;
+}
+
+.options-picked {
+  margin: 0;
+  color: var(--ivory-2);
+  font-size: 14px;
+}
+
 .group-title::after {
   content: "";
   flex: 1;

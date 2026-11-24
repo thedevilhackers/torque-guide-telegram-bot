@@ -202,15 +202,31 @@ export function validatePhoto(input) {
 // Tuning file service: options priced in credits, and the credit packs customers buy.
 export const TUNE_OPTION_KINDS = ["tune", "addon"];
 
-export function validateTuneOption(input) {
+const creditAmount = (value, label) => Math.round(number(value, label, { min: 0, max: 100 }) * 100) / 100;
+
+// An option's price for each tuning type it's offered with ({ "stage-1": 0.5, … }). Empty means every
+// tuning type, at the option's own credits. tuneIds, when given, are the tuning types that exist.
+function optionPrices(value, tuneIds) {
+  if (value === undefined || value === null || value === "") return {};
+  if (typeof value !== "object" || Array.isArray(value)) throw new InputError("Prices per tuning type are damaged.");
+  const prices = {};
+  for (const [id, price] of Object.entries(value)) {
+    if (!/^[a-z0-9][a-z0-9-]{0,59}$/.test(id) || (tuneIds && !tuneIds.includes(id))) continue;
+    prices[id] = creditAmount(price, "A price per tuning type");
+  }
+  return prices;
+}
+
+export function validateTuneOption(input, tuneIds) {
   const kind = String(input.kind ?? "");
-  if (!TUNE_OPTION_KINDS.includes(kind)) throw new InputError("Choose whether this is a tune or an add-on.");
+  if (!TUNE_OPTION_KINDS.includes(kind)) throw new InputError("Choose whether this is a tuning type or an option.");
   return {
     name: text(input.name, "Name", { required: true, max: 60 }),
     kind,
     // Up to two decimals, e.g. 1.20 credits.
-    credits: Math.round(number(input.credits, "Credits", { min: 0, max: 100 }) * 100) / 100,
+    credits: creditAmount(input.credits, "Credits"),
     description: text(input.description, "Description", { max: 200 }),
+    ...(kind === "addon" && { prices: optionPrices(input.prices, tuneIds) }),
     active: bool(input.active)
   };
 }

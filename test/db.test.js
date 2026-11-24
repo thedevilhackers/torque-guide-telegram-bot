@@ -202,3 +202,24 @@ test("update 9 brings in the file service's price list and credit packs, keeping
   replaceData(own);
   assert.equal(db().settings.currency, "LKR", "a currency the owner chose is kept");
 });
+
+test("update 10 brings in the options with their price for each tuning type", () => {
+  const before = seedData();
+  before.catalogVersion = 9;
+  before.tuneOptions = [
+    ...before.tuneOptions.filter((entry) => entry.kind === "tune"),
+    { id: "pops-bangs", name: "Pops & bangs", kind: "addon", credits: 1, description: "Overrun crackle, petrol cars only.", active: true },
+    // The owner's own price is kept.
+    { id: "launch-control", name: "Launch control", kind: "addon", credits: 2, description: "", active: true },
+    { id: "start-stop-off", name: "Start-stop off", kind: "addon", credits: 1, description: "Engine start-stop disabled by default.", active: true }
+  ];
+  replaceData(before);
+  const option = (id) => db().tuneOptions.find((entry) => entry.id === id);
+  assert.equal(option("pops-bangs").name, "Pop & bang / crackle map");
+  assert.deepEqual(option("start-stop-off").prices, { "options-car": 0.5, "stage-1": 0.5, "stage-2": 0.2 });
+  assert.equal(option("launch-control").credits, 2);
+  assert.equal(option("launch-control").prices, undefined);
+  assert.equal(option("anti-lag").prices["stage-3"], 1);
+  const addons = db().tuneOptions.filter((entry) => entry.kind === "addon").map((entry) => entry.id);
+  assert.deepEqual(addons.slice(0, 3), ["active-grille-shutter", "anti-lag", "checksum"]);
+});

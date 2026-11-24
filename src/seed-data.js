@@ -455,6 +455,39 @@ export const DEFAULT_SETTINGS = {
 // Emissions equipment (DPF, EGR, AdBlue, catalyst, lambda) and immobiliser removal are deliberately
 // not offered.
 const tuneOption = (id, name, credits, description = "", kind = "tune") => ({ id, name, kind, credits, description, active: true });
+
+// Options a customer adds to a tuning type, each with its price per tuning type: "options-car" is
+// "Only options (car)" (stage 0), then Stage 1, 2 and 3, as on fast-chiptuningfiles.com. An option is
+// offered only with the tuning types it has a price for. Left out on purpose: anything that removes or
+// hides emissions equipment (AdBlue/SCR, DPF, EGR, OPF, decat, cat heating, lambda/O2, NOx, EVAP,
+// secondary air, Eolys/FAP, swirl flaps, readiness, smoke maps, and DTC or MAF removal), immobiliser
+// removal, and warranty patches that hide a tune from the dealer.
+const option = (id, name, description, prices) => ({ id, name, kind: "addon", credits: prices["stage-1"] ?? Object.values(prices)[0], description, prices, active: true });
+const TUNING_OPTIONS = [
+  option("active-grille-shutter", "Active grille shutter", "Shutters kept open for cooling.", { "stage-1": 0.5 }),
+  option("anti-lag", "Anti-lag", "Keeps the turbo spooled off throttle. For track use.", { "options-car": 1, "stage-1": 1, "stage-2": 1, "stage-3": 1 }),
+  option("checksum", "Checksum correction", "Checksums corrected on a file you've edited.", { "options-car": 0.2 }),
+  option("cod-off", "Cylinder on demand off", "All cylinders kept running.", { "options-car": 0.5, "stage-1": 0.2, "stage-2": 0.2 }),
+  option("dsg-farts", "DSG farts", "A crack on each upshift.", { "options-car": 1, "stage-1": 0.5, "stage-2": 0.5 }),
+  option("e85-flexfuel", "E85 FlexFuel", "Ethanol fuelling on top of the tune. Name the blend in the info.", { "options-car": 2, "stage-1": 2, "stage-2": 2 }),
+  option("exhaust-flaps", "Exhaust flaps", "Control of the exhaust valve flaps.", { "options-car": 0.5, "stage-1": 0.2, "stage-2": 0.2 }),
+  option("hard-cut", "Hard cut limiter (flames)", "", { "options-car": 1, "stage-1": 1, "stage-2": 0.5, "stage-3": 1 }),
+  option("start-fix", "Hot / cold start fix", "Cures hard starting.", { "options-car": 0.5, "stage-1": 0.5, "stage-2": 0.5 }),
+  option("idle-rpm", "Idle RPM", "", { "options-car": 0.5, "stage-1": 0.5, "stage-2": 0.5 }),
+  option("injector-scaling", "Injector scaling", "For bigger injectors.", { "stage-1": 1, "stage-3": 0 }),
+  option("launch-control", "Launch control", "", { "options-car": 1, "stage-1": 0.5, "stage-2": 0.5, "stage-3": 0.5 }),
+  option("map-sensor", "MAP sensor set", "Scaling for an upgraded boost sensor.", { "options-car": 1, "stage-1": 0.5, "stage-3": 0 }),
+  option("neutral-rpm", "Neutral RPM", "Rev limit when standing still.", { "options-car": 0.5, "stage-1": 0.2, "stage-2": 0.2 }),
+  option("performance-gauge", "Performance gauge (BMW / Mini / VAG)", "Turns on the dashboard performance display.", { "options-car": 0.5, "stage-1": 0, "stage-2": 0, "stage-3": 0 }),
+  option("pops-bangs", "Pop & bang / crackle map", "Overrun crackle, petrol cars only.", { "options-car": 1, "stage-1": 1, "stage-2": 1, "stage-3": 1 }),
+  option("pops-bangs-button", "Pop & bang / crackle map (sport / button)", "Crackle only in sport mode or on a button.", { "options-car": 1.2, "stage-1": 1.2, "stage-2": 1.2, "stage-3": 1 }),
+  option("rev-limiter", "Rev limiter", "", { "options-car": 0.5, "stage-1": 0.2, "stage-2": 0 }),
+  option("start-stop-off", "Start / stop system off", "Engine start-stop off by default.", { "options-car": 0.5, "stage-1": 0.5, "stage-2": 0.2 }),
+  option("startup-roar", "Startup roar", "A louder flare on start-up.", { "options-car": 1, "stage-1": 0.5 }),
+  option("torque-monitoring", "Torque monitoring off", "", { "options-car": 0.5, "stage-1": 0.5, "stage-2": 0 }),
+  option("vmax-custom", "V-Max limited to a custom speed", "Name the speed in the info.", { "stage-1": 0.5 }),
+  option("vmax-off", "V-Max off", "Top-speed limiter removed.", { "options-car": 0.5, "stage-1": 0, "stage-2": 0 })
+];
 export const SEED_TUNE_OPTIONS = [
   tuneOption("stage-1", "Car tuning (Stage 1)", 1, "Software only, for a standard car."),
   tuneOption("stage-2", "Car tuning (Stage 2)", 1.2, "For cars with supporting hardware: intake, intercooler, downpipe with catalyst."),
@@ -468,9 +501,7 @@ export const SEED_TUNE_OPTIONS = [
   tuneOption("back-to-stock", "Back to stock", 0.2, "The ECU's original calibration, written back."),
   tuneOption("file-review", "Tuning file review", 0.2, "We check a tuned file you already have."),
   tuneOption("ecu-clone", "ECU clone service", 0.5, "The data prepared for a replacement ECU of the same type."),
-  tuneOption("pops-bangs", "Pops & bangs", 1, "Overrun crackle, petrol cars only.", "addon"),
-  tuneOption("launch-control", "Launch control", 1, "", "addon"),
-  tuneOption("start-stop-off", "Start-stop off", 1, "Engine start-stop disabled by default.", "addon")
+  ...TUNING_OPTIONS
 ];
 
 // The tune options as first released, so update 9 replaces only those the owner hasn't changed.
@@ -479,6 +510,13 @@ const LAUNCH_TUNE_OPTIONS = [
   { id: "stage-2", name: "Stage 2", kind: "tune", credits: 2, description: "For cars with supporting hardware: intake, intercooler, downpipe with catalyst.", active: true },
   { id: "ethanol", name: "Ethanol tune (E20–E85)", kind: "tune", credits: 2, description: "Fuelling and timing for the ethanol blend you name in the notes.", active: true },
   { id: "economy", name: "Economy", kind: "tune", credits: 1, description: "More low-down torque for better fuel economy.", active: true }
+];
+
+// The options as first released (update 10 replaces those the owner hasn't changed).
+const LAUNCH_OPTIONS = [
+  { id: "pops-bangs", name: "Pops & bangs", kind: "addon", credits: 1, description: "Overrun crackle, petrol cars only.", active: true },
+  { id: "launch-control", name: "Launch control", kind: "addon", credits: 1, description: "", active: true },
+  { id: "start-stop-off", name: "Start-stop off", kind: "addon", credits: 1, description: "Engine start-stop disabled by default.", active: true }
 ];
 
 // Credit packs at ₹9,599 a credit.
@@ -557,6 +595,14 @@ export const CATALOG_UPDATES = [
       ]
     },
     order: { tuneOptions: SEED_TUNE_OPTIONS.map((option) => option.id) }
+  },
+  // Tuning options with their own price per tuning type (stage 0 to 3), from fast-chiptuningfiles.com's
+  // lists. The first three options are replaced where the owner hasn't changed them.
+  {
+    version: 10,
+    add: { tuneOptions: SEED_TUNE_OPTIONS },
+    replace: { tuneOptions: LAUNCH_OPTIONS.map((from) => ({ from, to: SEED_TUNE_OPTIONS.find((entry) => entry.id === from.id) })) },
+    order: { tuneOptions: SEED_TUNE_OPTIONS.map((entry) => entry.id) }
   }
 ];
 

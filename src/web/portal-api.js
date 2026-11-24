@@ -118,7 +118,7 @@ export function registerPortalRoutes(route, { fetchImpl } = {}) {
       note: current.fileServiceNote,
       currency: current.currency,
       whatsappNumber: current.whatsappNumber,
-      options: files.activeOptions().map(({ id, name, kind, credits, description }) => ({ id, name, kind, credits, description })),
+      options: files.activeOptions().map(({ id, name, kind, credits, description, prices }) => ({ id, name, kind, credits, description, ...(kind === "addon" && { prices: prices ?? {} }), ...(kind === "tune" && { optionsOnly: files.optionsOnly({ id, name }) }) })),
       packs: files.activePacks().map(({ id, name, credits, price, note }) => ({ id, name, credits, price, note })),
       payments: { upi: files.upiAvailable(), online: razorpayEnabled() && current.currency === "INR" },
       tools: files.TOOLS,

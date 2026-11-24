@@ -31,7 +31,10 @@ const COLLECTIONS = {
   brands: { validate: (input) => validateBrand(input), id: (entry) => slugify(entry.title, "_") },
   services: { validate: (input) => validateService(input), id: (entry) => slugify(entry.title) },
   photos: { validate: (input) => validatePhoto(input), id: (entry) => slugify(entry.caption) || "photo", prepend: true },
-  tuneOptions: { validate: (input) => validateTuneOption(input), id: (entry) => slugify(entry.name) },
+  tuneOptions: {
+    validate: (input, data) => validateTuneOption(input, data.tuneOptions.filter((entry) => entry.kind === "tune").map((entry) => entry.id)),
+    id: (entry) => slugify(entry.name)
+  },
   creditPacks: { validate: (input) => validateCreditPack(input), id: (entry) => slugify(entry.name) || "pack" }
 };
 

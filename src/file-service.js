@@ -221,17 +221,31 @@ export const ledgerFor = (customerId, limit = 100) => db().creditLedger.filter((
 export const activeOptions = () => db().tuneOptions.filter((option) => option.active);
 export const activePacks = () => db().creditPacks.filter((pack) => pack.active).sort((a, b) => a.credits - b.credits);
 
+// An option's price with a tuning type, or null where it isn't offered with it. Options without
+// per-type prices go with every tuning type at their own credits.
+export function optionPrice(option, tuneId) {
+  const prices = option.prices ?? {};
+  if (!Object.keys(prices).length) return option.credits;
+  return Object.hasOwn(prices, tuneId) ? prices[tuneId] : null;
+}
+
+// "Only options (car)" and the like: no tune of their own, so at least one option is needed.
+export const optionsOnly = (tune) => /^options-/.test(tune.id) || /^only options/i.test(tune.name);
+
 // Prices always come from the database, never from the customer's browser.
 function priceOrder(data, tuneId, addonIds) {
   const options = data.tuneOptions.filter((option) => option.active);
   const tune = options.find((option) => option.id === tuneId && option.kind === "tune");
-  if (!tune) throw new InputError("Choose a tune.");
+  if (!tune) throw new InputError("Choose a tuning type.");
   const ids = [...new Set(Array.isArray(addonIds) ? addonIds.map(String) : [])];
   const addons = ids.map((id) => {
     const addon = options.find((option) => option.id === id && option.kind === "addon");
-    if (!addon) throw new InputError("One of the add-ons you chose isn't offered any more. Refresh the page and choose again.");
-    return addon;
+    if (!addon) throw new InputError("One of the options you chose isn't offered any more. Refresh the page and choose again.");
+    const price = optionPrice(addon, tune.id);
+    if (price === null) throw new InputError(`${addon.name} isn't offered with ${tune.name}.`);
+    return { ...addon, credits: price };
   });
+  if (optionsOnly(tune) && !addons.length) throw new InputError(`Choose at least one option for ${tune.name}.`);
   const lines = [tune, ...addons].map(({ id, name, kind, credits }) => ({ id, name, kind, credits }));
   return { lines, credits: round2(lines.reduce((sum, line) => sum + line.credits, 0)) };
 }

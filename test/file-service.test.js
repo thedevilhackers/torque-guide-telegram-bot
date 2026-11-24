@@ -435,6 +435,43 @@ test("the order form: required and optional fields, the vehicle list, extra file
   assert.equal((await person.request("/api/portal/me")).data.customer.credits, 3.1);
 });
 
+test("options have their own price for each tuning type, and only-options types need one", async (t) => {
+  const { browser, admin, close } = await startApp();
+  t.after(close);
+  const person = browser();
+  const { id } = await signUp(person);
+  await admin.admin(`/api/admin/customers/${id}/credits`, { method: "POST", body: { change: 20, note: "Test" } });
+  const place = async (tuneId, addonIds) => person.portal("/api/portal/orders", { method: "POST", body: { ...ORDER, tuneId, addonIds, uploadId: (await upload(person)).data.upload.id } });
+
+  const catalog = (await person.request("/api/portal/catalog")).data;
+  const launch = catalog.options.find((entry) => entry.id === "launch-control");
+  assert.deepEqual(launch.prices, { "options-car": 1, "stage-1": 0.5, "stage-2": 0.5, "stage-3": 0.5 });
+  assert.equal(catalog.options.find((entry) => entry.id === "options-car").optionsOnly, true);
+  assert.ok(!catalog.options.some((entry) => /warranty|readiness|dtc|maf/i.test(entry.name)));
+
+  // Launch control costs 0.50 with Stage 1 but 1.00 with only options; injector scaling isn't offered with Stage 2.
+  assert.equal((await place("stage-1", ["launch-control"])).data.order.credits, 1.5);
+  assert.equal((await place("options-car", ["launch-control", "checksum"])).data.order.credits, 1.2);
+  const notOffered = await place("stage-2", ["injector-scaling"]);
+  assert.equal(notOffered.status, 400);
+  assert.match(notOffered.data.error, /Injector scaling isn't offered with Car tuning \(Stage 2\)/);
+  const nothing = await place("options-car", []);
+  assert.equal(nothing.status, 400);
+  assert.match(nothing.data.error, /at least one option/);
+  // TCU tuning has no options, so car options are refused with it.
+  assert.equal((await place("tcu-stage-1", ["pops-bangs"])).status, 400);
+
+  // The admin adds an option with its own prices; unknown tuning types are dropped.
+  const added = await admin.admin("/api/admin/tuneOptions", { method: "POST", body: { name: "Burble on lift", kind: "addon", credits: "0.5", prices: { "stage-1": "0.3", "stage-2": "0.4", nope: "9" }, active: true } });
+  assert.equal(added.status, 200, JSON.stringify(added.data));
+  assert.deepEqual(added.data.item.prices, { "stage-1": 0.3, "stage-2": 0.4 });
+  assert.equal((await place("stage-2", [added.data.item.id])).data.order.credits, 1.6);
+  // An option without per-type prices goes with every tuning type at its own price.
+  const everywhere = (await admin.admin("/api/admin/tuneOptions", { method: "POST", body: { name: "Custom request", kind: "addon", credits: "0.7", active: true } })).data.item;
+  assert.deepEqual(everywhere.prices, {});
+  assert.equal((await place("tcu-stage-1", [everywhere.id])).data.order.credits, 1.7);
+});
+
 test("file order and payment alerts read clearly", () => {
   const customer = { id: "c1", name: "Ravi", phone: "+91 98765 43210", company: "Ravi Motors" };
   const order = { id: "f1", number: "TF-1001", customerId: "c1", credits: 2.2, vehicle: { make: "VW", model: "Polo", engine: "1.0 TSI", year: 2019, fuel: "petrol" }, ecu: "MED17", tool: "autotuner", toolMode: "slave", readMethod: "obd", options: [{ name: "Stage 1" }, { name: "Pops & bangs" }], notes: "", timeFrame: "today", modifiedParts: "yes" };
