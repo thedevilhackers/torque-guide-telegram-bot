@@ -118,6 +118,14 @@ final class App
                 'notify_admins' => true,
                 'report_hour' => 9,
             ],
+            'panel' => [
+                // Customer-panel add-on (public/panel/), shown inside MagnusBilling. See panel-addon.sh.
+                'enabled' => true,
+                'login_url' => '',          // address of the customer panel, for the "Log in" link
+                'magnus_db_config' => '',   // empty = /etc/asterisk/res_config_mysql.conf
+                'session_name' => '',       // empty = PHP default (PHPSESSID), the same as MagnusBilling
+                'magnus_db_dsn' => '',      // testing only
+            ],
             'api' => [
                 'keys' => [],
                 'cors_origins' => [],

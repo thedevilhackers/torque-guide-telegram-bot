@@ -158,7 +158,7 @@ final class Payments
 
     /**
      * @param array<string,mixed> $input   username, amount, [email], [reference], [return_url]
-     * @param string              $source  web | api | telegram
+     * @param string              $source  web | api | telegram | panel
      * @param array<string,mixed> $options tg_chat_id, ip, trusted (allows reference/return_url)
      * @return array<string,mixed> the stored order
      */

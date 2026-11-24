@@ -48,6 +48,7 @@ function usage(): void
     line('  telegram:poll      run the bot with long polling (no HTTPS needed)');
     line('  cron               scheduled jobs (order checks, low-balance alerts, daily report, health alerts)');
     line('  report             send the daily report to admins now');
+    line('  twostep:off <user> turn off two-step login for a customer who lost their phone');
 }
 
 if (in_array($command, ['help', '--help', '-h'], true)) {
@@ -169,6 +170,21 @@ try {
 
         case 'report':
             line('report: ' . $app->cron()->dailyReport(true));
+            break;
+
+        case 'twostep:off':
+            $name = (string) ($argv[2] ?? '');
+            if ($name === '') {
+                throw new \RuntimeException('Usage: php bin/cli.php twostep:off <username>');
+            }
+            $magnusDb = new \Gateway\MagnusDb($app);
+            $user = $magnusDb->userByUsername($name);
+            if ($user === null) {
+                throw new \RuntimeException("No MagnusBilling account named {$name}.");
+            }
+            $magnusDb->setTwoStep((int) $user['id'], '');
+            $app->log('info', 'Two-step login turned off from the command line', ['user' => $user['username']]);
+            line("Two-step login is off for {$user['username']}. They can turn it on again under Telegram & security.");
             break;
 
         case 'orders':

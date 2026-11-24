@@ -104,6 +104,15 @@ return [
         'short_description' => '',      // About text on the bot's profile, max 120 characters (empty = standard text)
     ],
 
+    // ------------------------------------------------------ customer-panel add-on
+    // Top up / Telegram / two-step login pages inside the MagnusBilling panel. Install with panel-addon.sh.
+    'panel' => [
+        'enabled' => true,
+        'login_url' => '',          // panel address for the "log in" link (panel-addon.sh saves it for you)
+        'magnus_db_config' => '',   // empty = /etc/asterisk/res_config_mysql.conf
+        'session_name' => '',       // empty = PHPSESSID, the same cookie MagnusBilling uses
+    ],
+
     // ---------------------------------------------------------------- JSON API
     'api' => [
         // API keys for your own systems (CRM, WHMCS, another bot...). Generate with: php bin/cli.php secret

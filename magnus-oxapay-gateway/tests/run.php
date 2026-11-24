@@ -1279,6 +1279,214 @@ test('bot profile: texts from config.php and changed by admins in the bot', func
     same($before, count(telegramCalls($fake, 'setMyDescription')), 'customers cannot change the profile');
 });
 
+// ------------------------------------------------------------ panel add-on
+
+/**
+ * A MagnusBilling-like pkg_user table and a Panel for the logged-in customer $id.
+ *
+ * @return array{0:\Gateway\Panel, 1:\PDO}
+ */
+function makePanel(\Gateway\App $app, int $id = 7, string $username = 'alice', array $session = []): array
+{
+    $pdo = new \PDO('sqlite::memory:', null, null, [\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION, \PDO::ATTR_DEFAULT_FETCH_MODE => \PDO::FETCH_ASSOC]);
+    $pdo->exec("CREATE TABLE pkg_user (id INTEGER PRIMARY KEY, username TEXT, credit REAL, active INTEGER, firstname TEXT, lastname TEXT,
+        email TEXT, googleAuthenticator_enable INTEGER DEFAULT 0, google_authenticator_key TEXT DEFAULT '')");
+    $pdo->exec("INSERT INTO pkg_user VALUES (7, 'alice', 12.5, 1, 'Alice', 'Doe', 'a@example.test', 0, '')");
+    $pdo->exec("INSERT INTO pkg_user VALUES (9, 'bob', 3, 0, 'Bob', '', '', 0, '')");
+    $login = \Gateway\MagnusSession::fromArray($session + ['logged' => true, 'id_user' => $id, 'username' => $username, 'isClient' => true], 'sess-' . $id . '-abcdefghijklmnopqrstuvwxyz');
+
+    return [new \Gateway\Panel($app, $login, new \Gateway\MagnusDb($app, $pdo)), $pdo];
+}
+
+test('panel add-on: two-step codes match RFC 6238 and MagnusBilling', function () {
+    same('287082', \Gateway\Totp::code('GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ', 1), 'RFC 6238 vector');
+    same('081804', \Gateway\Totp::code('GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ', intdiv(1111111109, 30)), 'RFC 6238 vector 2');
+    $secret = \Gateway\Totp::secret();
+    same(32, strlen($secret));
+    check((bool) preg_match('/^[A-Z2-7]{32}$/', $secret), 'base32 secret');
+    check(\Gateway\Totp::verify($secret, \Gateway\Totp::code($secret)), 'current code accepted');
+    check(\Gateway\Totp::verify($secret, \Gateway\Totp::code($secret, intdiv(time(), 30) - 1)), '30 s old code accepted');
+    check(!\Gateway\Totp::verify($secret, \Gateway\Totp::code($secret, intdiv(time(), 30) - 4)), '2 min old code refused');
+    check(!\Gateway\Totp::verify($secret, 'abcdef') && !\Gateway\Totp::verify('', '123456'), 'junk refused');
+    check(strpos(\Gateway\Totp::uri($secret, 'alice', 'Test Carrier'), 'otpauth://totp/Test%20Carrier:alice?secret=' . $secret) === 0, 'otpauth link');
+});
+
+test('panel add-on: only a fully logged-in MagnusBilling session counts', function () {
+    check(\Gateway\MagnusSession::fromArray(['logged' => true, 'id_user' => 7, 'username' => 'alice', 'isClient' => true], 'x') !== null, 'logged in');
+    same(null, \Gateway\MagnusSession::fromArray(['logged' => false, 'pending_2fa_user_id' => 7], 'x'), 'waiting for the two-step code');
+    same(null, \Gateway\MagnusSession::fromArray(['logged' => '1', 'id_user' => 7, 'username' => 'alice'], 'x'), 'logged must be exactly true');
+    same(null, \Gateway\MagnusSession::fromArray(['logged' => true, 'username' => 'alice'], 'x'), 'no user id');
+    same(null, \Gateway\MagnusSession::fromArray([], 'x'), 'empty session');
+});
+
+test('panel add-on: account checks, overview and page token', function () {
+    [$app] = makeApp();
+    [$panel] = makePanel($app);
+    $view = $panel->overview();
+    same('alice', $view['username']);
+    same('Alice Doe', $view['name']);
+    same('12.50', $view['credit']);
+    same(false, $view['two_step']);
+    same(true, $view['telegram']['enabled']);
+    same(0, $view['telegram']['linked']);
+
+    $panel->checkCsrf($panel->csrfToken());
+    throwsUserError(function () use ($panel) { $panel->checkCsrf('nope'); }, 'bad_request');
+    [$other] = makePanel($app, 7, 'alice', []);
+    check($other->csrfToken() === $panel->csrfToken(), 'same login, same token');
+    [$mismatch] = makePanel($app, 7, 'mallory');
+    throwsUserError(function () use ($mismatch) { $mismatch->overview(); }, 'not_logged_in');
+    [$disabled] = makePanel($app, 9, 'bob');
+    throwsUserError(function () use ($disabled) { $disabled->overview(); }, 'account_disabled');
+    [$gone] = makePanel($app, 404, 'ghost');
+    throwsUserError(function () use ($gone) { $gone->overview(); }, 'not_logged_in');
+});
+
+test('panel add-on: top-up for the logged-in account only', function () {
+    [$app, $fake] = makeApp();
+    [$panel] = makePanel($app);
+    $result = $panel->topup('25', '', '203.0.113.9');
+    $order = $app->payments()->getOrder($result['order']);
+    same('alice', $order['username']);
+    same('panel', $order['source']);
+    same('25.00', number_format((float) $order['amount'], 2, '.', ''));
+    check(strpos($result['payment_url'], 'http') === 0, 'payment link');
+    check(strpos($result['status_url'], '/status.php?order=' . $result['order']) !== false, 'status link');
+    throwsUserError(function () use ($panel) { $panel->topup('0.5', '', '1.1.1.1'); }, 'amount_too_low');
+    same(1, count($panel->overview()['orders']), 'shown in recent top-ups');
+});
+
+test('panel add-on: Connect Telegram links the chat to the account', function () {
+    [$app, $fake] = makeApp();
+    [$panel] = makePanel($app);
+    $link = $panel->telegramLink()['link'];
+    check((bool) preg_match('#^https://t\.me/testpay_bot\?start=l_([a-f0-9]{16})$#', $link, $m), 'invite link');
+    tgSay($app, $fake, 5151, '/start l_' . $m[1]);
+    same('alice', $app->customers()->linkedUsername('5151'));
+    same(1, $panel->overview()['telegram']['linked']);
+
+    [$noBot] = makePanel(makeApp(['telegram' => ['enabled' => false]])[0]);
+    throwsUserError(function () use ($noBot) { $noBot->telegramLink(); }, 'telegram_off');
+});
+
+test('panel add-on: customers turn two-step login on and off themselves', function () {
+    [$app] = makeApp();
+    [$panel, $pdo] = makePanel($app);
+    $setup = $panel->twoStepStart();
+    check(strpos($setup['uri'], 'secret=' . $setup['secret']) !== false, 'QR link holds the key');
+    same(0, (int) $pdo->query('SELECT googleAuthenticator_enable FROM pkg_user WHERE id = 7')->fetchColumn(), 'nothing saved before the first code');
+    throwsUserError(function () use ($panel) { $panel->twoStepConfirm('000000'); }, 'invalid_code');
+    $panel->twoStepConfirm(\Gateway\Totp::code($setup['secret']));
+    $row = $pdo->query('SELECT googleAuthenticator_enable, google_authenticator_key FROM pkg_user WHERE id = 7')->fetch();
+    same(1, (int) $row['googleAuthenticator_enable'], 'on in MagnusBilling');
+    same($setup['secret'], $row['google_authenticator_key'], 'key saved');
+    same(true, $panel->overview()['two_step']);
+    same('', (string) $pdo->query("SELECT google_authenticator_key FROM pkg_user WHERE id = 9")->fetchColumn(), 'other accounts untouched');
+    throwsUserError(function () use ($panel) { $panel->twoStepStart(); }, 'two_step_on');
+    throwsUserError(function () use ($panel) { $panel->twoStepConfirm(\Gateway\Totp::code(\Gateway\Totp::secret())); }, 'setup_expired');
+
+    throwsUserError(function () use ($panel) { $panel->twoStepDisable('123456'); }, 'invalid_code');
+    $panel->twoStepDisable(\Gateway\Totp::code($setup['secret']));
+    $row = $pdo->query('SELECT googleAuthenticator_enable, google_authenticator_key FROM pkg_user WHERE id = 7')->fetch();
+    same(0, (int) $row['googleAuthenticator_enable'], 'off');
+    same('', $row['google_authenticator_key'], 'key removed');
+
+    // Guessing codes is limited.
+    $panel->twoStepStart();
+    for ($i = 0; $i < 7; $i++) {
+        try { $panel->twoStepConfirm('000000'); } catch (\Gateway\UserError $e) { }
+    }
+    throwsUserError(function () use ($panel) { $panel->twoStepConfirm('000000'); }, 'rate_limited');
+});
+
+/**
+ * Runs bin/panel-addon.php against a SQLite copy of MagnusBilling's menu tables.
+ */
+function addonCli(string $dbFile, string $args): array
+{
+    $cmd = 'UC_MAGNUS_DSN=' . escapeshellarg('sqlite:' . $dbFile) . ' ' . escapeshellarg(PHP_BINARY) . ' '
+        . escapeshellarg(__DIR__ . '/../bin/panel-addon.php') . ' ' . $args . ' 2>&1';
+    exec($cmd, $out, $code);
+
+    return [$code, implode("\n", $out)];
+}
+
+function magnusMenuDb(): string
+{
+    $file = tempnam(sys_get_temp_dir(), 'mb');
+    $pdo = new \PDO('sqlite:' . $file);
+    $pdo->exec("CREATE TABLE pkg_module (id INTEGER PRIMARY KEY, text TEXT, module TEXT, icon_cls TEXT, id_module INTEGER, priority INTEGER)");
+    $pdo->exec("CREATE TABLE pkg_configuration (id INTEGER PRIMARY KEY, config_key TEXT, config_value TEXT)");
+    $pdo->exec("CREATE TABLE pkg_group_user (id INTEGER PRIMARY KEY, name TEXT, id_user_type INTEGER)");
+    $pdo->exec("CREATE TABLE pkg_group_module (id_group INTEGER, id_module INTEGER, action TEXT, show_menu INTEGER DEFAULT 1,
+        createShortCut INTEGER DEFAULT 0, createQuickStart INTEGER DEFAULT 0, PRIMARY KEY (id_group, id_module))");
+    // Rows as in MagnusBilling 8's database.sql
+    $pdo->exec("INSERT INTO pkg_module VALUES (1, 't(''Clients'')', NULL, 'x-fa fa-arrow-right', NULL, 1), (7, 't(''Billing'')', NULL, 'x-fa fa-arrow-right', NULL, 2),
+        (12, 't(''Settings'')', NULL, 'x-fa fa-arrow-right', NULL, 7), (69, 't(''Extra'')', 'extra', 'x-fa fa-desktop', 12, 69),
+        (100, 't(''Extra2'')', 'extra2', 'x-fa fa-desktop', 12, 10), (101, 't(''Extra3'')', 'extra3', 'x-fa fa-desktop', 12, 11)");
+    $pdo->exec("INSERT INTO pkg_configuration VALUES (236, 'module_extra', 'index.php/extra/read'), (294, 'module_extra2', ''), (295, 'module_extra3', '')");
+    $pdo->exec("INSERT INTO pkg_group_user VALUES (1, 'Administrator', 1), (2, 'Agent', 2), (3, 'Client', 3), (4, 'VIP clients', 3)");
+    $pdo->exec("INSERT INTO pkg_group_module VALUES (3, 1, 'ru', 1, 0, 0), (3, 7, 'r', 1, 0, 0), (1, 100, 'crud', 0, 0, 0)");
+
+    return $file;
+}
+
+function menuState(string $file): string
+{
+    $pdo = new \PDO('sqlite:' . $file);
+    $out = [];
+    foreach (['pkg_module ORDER BY id', 'pkg_configuration ORDER BY id', 'pkg_group_module ORDER BY id_group, id_module'] as $table) {
+        $out[] = json_encode($pdo->query('SELECT * FROM ' . $table)->fetchAll(\PDO::FETCH_ASSOC));
+    }
+
+    return implode("\n", $out);
+}
+
+test('panel add-on installer: menu items, permissions and exact undo', function () {
+    $db = magnusMenuDb();
+    $undo = $db . '.undo.json';
+    $before = menuState($db);
+
+    [$code, $out] = addonCli($db, 'plan --addon-path=/pay/panel/');
+    same(0, $code, $out);
+    $plan = json_decode($out, true);
+    same(['extra2', 'extra3'], array_column($plan['items'], 'module'));
+    same([7, 1], array_column($plan['items'], 'parent_id'), 'Top up under Billing, Telegram & security under Clients');
+
+    [$code, $out] = addonCli($db, 'apply --addon-path=/pay/panel/ --undo=' . escapeshellarg($undo));
+    same(0, $code, $out);
+    $pdo = new \PDO('sqlite:' . $db);
+    $pdo->setAttribute(\PDO::ATTR_DEFAULT_FETCH_MODE, \PDO::FETCH_ASSOC);
+    same('/pay/panel/?tab=topup', $pdo->query("SELECT config_value FROM pkg_configuration WHERE config_key = 'module_extra2'")->fetchColumn());
+    same('/pay/panel/?tab=security', $pdo->query("SELECT config_value FROM pkg_configuration WHERE config_key = 'module_extra3'")->fetchColumn());
+    same('index.php/extra/read', $pdo->query("SELECT config_value FROM pkg_configuration WHERE config_key = 'module_extra'")->fetchColumn(), 'Extra untouched');
+    same(['text' => 'Top up', 'icon_cls' => 'x-fa fa-credit-card', 'id_module' => 7], $pdo->query('SELECT text, icon_cls, id_module FROM pkg_module WHERE id = 100')->fetch());
+    foreach ([3, 4] as $group) {
+        $row = $pdo->query("SELECT action, show_menu, createShortCut FROM pkg_group_module WHERE id_group = $group AND id_module = 101")->fetch();
+        same(['action' => 'r', 'show_menu' => 1, 'createShortCut' => 1], array_map(static function ($v) { return is_numeric($v) ? (int) $v : $v; }, $row), "customer group $group");
+    }
+    same('crud', $pdo->query('SELECT action FROM pkg_group_module WHERE id_group = 1 AND id_module = 100')->fetchColumn(), 'admin rights not lowered');
+    same(0, (int) $pdo->query('SELECT COUNT(*) FROM pkg_group_module WHERE id_group = 2')->fetchColumn(), 'agents untouched');
+
+    // Running it again keeps the first undo record, so undo still goes all the way back.
+    [$code, $out] = addonCli($db, 'apply --addon-path=/pay/panel/ --undo=' . escapeshellarg($undo));
+    same(0, $code, $out);
+    [$code, $out] = addonCli($db, 'remove --undo=' . escapeshellarg($undo));
+    same(0, $code, $out);
+    same($before, menuState($db), 'everything back exactly as before');
+
+    // Slots used for something else are left alone.
+    $pdo->exec("UPDATE pkg_configuration SET config_value = 'https://crm.example.test/' WHERE config_key = 'module_extra2'");
+    $plan = json_decode(addonCli($db, 'plan --addon-path=/pay/panel/')[1], true);
+    same(['extra3', 'extra'], array_column($plan['items'], 'module'), 'busy Extra2 skipped');
+    $pdo->exec("UPDATE pkg_configuration SET config_value = 'https://x.example.test/' WHERE config_key IN ('module_extra', 'module_extra3')");
+    [$code, $out] = addonCli($db, 'plan --addon-path=/pay/panel/');
+    check(strpos($out, '"ok": false') !== false && strpos($out, 'already used') !== false, 'no free slot reported');
+    [$code] = addonCli($db, 'apply --addon-path=/pay/panel/ --undo=' . escapeshellarg($db . '.u2'));
+    same(1, $code, 'apply refuses');
+    @unlink($db); @unlink($undo);
+});
+
 test('telegram: unexpected errors reply politely instead of crashing', function () {
     [$app, $fake] = makeApp();
     $fake->magnusDown = true;

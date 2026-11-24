@@ -361,6 +361,68 @@ There are three ways to use your own texts:
 
 Telegram shows the description only in an empty chat. To check it, open the bot from an account that has never used it, or delete the chat and open it again.
 
+## Customer-panel add-on (Top up, Telegram, two-step login)
+
+This adds two items to the menu your customers see in the MagnusBilling 8 panel. Customers also get a desktop icon for each.
+
+- **💳 Top up**: the customer's balance, a crypto top-up (amount buttons, promo codes) and their recent payments. It works like the payment website, but the account is always the logged-in customer's own.
+- **🔐 Telegram & security**:
+  - **Connect Telegram** links the customer's Telegram to their account in one tap. They then get payment messages and low-balance alerts from the bot.
+  - **Two-step login** lets customers turn on a login code from Google Authenticator (or a similar app) themselves. They scan a QR code, type one code, and it is on. MagnusBilling then asks for the code at their first login each day and from new IP addresses. They can turn it off with a current code.
+
+How it fits in:
+
+- The pages are served by the gateway (`public/panel/`), on the same domain as the panel. That way the browser sends the panel login with each request.
+- MagnusBilling's own files are not changed. In its database, the add-on only fills MagnusBilling's free "Extra" menu slots, names them, and lets customer groups open them. It never touches a slot that is already used for something else.
+- The pages only work for someone fully logged in to the panel, including the two-step code if that is on. Every action applies to that person's own account.
+- The QR code is drawn in the browser, so the secret key is never sent to an outside service.
+
+Install it after updating the gateway:
+
+```bash
+cd /root/unitycarrier-src && git pull
+```
+
+```bash
+bash /root/unitycarrier-src/magnus-oxapay-gateway/install.sh --yes
+```
+
+Then use the address you open the panel with. The `--check` run shows what would change and changes nothing:
+
+```bash
+bash /var/www/unitycarrier-pay/panel-addon.sh --panel-url https://www.unitycarrier.com/panel/ --check
+```
+
+```bash
+bash /var/www/unitycarrier-pay/panel-addon.sh --panel-url https://www.unitycarrier.com/panel/
+```
+
+Before it changes anything, `panel-addon.sh` makes a full backup in `/root/unitycarrier-backups/panel-<date>/`:
+
+| File | Contents |
+| --- | --- |
+| `magnus-database.sql.gz` | the whole MagnusBilling database |
+| `web-files.tar.gz` | `/var/www/html` (the panel) |
+| `asterisk-etc.tar.gz` | `/etc/asterisk` |
+| `gateway.tar.gz` | the gateway's `config.php` and `data/` |
+| `RESTORE.txt` | how to restore |
+
+If there is not enough disk space for the whole database plus 1 GB to spare, it leaves out the call-history tables and says so. To leave them out anyway, add `--skip-call-records`.
+
+Customers see the new items the next time they log in, because MagnusBilling builds the menu at login.
+
+To remove the items, run this. It puts the exact previous menu settings back, keeps everything else that has changed since, and keeps the backups:
+
+```bash
+bash /var/www/unitycarrier-pay/panel-addon.sh --uninstall
+```
+
+If a customer loses their phone, turn two-step login off for them (MagnusBilling 8 has no menu for this by default):
+
+```bash
+php /var/www/unitycarrier-pay/bin/cli.php twostep:off <username>
+```
+
 ## JSON API
 
 Base URL: `https://www.unitycarrier.com/pay/api.php`. Every response looks like this:
