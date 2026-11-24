@@ -241,6 +241,17 @@ export function validateCreditPack(input) {
   };
 }
 
+export function validateFranchisePackage(input) {
+  return {
+    name: text(input.name, "Name", { required: true, max: 60 }),
+    price: Math.round(number(input.price, "Price", { min: 1, max: 1_000_000_000 })),
+    items: list(input.items, "What's included", { max: 20, itemMax: 120 }),
+    note: text(input.note, "Note", { max: 160 }),
+    featured: bool(input.featured),
+    active: bool(input.active)
+  };
+}
+
 export function validateSettings(input) {
   const telegramBot = text(input.telegramBot, "Telegram bot username", { max: 40 }).replace(/^@/, "");
   if (telegramBot && !/^[A-Za-z0-9_]{5,32}$/.test(telegramBot)) throw new InputError("Telegram bot username can only contain letters, numbers and underscores.");
@@ -266,6 +277,8 @@ export function validateSettings(input) {
     fileServiceNote: text(input.fileServiceNote, "File service note", { max: 300 }),
     upiId: upiId(input.upiId),
     upiName: text(input.upiName, "UPI payee name", { max: 60 }),
+    franchiseOpen: bool(input.franchiseOpen),
+    franchiseTerms: list(input.franchiseTerms, "Good to know", { max: 12, itemMax: 200 }),
     siteUrl: httpsUrl(input.siteUrl, "Website address").replace(/\/+$/, ""),
     announcement: text(input.announcement, "Announcement bar", { max: 140 }),
     currency,

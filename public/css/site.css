@@ -2031,6 +2031,135 @@ a.photo-card:hover .photo-caption {
   max-width: 760px;
 }
 
+/* ---------- Franchise ---------- */
+
+.franchise-packages {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+  gap: 16px;
+}
+
+.package-card {
+  display: flex;
+  flex-direction: column;
+  padding: clamp(28px, 4vw, 40px);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+
+.package-card.is-featured {
+  border-color: rgba(var(--glow), 0.8);
+  background: radial-gradient(120% 120% at 100% 0%, rgba(var(--glow), 0.28), transparent 55%), var(--surface);
+}
+
+.package-card h3 {
+  font-size: 24px;
+  letter-spacing: -0.02em;
+}
+
+.package-price {
+  margin-top: 14px;
+  font-size: clamp(40px, 5vw, 56px);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  font-variant-numeric: lining-nums;
+}
+
+.package-full {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.package-note {
+  margin-top: 10px;
+  color: var(--text-2);
+}
+
+.package-items {
+  display: grid;
+  gap: 10px;
+  margin: 24px 0 28px;
+  padding: 0;
+  list-style: none;
+}
+
+.package-items li {
+  position: relative;
+  padding-left: 28px;
+}
+
+.package-items li::before {
+  content: "";
+  position: absolute;
+  top: 0.45em;
+  left: 2px;
+  width: 12px;
+  height: 7px;
+  border-bottom: 2px solid var(--accent);
+  border-left: 2px solid var(--accent);
+  transform: rotate(-45deg);
+}
+
+.package-card .btn {
+  align-self: flex-start;
+  margin-top: auto;
+}
+
+.franchise-terms {
+  margin-top: 16px;
+  padding: clamp(24px, 3vw, 32px);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+
+.franchise-terms h3 {
+  font-size: 20px;
+}
+
+.franchise-terms ul {
+  display: grid;
+  gap: 8px;
+  margin: 14px 0 0;
+  padding-left: 20px;
+  color: var(--text-2);
+}
+
+.franchise-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 28px;
+}
+
+.franchise-form .wide {
+  grid-column: 1 / -1;
+}
+
+.franchise-form .cta-row {
+  margin-top: 4px;
+}
+
+.franchise-form small {
+  color: var(--muted);
+}
+
+.franchise-done h3 {
+  margin-top: 24px;
+}
+
+.franchise-closed {
+  margin-top: 20px;
+}
+
+@media (max-width: 640px) {
+  .franchise-form {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* ---------- Floating WhatsApp button ---------- */
 
 .whatsapp-fab {
@@ -2831,4 +2960,13 @@ body.theme-light .nav {
     opacity: 1;
     transform: none;
   }
+}
+
+.franchise-form .form-error {
+  margin: 0;
+}
+
+.visit-card .eyebrow {
+  margin: 0 0 10px;
+  color: var(--accent);
 }

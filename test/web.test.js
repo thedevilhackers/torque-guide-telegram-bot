@@ -163,7 +163,7 @@ test("local search: city pages, questions, areas served and the founder", async 
   // The workshop is in Ranchi; the other city pages say so rather than suggest a branch there.
   for (const path of ["/car-tuning-kolkata", "/car-tuning-shillong"]) assert.match((await request(path)).data.toString(), /Our workshop is in Ranchi, Jharkhand\./, path);
   // Claims the site can't back up stay out of every page.
-  for (const path of ["/", "/car-tuning-ranchi", "/car-tuning-kolkata", "/car-tuning-shillong"]) {
+  for (const path of ["/", "/franchise", "/api/franchise", "/car-tuning-ranchi", "/car-tuning-kolkata", "/car-tuning-shillong"]) {
     const text = (await request(path)).data.toString();
     assert.doesNotMatch(text, /best (car )?tun(ing|er)s? in India|India's best|No\. ?1|number one|cheapest|guaranteed/i, path);
     assert.doesNotMatch(text, /(DPF|EGR|AdBlue|cat(alyst)?) (delete|removal|off)\b/i, path);
@@ -182,11 +182,74 @@ test("local search: city pages, questions, areas served and the founder", async 
   await request("/api/admin/settings", { method: "PUT", admin: true, body: { ...data.settings } });
 });
 
+test("franchise: packages, applications, the admin list and the closed switch", async (t) => {
+  const { request, login, close } = await startApp();
+  t.after(close);
+  const page = await request("/franchise");
+  assert.equal(page.status, 200);
+  const html = page.data.toString();
+  assert.match(html, /<link rel="canonical" href="http:\/\/127\.0\.0\.1:\d+\/franchise">/);
+  assert.match(html, /<title>Car Tuning Franchise in India/);
+  assert.match((await request("/sitemap.xml")).data.toString(), /\/franchise<\/loc>/);
+  for (const path of ["/", "/tools", "/shop", "/files", "/car-tuning-ranchi"]) assert.match((await request(path)).data.toString(), /href="\/franchise"/, `${path} links to the franchise page`);
+
+  const { data: offer } = await request("/api/franchise");
+  assert.equal(offer.open, true);
+  assert.deepEqual(offer.packages.map((entry) => [entry.name, entry.price]), [["Standard", 999000], ["Premium", 1599000]]);
+  assert.ok(offer.packages[1].items.includes("2 tuning tools"));
+  assert.ok(offer.terms.some((term) => /₹50,000/.test(term)));
+
+  const bad = await request("/api/franchise", { method: "POST", body: { name: "A", phone: "x", city: "" } });
+  assert.equal(bad.status, 400);
+  assert.equal((await request("/api/franchise", { method: "POST", body: { name: "Ravi", phone: "+91 90000 00000", city: "Jamshedpur", packageId: "gold" } })).status, 400, "unknown package");
+  const sent = await request("/api/franchise", { method: "POST", body: { name: "Ravi Kumar", phone: "+91 90000 00000", city: "Jamshedpur, Jharkhand", packageId: "premium", background: "workshop", message: "Two-bay workshop." } });
+  assert.equal(sent.status, 200);
+  const text = decodeURIComponent(new URL(sent.data.whatsappUrl).searchParams.get("text"));
+  assert.match(text, /Package: Premium \(₹15\.99 lakh\)/);
+  assert.match(text, /City: Jamshedpur, Jharkhand/);
+  assert.match(text, /Today: I run a car workshop or garage/);
+  const lead = db().franchiseLeads.find((entry) => entry.id === sent.data.id);
+  assert.deepEqual(lead.package, { id: "premium", name: "Premium", price: 1599000 });
+  assert.equal(lead.status, "new");
+
+  assert.equal((await request("/api/admin/franchise")).status, 401);
+  await login();
+  const listed = await request("/api/admin/franchise");
+  assert.ok(listed.data.items.some((entry) => entry.id === lead.id));
+  assert.ok((await request("/api/admin/dashboard")).data.newFranchiseLeads >= 1);
+  const moved = await request(`/api/admin/franchise/${lead.id}`, { method: "PATCH", admin: true, body: { status: "meeting", notes: "Visit on Monday" } });
+  assert.equal(moved.data.item.status, "meeting");
+  assert.equal((await request(`/api/admin/franchise/${lead.id}`, { method: "PATCH", admin: true, body: { status: "maybe" } })).status, 400);
+
+  // Packages are edited like any other list; a price change doesn't rewrite past applications.
+  const premium = (await request("/api/admin/franchisePackages")).data.items.find((entry) => entry.id === "premium");
+  const edited = await request("/api/admin/franchisePackages/premium", { method: "PUT", admin: true, body: { ...premium, price: 1699000, items: "2 tuning tools\n4 shop banners" } });
+  assert.equal(edited.status, 200);
+  assert.deepEqual(db().franchisePackages.find((entry) => entry.id === "premium").items, ["2 tuning tools", "4 shop banners"]);
+  assert.equal(db().franchiseLeads.find((entry) => entry.id === lead.id).package.price, 1599000);
+  await request("/api/admin/franchisePackages/premium", { method: "PUT", admin: true, body: premium });
+
+  // A backup keeps the applications and packages.
+  const backup = (await request("/api/admin/export")).data;
+  assert.ok(backup.franchiseLeads.some((entry) => entry.id === lead.id));
+  assert.equal((await request("/api/admin/import", { method: "POST", admin: true, body: backup })).status, 200);
+  assert.equal((await request("/api/admin/import", { method: "POST", admin: true, body: { ...backup, franchiseLeads: [{ id: "x1", status: "nope" }] } })).status, 400);
+  await request(`/api/admin/franchise/${lead.id}`, { method: "DELETE", admin: true });
+  assert.ok(!db().franchiseLeads.some((entry) => entry.id === lead.id));
+
+  // Closed: the page says so and applications are refused.
+  const { data } = await request("/api/admin/settings");
+  await request("/api/admin/settings", { method: "PUT", admin: true, body: { ...data.settings, franchiseOpen: false } });
+  assert.equal((await request("/api/franchise")).data.open, false);
+  assert.equal((await request("/api/franchise", { method: "POST", body: { name: "Ravi Kumar", phone: "+91 90000 00000", city: "Ranchi" } })).status, 400);
+  await request("/api/admin/settings", { method: "PUT", admin: true, body: { ...data.settings, franchiseOpen: true } });
+});
+
 test("nothing tells customers the workshop has a dyno", async (t) => {
   const { request, close } = await startApp();
   t.after(close);
   const claim = /on (our|the) dyno|dyno (run|sheet|power run)|confirmed on the dyno|verified on our dyno/i;
-  for (const path of ["/", "/files", "/shop", "/car-tuning-ranchi", "/car-tuning-kolkata", "/car-tuning-shillong", "/api/site", "/api/products"]) assert.doesNotMatch((await request(path)).data.toString(), claim, path);
+  for (const path of ["/", "/files", "/shop", "/franchise", "/car-tuning-ranchi", "/car-tuning-kolkata", "/car-tuning-shillong", "/api/site", "/api/products", "/api/franchise"]) assert.doesNotMatch((await request(path)).data.toString(), claim, path);
   for (const file of ["public/index.html", "public/files.html", "src/web/seo.js", "public/js/home.js", "public/js/files.js", "public/js/common.js", "public/admin/admin.js", "src/conversation.js", "src/dyno-chart.js"]) {
     assert.doesNotMatch(readFileSync(new URL(`../${file}`, import.meta.url), "utf8").replace(/dyno-chart|dynoChart|dyno-\w+/g, ""), claim, file);
   }

@@ -3,6 +3,7 @@ import { ecuById } from "./catalog.js";
 import { db, settings, transact } from "./db.js";
 import { events } from "./events.js";
 import { FUELS, READ_METHODS, TIME_FRAMES, TOOL_MODES, TOOLS, creditText } from "./file-service.js";
+import { FRANCHISE_BACKGROUNDS } from "./franchise.js";
 import { escapeHtml as h, sendText } from "./telegram.js";
 
 // Instant Telegram alerts for new orders and enquiries. The owner links a chat from the admin
@@ -128,6 +129,19 @@ export function paymentAlert(purchase) {
 }
 
 // Sends to every linked chat. One failing chat (e.g. the bot was blocked) doesn't stop the others.
+export function franchiseAlert(lead) {
+  const lines = [
+    "🤝 <b>New franchise application</b> · website",
+    `📍 ${h(lead.city)}`,
+    lead.package ? `📦 ${h(lead.package.name)} · ₹${lead.package.price.toLocaleString("en-IN")}` : "📦 Package: not sure yet",
+    lead.background ? `🔧 ${h(FRANCHISE_BACKGROUNDS[lead.background] ?? lead.background)}` : null,
+    "",
+    `👤 ${h(lead.name)} · ${h(lead.phone)}${lead.email ? ` · ${h(lead.email)}` : ""}`,
+    lead.message ? `📝 ${h(lead.message)}` : null
+  ];
+  return { text: fit(lines.filter((line) => line !== null).join("\n")), buttons: contactButtons({ name: lead.name, phone: lead.phone }, `franchise/${lead.id}`) };
+}
+
 export async function broadcast({ text, buttons }, send = sendText) {
   let sent = 0;
   for (const chat of alertChats()) {
@@ -157,15 +171,18 @@ function safely(enabled, build, send) {
 export function startAlerts({ send = sendText } = {}) {
   const onOrder = safely(() => settings().alertOrders, orderAlert, send);
   const onEnquiry = safely(() => settings().alertEnquiries, enquiryAlert, send);
+  const onFranchise = safely(() => settings().alertEnquiries, franchiseAlert, send);
   const onFileOrder = safely(() => settings().alertFiles, fileOrderAlert, send);
   const onPayment = safely(() => settings().alertFiles, paymentAlert, send);
   events.on("order", onOrder);
   events.on("enquiry", onEnquiry);
+  events.on("franchise", onFranchise);
   events.on("fileOrder", onFileOrder);
   events.on("creditPayment", onPayment);
   return () => {
     events.off("order", onOrder);
     events.off("enquiry", onEnquiry);
+    events.off("franchise", onFranchise);
     events.off("fileOrder", onFileOrder);
     events.off("creditPayment", onPayment);
   };

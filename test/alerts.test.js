@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { alertChats, broadcast, createLinkCode, enquiryAlert, linkChat, orderAlert, startAlerts, unlinkChat } from "../src/alerts.js";
+import { alertChats, broadcast, createLinkCode, enquiryAlert, franchiseAlert, linkChat, orderAlert, startAlerts, unlinkChat } from "../src/alerts.js";
 import { transact } from "../src/db.js";
 import { events } from "../src/events.js";
 import { createEnquiry, createOrder, recordTelegramEnquiry } from "../src/records.js";
@@ -121,4 +121,23 @@ test("one Telegram chat can't flood the owner with enquiry alerts", () => {
     events.off("enquiry", count);
   }
   assert.equal(alerts, 5);
+});
+
+test("franchise alerts show the city and package, escape the applicant's text and link to WhatsApp", () => {
+  const { text, buttons } = franchiseAlert({
+    id: "lead-1",
+    name: "Ravi <b>",
+    phone: "+91 90000 00000",
+    email: "",
+    city: "Jamshedpur",
+    background: "workshop",
+    package: { id: "premium", name: "Premium", price: 1599000 },
+    message: "Two bays & a lift"
+  });
+  assert.match(text, /New franchise application/);
+  assert.match(text, /📍 Jamshedpur/);
+  assert.match(text, /Premium · ₹15,99,000/);
+  assert.match(text, /Ravi &lt;b&gt;/);
+  assert.match(text, /Two bays &amp; a lift/);
+  assert.equal(buttons[0][0].url, "https://wa.me/919000000000");
 });

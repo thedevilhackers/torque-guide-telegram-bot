@@ -450,7 +450,16 @@ export const DEFAULT_SETTINGS = {
   fileServiceOpen: true,
   fileServiceNote: "Every file is checked by hand before it goes back to you. You'll see it here as soon as it's ready.",
   upiId: "",
-  upiName: ""
+  upiName: "",
+  // Franchise page (/franchise).
+  franchiseOpen: true,
+  franchiseTerms: [
+    "Training at our Ranchi workshop: ₹50,000.",
+    "Agreement term: 3 to 5 years.",
+    "You trade as Unity Performance, with GST billing and a business bank account.",
+    "Sell Unity Performance products and merchandise from your workshop.",
+    "We're opening five franchise workshops this year."
+  ]
 };
 
 // What a tuning file order can include, priced in credits (up to two decimals), following the
@@ -535,6 +544,19 @@ const LAUNCH_OPTIONS = [
 const CREDIT_PRICE = 9599;
 const creditPack = (id, name, credits) => ({ id, name, credits, price: credits * CREDIT_PRICE, note: "", active: true });
 export const SEED_CREDIT_PACKS = [creditPack("single", "Single", 1), creditPack("starter", "Starter", 2), creditPack("tuner", "Tuner", 5), creditPack("workshop", "Workshop", 10)];
+
+// Franchise packages on /franchise, from the partners' plan: the package price includes the ₹5 lakh
+// franchise fee, the tools, branding, coating stock and file-service credits. The owner edits them in
+// Admin → Franchise packages.
+const franchisePackage = (id, name, price, items, featured = false) => ({ id, name, price, items, note: "", featured, active: true });
+export const SEED_FRANCHISE_PACKAGES = [
+  franchisePackage("standard", "Standard", 999000, [
+    "1 tuning tool", "2 toolkits", "2 shop banners", "5 ceramic coating boxes", "10 file-service credits", "Unity Performance merchandise", "Franchise fee (₹5 lakh) included"
+  ]),
+  franchisePackage("premium", "Premium", 1599000, [
+    "2 tuning tools", "2 toolkits", "4 shop banners", "10 ceramic coating boxes", "20 file-service credits", "Unity Performance merchandise", "Franchise fee (₹5 lakh) included"
+  ], true)
+];
 
 // The "Our work" gallery's first photos, from the workshop's Instagram (newest first). Each opens the
 // Instagram page, since no post link is set.
@@ -666,6 +688,8 @@ export function seedData(envSettings = {}) {
     // their credit history, credit purchases and file orders.
     tuneOptions: clone(SEED_TUNE_OPTIONS),
     creditPacks: clone(SEED_CREDIT_PACKS),
+    franchisePackages: clone(SEED_FRANCHISE_PACKAGES),
+    franchiseLeads: [],
     customers: [],
     creditLedger: [],
     creditPurchases: [],

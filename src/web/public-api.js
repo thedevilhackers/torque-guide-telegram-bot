@@ -1,6 +1,7 @@
 import { ecus } from "../catalog.js";
 import { db, settings } from "../db.js";
 import { buildDynoCurves, renderStageChart } from "../dyno-chart.js";
+import { FRANCHISE_BACKGROUNDS, activePackages, createFranchiseLead, franchiseText } from "../franchise.js";
 import { createEnquiry, createOrder, orderText } from "../records.js";
 import { AUTOTUNER_SOURCE, searchAutotuner } from "../tool-lists.js";
 import { imageDataUrl, labelMatches } from "../ecu-label.js";
@@ -76,6 +77,7 @@ function accept(limiter, ip, create) {
 export function registerPublicRoutes(route, { botUsername, ai = tuningService }) {
   const orderLimiter = rateLimiter({ windowMs: 60 * 60_000, max: 5 });
   const enquiryLimiter = rateLimiter({ windowMs: 60 * 60_000, max: 10 });
+  const franchiseLimiter = rateLimiter({ windowMs: 60 * 60_000, max: 3 });
   const aiLimiter = rateLimiter({ windowMs: 60 * 60_000, max: 8 });
   const graphLimiter = rateLimiter({ windowMs: 60_000, max: 60 });
 
@@ -190,5 +192,22 @@ export function registerPublicRoutes(route, { botUsername, ai = tuningService })
       message: [enquiry.vehicle?.source === "ai" ? `Vehicle: ${enquiry.vehicle.name} (AI estimate)` : "", enquiry.message].filter(Boolean).join(". ")
     });
     return { id: enquiry.id, whatsappUrl: whatsappLink(text) };
+  });
+
+  // The franchise page: packages, the "good to know" list and the application form.
+  route("GET", "/api/franchise", () => {
+    const current = settings();
+    return {
+      open: current.franchiseOpen,
+      terms: current.franchiseTerms,
+      packages: activePackages().map(({ id, name, price, items, note, featured }) => ({ id, name, price, items, note, featured })),
+      backgrounds: FRANCHISE_BACKGROUNDS
+    };
+  });
+
+  route("POST", "/api/franchise", async ({ req, ip }) => {
+    const input = await publicPost(req, ip, franchiseLimiter);
+    const lead = accept(franchiseLimiter, ip, () => createFranchiseLead(input));
+    return { id: lead.id, whatsappUrl: whatsappLink(franchiseText(lead, settings().businessName)) };
   });
 }

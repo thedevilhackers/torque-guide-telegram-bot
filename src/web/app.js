@@ -13,6 +13,7 @@ const PAGES = {
   ...Object.fromEntries(Object.entries(CITY_PAGES).map(([file, city]) => [city.path, file])),
   "/files": "files.html",
   "/shop": "shop.html",
+  "/franchise": "franchise.html",
   "/tools": "tools.html",
   "/admin": "admin/index.html"
 };

@@ -132,6 +132,16 @@ The website now targets searches like "car tuning Ranchi", "ECU remapping Ranchi
 5. **Same details everywhere.** Use exactly the same name, address and phone number on Instagram, Facebook, JustDial and IndiaMART as on the website.
 6. **Map pin.** In admin **Settings → Contact & location**, enter the workshop's latitude and longitude (from Google Maps: press and hold on the workshop, then copy the numbers).
 
+## Part 6: The franchise page
+
+https://unityperformance.co/franchise shows the two packages (Standard ₹9.99 lakh and Premium ₹15.99 lakh), what each includes, and an application form. Applications appear in admin under **Franchise**, with a Telegram alert.
+
+- **Change a package** (price, what's included, name): Admin → **Franchise packages** → click the package. Prices are in rupees, so ₹9.99 lakh is `999000`.
+- **Change the "Good to know" list** (training fee, agreement term): Admin → **Settings → Franchise**, one line per point.
+- **Stop taking applications**: untick **Take franchise applications** in the same place.
+
+The exit fee and blacklisting terms are not on the website; put them in the signed franchise agreement.
+
 ## Everyday commands (on the server)
 
 | What | Command |

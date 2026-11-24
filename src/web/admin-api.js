@@ -3,9 +3,10 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { alertChats, broadcast, createLinkCode, unlinkChat } from "../alerts.js";
 import { DATA_DIR, db, replaceData, settings, transact } from "../db.js";
+import { FRANCHISE_STATUSES } from "../franchise.js";
 import { DEFAULT_SETTINGS } from "../seed-data.js";
 import { ENQUIRY_STATUSES, InputError, ORDER_STATUSES } from "../records.js";
-import { slugify, validateBrand, validateCreditPack, validateEcu, validatePhoto, validateProduct, validateService, validateSettings, validateTuneOption, validateVehicle, vehicleFormValues } from "../validation.js";
+import { slugify, validateBrand, validateCreditPack, validateEcu, validateFranchisePackage, validatePhoto, validateProduct, validateService, validateSettings, validateTuneOption, validateVehicle, vehicleFormValues } from "../validation.js";
 import { adminEnabled, checkCredentials, currentAdmin, endSession, startSession } from "./auth.js";
 import { registerFileAdminRoutes } from "./file-admin-api.js";
 import { HttpError, rateLimiter, readJson, sameOrigin, sendJson } from "./http.js";
@@ -35,7 +36,8 @@ const COLLECTIONS = {
     validate: (input, data) => validateTuneOption(input, data.tuneOptions.filter((entry) => entry.kind === "tune").map((entry) => entry.id)),
     id: (entry) => slugify(entry.name)
   },
-  creditPacks: { validate: (input) => validateCreditPack(input), id: (entry) => slugify(entry.name) || "pack" }
+  creditPacks: { validate: (input) => validateCreditPack(input), id: (entry) => slugify(entry.name) || "pack" },
+  franchisePackages: { validate: (input) => validateFranchisePackage(input), id: (entry) => slugify(entry.name) || "package" }
 };
 
 function uniqueId(base, taken) {
@@ -87,6 +89,7 @@ function dashboard(data) {
     newEnquiries: data.enquiries.filter((enquiry) => enquiry.status === "new").length,
     newFileOrders: data.fileOrders.filter((order) => order.status === "submitted").length,
     paymentsToCheck: data.creditPurchases.filter((purchase) => purchase.status === "submitted").length,
+    newFranchiseLeads: data.franchiseLeads.filter((lead) => lead.status === "new").length,
     enquiries30: data.enquiries.filter((enquiry) => Date.parse(enquiry.createdAt) >= now - 30 * day).length,
     lowStock: data.products.filter((product) => product.active && product.stock !== null && product.stock <= 3).map(({ id, name, stock }) => ({ id, name, stock })),
     daily,
@@ -98,7 +101,7 @@ function dashboard(data) {
 
 const ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,59}$/;
 // Lists that older backups may not have.
-const LATER_LISTS = new Set(["photos", "tuneOptions", "creditPacks", "customers", "creditLedger", "creditPurchases", "fileOrders"]);
+const LATER_LISTS = new Set(["photos", "tuneOptions", "creditPacks", "franchisePackages", "franchiseLeads", "customers", "creditLedger", "creditPurchases", "fileOrders"]);
 const FILE_SERVICE_LISTS = ["customers", "creditLedger", "creditPurchases", "fileOrders"];
 const isDate = (value) => typeof value === "string" && !Number.isNaN(Date.parse(value));
 const isText = (value) => typeof value === "string";
@@ -111,6 +114,10 @@ function validOrder(order) {
     [order.subtotal, order.deliveryFee, order.total].every(Number.isFinite) && isText(order.currency) && isText(customer.name) && isText(customer.phone) &&
     Array.isArray(order.items) && order.items.every((item) => isText(item?.productId) && isText(item.name) && Number.isInteger(item.qty) && Number.isFinite(item.lineTotal))
   );
+}
+
+function validFranchiseLead(lead) {
+  return isDate(lead.createdAt) && FRANCHISE_STATUSES.includes(lead.status) && isText(lead.name) && isText(lead.phone) && isText(lead.city) && (lead.package === null || isText(lead.package?.name));
 }
 
 function validEnquiry(enquiry) {
@@ -127,7 +134,7 @@ function cleanBackup(backup) {
   // Lists added after launch (the photo gallery, the tuning file service) may be missing from an older
   // backup; restoring one gives those lists their starting contents, as for any older database.
   const present = (name) => backup[name] !== undefined || !LATER_LISTS.has(name);
-  for (const name of [...Object.keys(COLLECTIONS), "orders", "enquiries", ...FILE_SERVICE_LISTS].filter(present)) {
+  for (const name of [...Object.keys(COLLECTIONS), "orders", "enquiries", "franchiseLeads", ...FILE_SERVICE_LISTS].filter(present)) {
     const list = backup[name];
     if (!Array.isArray(list) || list.some((item) => !item || typeof item !== "object" || !ID.test(String(item.id)))) throw new InputError(`The backup's ${name} list is damaged.`);
     if (new Set(list.map((item) => item.id)).size !== list.length) throw new InputError(`The backup has duplicate ${name}.`);
@@ -149,6 +156,8 @@ function cleanBackup(backup) {
   if (orders.length) throw new InputError(`Order "${orders[0].number ?? orders[0].id}" in the backup is damaged.`);
   const enquiries = backup.enquiries.filter((enquiry) => !validEnquiry(enquiry));
   if (enquiries.length) throw new InputError(`Enquiry "${enquiries[0].id}" in the backup is damaged.`);
+  const leads = present("franchiseLeads") ? backup.franchiseLeads.filter((lead) => !validFranchiseLead(lead)) : [];
+  if (leads.length) throw new InputError(`Franchise application "${leads[0].id}" in the backup is damaged.`);
   let settingValues;
   try {
     settingValues = validateSettings({ ...DEFAULT_SETTINGS, ...backup.settings });
@@ -172,6 +181,8 @@ function cleanBackup(backup) {
     ...(present("photos") && { photos: each("photos", "Photo", validatePhoto) }),
     ...(present("tuneOptions") && { tuneOptions: each("tuneOptions", "Tune option", validateTuneOption) }),
     ...(present("creditPacks") && { creditPacks: each("creditPacks", "Credit pack", validateCreditPack) }),
+    ...(present("franchisePackages") && { franchisePackages: each("franchisePackages", "Franchise package", validateFranchisePackage) }),
+    ...(present("franchiseLeads") && { franchiseLeads: backup.franchiseLeads }),
     ...fileService,
     orders: backup.orders,
     enquiries: backup.enquiries,
@@ -330,6 +341,28 @@ export function registerAdminRoutes(route, { botUsername = () => "", sendAlert =
   admin("DELETE", "/api/admin/enquiries/:id", ({ params }) =>
     transact((data) => {
       data.enquiries.splice(findIndex(data.enquiries, params.id, "Enquiry"), 1);
+      return { ok: true };
+    })
+  );
+
+  admin("GET", "/api/admin/franchise", () => ({ items: db().franchiseLeads, statuses: FRANCHISE_STATUSES }));
+
+  admin("PATCH", "/api/admin/franchise/:id", ({ body, params }) =>
+    transact((data) => {
+      const lead = data.franchiseLeads[findIndex(data.franchiseLeads, params.id, "Application")];
+      if (body.status !== undefined) {
+        if (!FRANCHISE_STATUSES.includes(body.status)) throw new InputError("Unknown application status.");
+        lead.status = body.status;
+      }
+      if (body.notes !== undefined) lead.notes = String(body.notes).slice(0, 2000);
+      lead.updatedAt = new Date().toISOString();
+      return { item: lead };
+    })
+  );
+
+  admin("DELETE", "/api/admin/franchise/:id", ({ params }) =>
+    transact((data) => {
+      data.franchiseLeads.splice(findIndex(data.franchiseLeads, params.id, "Application"), 1);
       return { ok: true };
     })
   );

@@ -12,11 +12,13 @@ const SECTIONS = [
   ["dashboard", "Dashboard"],
   ["orders", "Orders"],
   ["enquiries", "Enquiries"],
+  ["franchise", "Franchise"],
   ["files", "File orders"],
   ["payments", "Payments"],
   ["customers", "Customers"],
   ["tuneOptions", "Tune options"],
   ["creditPacks", "Credit packs"],
+  ["franchisePackages", "Franchise packages"],
   ["products", "Products"],
   ["vehicles", "Vehicles"],
   ["ecus", "ECUs"],
@@ -28,6 +30,9 @@ const SECTIONS = [
 ];
 const ORDER_LABELS = { new: "New", confirmed: "Confirmed", ready: "Ready", completed: "Completed", cancelled: "Cancelled" };
 const ENQUIRY_LABELS = { new: "New", contacted: "Contacted", booked: "Booked", closed: "Closed" };
+const FRANCHISE_LABELS = { new: "New", contacted: "Contacted", meeting: "Meeting set", signed: "Signed", closed: "Closed" };
+// ₹9,99,000 → "₹9.99 lakh", as the franchise page shows it.
+const lakh = (amount) => (amount >= 100000 ? `₹${Number((amount / 100000).toFixed(2))} lakh` : `₹${Number(amount).toLocaleString("en-IN")}`);
 const ECU_LABELS = { supported: "Supported", on_request: "On request", not_supported: "Not supported" };
 const FUEL_LABELS = { petrol: "Petrol", diesel: "Diesel" };
 const READ_LABELS = { obd: "OBD (diagnostic port)", bench: "Bench", boot: "Boot mode" };
@@ -407,7 +412,8 @@ async function viewDashboard(main) {
     ),
     h("div", { class: "grid grid-4", style: { marginTop: "16px" } },
       tile("New file orders", String(data.newFileOrders), "Waiting to be started"),
-      tile("Payments to check", String(data.paymentsToCheck), "UPI references sent by customers")
+      tile("Payments to check", String(data.paymentsToCheck), "UPI references sent by customers"),
+      tile("Franchise applications", String(data.newFranchiseLeads), "New, from the franchise page")
     ),
     h("div", { class: "grid grid-main", style: { marginTop: "16px" } },
       h("section", { class: "card" }, h("div", { class: "card-head" }, h("h2", { text: "Revenue, last 14 days" }), h("p", { text: `${state.currency}, excluding cancelled orders` })), barChart(data.daily)),
@@ -615,6 +621,83 @@ async function viewEnquiries(main, id) {
     ]
   });
   const open = items.find((enquiry) => enquiry.id === id);
+  if (open) detail(open);
+}
+
+// Franchise applications from /franchise.
+async function viewFranchise(main, id) {
+  const { items } = await api("/api/admin/franchise");
+  const { backgrounds } = await api("/api/franchise");
+  const update = async (lead, changes) => {
+    const { item } = await api(`/api/admin/franchise/${lead.id}`, { method: "PATCH", body: changes });
+    Object.assign(lead, item);
+    toast("Application updated");
+    refreshBadges();
+  };
+  const packageText = (lead) => (lead.package ? `${lead.package.name} · ${lakh(lead.package.price)}` : "Not sure yet");
+  const detail = (lead) => {
+    const notes = h("textarea", { rows: 4, "aria-label": "Private notes" });
+    notes.value = lead.notes ?? "";
+    const status = statusSelect(FRANCHISE_LABELS, lead.status, () => {});
+    const phone = digits(lead.phone);
+    const body = h("div", {},
+      h("dl", { class: "detail-grid" },
+        h("dt", { text: "Received" }), h("dd", { text: dateTime(lead.createdAt) }),
+        h("dt", { text: "Name" }), h("dd", { text: lead.name }),
+        h("dt", { text: "Contact" }), h("dd", {},
+          h("a", { href: `tel:${phone}`, text: lead.phone }), " · ", h("a", { href: `https://wa.me/${phone}`, target: "_blank", rel: "noopener", text: "WhatsApp" }),
+          ...(lead.email ? [" · ", h("a", { href: `mailto:${lead.email}`, text: lead.email })] : [])
+        ),
+        h("dt", { text: "City" }), h("dd", { text: lead.city }),
+        h("dt", { text: "Package" }), h("dd", { text: packageText(lead) }),
+        h("dt", { text: "Today" }), h("dd", { text: backgrounds[lead.background] ?? "—" }),
+        lead.message ? [h("dt", { text: "Message" }), h("dd", { text: lead.message })] : null,
+        h("dt", { text: "Status" }), h("dd", {}, status)
+      ),
+      h("label", { class: "field", style: { marginTop: "18px" } }, h("span", { text: "Private notes" }), notes)
+    );
+    const remove = h("button", { class: "btn btn-danger spacer", type: "button", text: "Delete" });
+    const save = h("button", { class: "btn btn-primary", type: "button", text: "Save" });
+    const dialog = modal({ title: `Franchise application from ${lead.name}`, body, footer: [remove, save], wide: true });
+    save.addEventListener("click", async () => {
+      try {
+        await update(lead, { status: status.value, notes: notes.value });
+        dialog.close();
+        viewFranchise(main);
+      } catch (error) {
+        reportError(error);
+      }
+    });
+    remove.addEventListener("click", async () => {
+      if (!(await confirmDialog("Delete this application?"))) return;
+      try {
+        await api(`/api/admin/franchise/${lead.id}`, { method: "DELETE" });
+        dialog.close();
+        toast("Application deleted");
+        viewFranchise(main);
+      } catch (error) {
+        reportError(error);
+      }
+    });
+  };
+  listView({
+    main,
+    title: "Franchise",
+    subtitle: "Applications from the franchise page. Packages and the \u201cgood to know\u201d list are in Franchise packages and Settings.",
+    items,
+    labels: FRANCHISE_LABELS,
+    empty: "No franchise applications yet.",
+    search: (lead) => `${lead.name} ${lead.phone} ${lead.email} ${lead.city} ${lead.package?.name ?? ""}`,
+    detail,
+    columns: [
+      { label: "Received", cell: (lead) => dateTime(lead.createdAt) },
+      { label: "Applicant", cell: (lead) => [lead.name, h("span", { class: "sub", text: lead.phone })] },
+      { label: "City", cell: (lead) => lead.city },
+      { label: "Package", cell: (lead) => packageText(lead) },
+      { label: "Status", cell: (lead) => statusSelect(FRANCHISE_LABELS, lead.status, (value, select) => update(lead, { status: value }).catch((error) => ((select.value = lead.status), reportError(error)))) }
+    ]
+  });
+  const open = items.find((lead) => lead.id === id);
   if (open) detail(open);
 }
 
@@ -897,6 +980,29 @@ const COLLECTION_VIEWS = {
       { label: "Visibility", cell: (pack) => pill(pack.active ? "active" : "hidden", pack.active ? "On sale" : "Hidden") }
     ]
   },
+  franchisePackages: {
+    name: "franchisePackages",
+    title: "Franchise packages",
+    singular: "franchise package",
+    subtitle: "The packages on the franchise page (/franchise). Applications arrive under Franchise.",
+    label: (entry) => entry.name,
+    defaults: { active: true, featured: false, items: [] },
+    search: (entry) => `${entry.name} ${entry.items.join(" ")}`,
+    fields: () => [
+      { name: "name", label: "Name", placeholder: "Standard" },
+      { name: "price", label: "Price (₹)", type: "number", step: "1", min: "1", help: "In rupees, e.g. 999000 for ₹9.99 lakh." },
+      { name: "items", label: "What's included", type: "lines", rows: 8, full: true, help: "One per line, e.g. 1 tuning tool." },
+      { name: "note", label: "Note", full: true, help: "Optional, shown under the price." },
+      { name: "featured", label: "Highlight this package", type: "checkbox" },
+      { name: "active", label: "Show on the franchise page", type: "checkbox" }
+    ],
+    columns: () => [
+      { label: "Package", cell: (entry) => [entry.name, entry.note ? h("span", { class: "sub", text: entry.note }) : null] },
+      { label: "Price", class: "num", cell: (entry) => [lakh(entry.price), h("span", { class: "sub", text: `₹${entry.price.toLocaleString("en-IN")}` })] },
+      { label: "Includes", cell: (entry) => `${entry.items.length} item${entry.items.length === 1 ? "" : "s"}` },
+      { label: "Visibility", cell: (entry) => pill(entry.active ? "active" : "hidden", entry.active ? "Shown" : "Hidden") }
+    ]
+  },
   photos: {
     name: "photos",
     title: "Photos",
@@ -953,6 +1059,10 @@ const SETTINGS_SECTIONS = [
     { name: "upiId", label: "UPI ID for credit payments", placeholder: "yourname@okaxis", help: "Customers pay this ID and send you the reference; you confirm in Payments. Needs the currency set to INR." },
     { name: "upiName", label: "UPI payee name", placeholder: "Unity Performance" },
     { name: "alertFiles", label: "Alert me about new file orders and UPI payments", type: "checkbox", full: true }
+  ]],
+  ["Franchise", [
+    { name: "franchiseOpen", label: "Take franchise applications", type: "checkbox", full: true },
+    { name: "franchiseTerms", label: "Good to know", type: "lines", rows: 6, full: true, help: "One per line, shown under the packages on the franchise page: training, agreement term and so on." }
   ]],
   ["Stage 2 & 3 descriptions", [
     { name: "stage2Note", label: "Stage 2: what's included", type: "textarea", full: true, help: "Shown with Stage 2 graphs on the website and in the bot." },
@@ -1448,12 +1558,12 @@ async function viewPayments(main, id) {
 // ---------- Shell, routing and sign-in ----------
 
 // Sections whose menu entry shows how many new items wait.
-const BADGES = ["orders", "enquiries", "files", "payments"];
+const BADGES = ["orders", "enquiries", "franchise", "files", "payments"];
 
 async function refreshBadges() {
   try {
     const data = await api("/api/admin/dashboard");
-    state.badges = { orders: data.newOrders, enquiries: data.newEnquiries, files: data.newFileOrders, payments: data.paymentsToCheck };
+    state.badges = { orders: data.newOrders, enquiries: data.newEnquiries, franchise: data.newFranchiseLeads, files: data.newFileOrders, payments: data.paymentsToCheck };
     for (const [section, count] of Object.entries(state.badges)) {
       const badge = document.querySelector(`[data-badge="${section}"]`);
       if (badge) {
@@ -1513,6 +1623,7 @@ async function route() {
     if (known === "dashboard") await viewDashboard(main);
     else if (known === "orders") await viewOrders(main, id);
     else if (known === "enquiries") await viewEnquiries(main, id);
+    else if (known === "franchise") await viewFranchise(main, id);
     else if (known === "files") await viewFileOrders(main, id);
     else if (known === "customers") await viewCustomers(main, id);
     else if (known === "payments") await viewPayments(main, id);
