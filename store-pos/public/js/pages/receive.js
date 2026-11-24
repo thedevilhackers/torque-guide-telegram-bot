@@ -1,4 +1,5 @@
 import { get, post } from "../api.js";
+import { askAfterDelivery, openDateLabels } from "../date-labels.js";
 import { editProduct, lookups } from "../product-form.js";
 import { onScan, openCamera, scanField } from "../scanner.js";
 import { $, addDays, beep, confirmDialog, dateTime, dayLabel, html, icon, modal, money, mount, on, options, qty, showError, toMajor, toMinor, toast } from "../ui.js";
@@ -250,11 +251,17 @@ export default async function receivePage(el, app) {
           sell_price: l.sell_price !== null && l.sell_price !== l.price ? l.sell_price : undefined
         }))
       });
+      const posted = draft.lines.map((l) => ({ product_id: l.product_id, expiry_date: l.expiry_date, batch_no: l.batch_no, qty: l.qty, from_code: l.expiry_from_code }));
       draft = { supplier_id: draft.supplier_id, invoice_no: "", note: "", lines: [] };
       $("[data-field=invoice_no]", el).value = "";
       $("[data-field=note]", el).value = "";
       render();
       toast(`Receipt #${receipt.id} posted: ${receipt.items.length} lines, ${money(receipt.total_cost)}`, "success", 5000);
+      // Offer expiry-date labels for dated items whose own barcode doesn't carry the date.
+      if (askAfterDelivery() && posted.some((l) => l.expiry_date && !l.from_code)) {
+        await openDateLabels(app, posted, { title: `Receipt #${receipt.id} posted. Print date labels?`, afterDelivery: true });
+        input.focus();
+      }
     } catch (err) {
       showError(err);
     }
@@ -283,7 +290,12 @@ export default async function receivePage(el, app) {
           <table class="table" style="margin-top:10px"><thead><tr><th>Product</th><th class="num">Qty</th><th>Expiry</th><th>Batch</th><th class="num">Cost</th></tr></thead><tbody>${r.items.map(
             (i) => html`<tr><td>${i.name}</td><td class="num">${qty(i.qty, i.unit)}</td><td>${i.expiry_date ?? "—"}</td><td>${i.batch_no}</td><td class="num">${money(i.cost)}</td></tr>`
           )}</tbody></table>`,
-        actions: [{ label: "Close" }]
+        actions: [
+          ...(r.items.some((i) => i.expiry_date)
+            ? [{ label: "Print date labels", icon: "printer", onClick: () => openDateLabels(app, r.items, { title: `Date labels · receipt #${r.id}` }).catch(showError) }]
+            : []),
+          { label: "Close", kind: "primary" }
+        ]
       });
     });
   }

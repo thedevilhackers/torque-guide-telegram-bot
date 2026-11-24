@@ -1,6 +1,6 @@
 // Printing via a hidden iframe: thermal receipts (58/80mm), barcode labels, reports.
-import { barcodeSvg } from "./barcode.js";
-import { esc, money, qty } from "./ui.js";
+import { barcodeSvg, gs1Svg, gs1Text } from "./barcode.js";
+import { dayLabel, esc, money, qty } from "./ui.js";
 
 function printDocument(bodyHtml, css) {
   const frame = document.createElement("iframe");
@@ -11,9 +11,15 @@ function printDocument(bodyHtml, css) {
   doc.open();
   doc.write(`<!doctype html><html><head><meta charset="utf-8"><title>Print</title><style>${css}</style></head><body>${bodyHtml}</body></html>`);
   doc.close();
+  const returnFocus = document.activeElement;
   const go = () => {
     frame.contentWindow.focus();
     frame.contentWindow.print();
+    // print() returns when the print dialog closes. Give the keyboard back to the page, or
+    // keystrokes (and USB barcode scanners) would keep going into the hidden print frame.
+    window.focus();
+    if (returnFocus instanceof HTMLElement && returnFocus.isConnected) returnFocus.focus();
+    else document.activeElement?.blur?.();
     setTimeout(() => frame.remove(), 60_000);
   };
   if (doc.readyState === "complete") setTimeout(go, 50);
@@ -128,6 +134,44 @@ export function printLabels(products, { layout = "a4", copies = 1, storeName = "
          .price { font-size: 18px; font-weight: 800; } .price small { font-size: 10px; font-weight: 500; } .store { font-size: 8px; color:#555; } .sku { font: 11px monospace; }
          svg { height: 15mm; width: auto; max-width: 100%; }`;
   printDocument(layout === "roll" ? labels.join("") : `<div class="sheet">${labels.join("")}</div>`, css);
+}
+
+/**
+ * Prints expiry-date labels to stick over an item's own barcode. Each label's GS1-128 barcode holds
+ * the product number (01) and expiry date (17), so the till scans it like the product barcode and
+ * knows the date. labels: [{ name, gtin, expiry_date: "YYYY-MM-DD", batch_no, count }].
+ */
+export function dateLabelsHtml(labels) {
+  const out = [];
+  for (const l of labels) {
+    const fields = [["01", l.gtin], ["17", l.expiry_date.slice(2).replaceAll("-", "")]];
+    const one = `<div class="label"><div class="name">${esc(l.name)}</div>
+      <div class="exp">EXP <b>${esc(dayLabel(l.expiry_date))}</b>${l.batch_no ? `<span class="lot">LOT ${esc(l.batch_no)}</span>` : ""}</div>
+      ${gs1Svg(fields, { stretch: true, module: 1, height: 40 })}
+      <div class="hri">${esc(gs1Text(fields))}</div></div>`;
+    for (let i = 0; i < l.count; i += 1) out.push(one);
+  }
+  return out;
+}
+
+export const DATE_LABEL_CSS = {
+  roll: `@page { size: 50mm 30mm; margin: 1.5mm; } body { margin:0; font-family: system-ui, sans-serif; color:#000; }
+    .label { width: 47mm; height: 27mm; page-break-after: always; display:flex; flex-direction:column; align-items:center; justify-content:space-between; overflow:hidden; }
+    .name { font-size: 8.5px; font-weight: 600; max-width: 46mm; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .exp { font-size: 9px; display:flex; align-items:baseline; gap: 3px; } .exp b { font-size: 13px; } .lot { font-size: 8px; margin-left: 4px; }
+    svg { width: 46mm; height: 11.5mm; display:block; } .hri { font: 6.5px/1 ui-monospace, monospace; }`,
+  a4: `@page { size: A4; margin: 10mm; } body { margin:0; font-family: system-ui, sans-serif; color:#000; }
+    .sheet { display:grid; grid-template-columns: repeat(3, 1fr); gap: 4mm; }
+    .label { border: 1px dashed #999; border-radius: 2mm; padding: 2.5mm 3mm; height: 34mm; display:flex; flex-direction:column; align-items:center; justify-content:space-between; break-inside: avoid; overflow:hidden; }
+    .name { font-size: 10px; font-weight: 600; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .exp { font-size: 10px; display:flex; align-items:baseline; gap: 3px; } .exp b { font-size: 15px; } .lot { font-size: 9px; margin-left: 5px; }
+    svg { width: 52mm; height: 14mm; display:block; } .hri { font: 7.5px/1 ui-monospace, monospace; }`
+};
+
+export function printDateLabels(labels, { layout = "roll" } = {}) {
+  const items = dateLabelsHtml(labels);
+  printDocument(layout === "roll" ? items.join("") : `<div class="sheet">${items.join("")}</div>`, DATE_LABEL_CSS[layout] ?? DATE_LABEL_CSS.roll);
+  return items.length;
 }
 
 /** Prints an element's HTML as an A4 report using the app stylesheet. */

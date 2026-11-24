@@ -1,6 +1,7 @@
 import { download, get, post, put, qs } from "../api.js";
 import { barcodeSvg } from "../barcode.js";
 import { editProduct, lookups } from "../product-form.js";
+import { openDateLabels } from "../date-labels.js";
 import { printLabels } from "../print.js";
 import { onScan } from "../scanner.js";
 import {
@@ -269,6 +270,12 @@ export async function openProduct(app, id, onChange = () => {}) {
       draw();
       return;
     }
+    const batchLabels = e.target.closest("[data-batch-labels]");
+    if (batchLabels) {
+      const b = product.batches.find((x) => x.id === Number(batchLabels.dataset.batchLabels));
+      openDateLabels(app, [{ product_id: product.id, expiry_date: b.expiry_date, batch_no: b.batch_no, qty: b.qty_remaining }], { title: `Date labels · ${product.name}` }).catch(showError);
+      return;
+    }
     const d = e.target.closest("[data-d]")?.dataset.d;
     if (!d) return;
     try {
@@ -300,8 +307,9 @@ export async function openProduct(app, id, onChange = () => {}) {
 
 function batchesTable(p, app) {
   if (!p.batches.length) return html`<div class="empty small">No batches in stock${p.track_stock && p.stock_qty < 0 ? ` (oversold by ${qty(-p.stock_qty, p.unit)} — receive stock to fix)` : ""}.</div>`;
-  return html`<table class="table"><thead><tr><th>Expiry</th><th>Batch</th><th class="num">Left</th><th class="num">Received</th><th class="num">Cost</th><th>Received on</th></tr></thead><tbody>${p.batches.map(
-    (b) => html`<tr><td>${expiryBadge(b.expiry_date, app.today)}</td><td class="mono small">${b.batch_no || "—"}</td><td class="num">${qty(b.qty_remaining, p.unit)}</td><td class="num faint">${qty(b.qty_received, p.unit)}</td><td class="num">${money(b.cost)}</td><td class="small">${dateTime(b.received_at)}<div class="sub">${b.source}</div></td></tr>`
+  return html`<table class="table"><thead><tr><th>Expiry</th><th>Batch</th><th class="num">Left</th><th class="num">Received</th><th class="num">Cost</th><th>Received on</th><th></th></tr></thead><tbody>${p.batches.map(
+    (b) => html`<tr><td>${expiryBadge(b.expiry_date, app.today)}</td><td class="mono small">${b.batch_no || "—"}</td><td class="num">${qty(b.qty_remaining, p.unit)}</td><td class="num faint">${qty(b.qty_received, p.unit)}</td><td class="num">${money(b.cost)}</td><td class="small">${dateTime(b.received_at)}<div class="sub">${b.source}</div></td>
+      <td>${b.expiry_date && b.qty_remaining > 0 ? html`<button class="btn ghost sm nowrap" data-batch-labels="${b.id}" title="Print expiry-date labels for this batch">${icon("printer", 14)} Date labels</button>` : ""}</td></tr>`
   )}</tbody></table><p class="small faint" style="margin-top:8px">Sales use the batch that expires first (FEFO), so older stock leaves the shelf first.</p>`;
 }
 

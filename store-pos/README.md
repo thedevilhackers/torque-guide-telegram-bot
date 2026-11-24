@@ -22,6 +22,7 @@ It runs in any modern browser (PC, tablet or phone). There is nothing to install
 - Goods-in by scanning: quantity, **expiry date**, batch/lot, cost and new selling price per line; unknown barcodes can be created on the spot
 - **Expiry read from the barcode** when the item has a GS1 2D code (DataMatrix or QR) or the carton has a GS1-128 label: expiry date, batch and carton count fill in by themselves, repeat scans of the same serial number are ignored, and expired packs are refused. Ordinary EAN-13/UPC barcodes don't contain a date, so for those you type or pick the date
 - At the till, a pack whose own barcode says it has expired is flagged; a cashier needs a manager PIN to sell it
+- **Expiry-date labels** for everything else: after posting a delivery (or from *Recent receipts*, or *Date labels* on any batch in Inventory) print small labels with the expiry date and a GS1-128 barcode holding the product number and that date. Stick each label over the item's own barcode; the till then reads the date from it like a 2D code. Any scanner can read these labels, including cheap 1D laser scanners and phone cameras
 - Every delivery becomes a batch. Sales use the batch that **expires first (FEFO)**, so expiry alerts and cost of goods are accurate
 - Expiry alerts (per-product warning window), expired-stock blocking at the till, one-click write-off of expired stock
 - Low-stock alerts and a **reorder list** worked out from 14 days of sales and supplier lead time
@@ -85,6 +86,7 @@ Copy `.env.example` to `.env`, or set these on your host:
 
 - **Barcode scanners:** any USB or Bluetooth scanner in keyboard mode with an *Enter* suffix (the factory default on most). No driver or setting in this app. To read expiry dates from **2D codes (DataMatrix/QR)** you need a **2D (imager) scanner**; a 1D laser scanner reads only the lines. Phone and tablet cameras read 2D codes too.
 - **Camera scanning:** phones, tablets and webcams. Browsers only allow the camera over **HTTPS** (or on `localhost`), so host it with HTTPS.
+- **Label printers:** any thermal label printer installed in the operating system, with 50 × 30 mm labels (or print A4 sheets of 3 across on a normal printer). Set the printer's paper size to 50 × 30 mm and margins to none.
 - **Receipt printers:** any 80 mm or 58 mm thermal printer installed in the operating system. Receipts print through the browser's print dialog; for silent one-click printing use the browser's kiosk printing mode (Chrome: `--kiosk-printing`). Turn on "Print receipts automatically" on the sale-complete screen.
 - **Weighing scales:** set the scale to print EAN-13 labels with prefix `21` (weight in grams) or `22` (price) followed by the product's 5-digit PLU. Change the rules in Admin → Settings.
 
