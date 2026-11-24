@@ -48,6 +48,20 @@ function applyCatalogUpdate(data, update) {
       data[name][index] = record;
     }
   }
+  // Records the owner asked for exactly (e.g. credit pack prices): set by id, added if missing.
+  for (const [name, items] of Object.entries(update.upsert ?? {})) {
+    for (const item of items) {
+      const index = data[name].findIndex((entry) => entry.id === item.id);
+      if (index < 0) data[name].push(structuredClone(item));
+      else data[name][index] = { ...structuredClone(item), ...(data[name][index].createdAt && { createdAt: data[name][index].createdAt }) };
+    }
+  }
+  // A list's order (e.g. new tune options in among the old): the listed ids first, in that order, then
+  // the rest as they were.
+  for (const [name, ids] of Object.entries(update.order ?? {})) {
+    const rank = (entry) => (ids.includes(entry.id) ? ids.indexOf(entry.id) : ids.length);
+    data[name] = data[name].map((entry, index) => [entry, index]).sort(([a, i], [b, j]) => rank(a) - rank(b) || i - j).map(([entry]) => entry);
+  }
   const ecuIds = new Set(data.ecus.map((ecu) => ecu.id));
   for (const vehicle of update.vehicles ?? []) {
     if (data.vehicles.some((entry) => entry.id === vehicle.id)) continue;

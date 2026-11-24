@@ -422,7 +422,7 @@ export const DEFAULT_SETTINGS = {
   heroSubtitle: "ECU remapping, ceramic coating, detailing, diagnostics and servicing. All under one roof.",
   heroImage: "",
   announcement: "",
-  currency: "USD",
+  currency: "INR",
   shopNote: "Pay on collection or delivery. We confirm every order with you on WhatsApp.",
   deliveryFee: 0,
   whatsappNumber: "918709647229",
@@ -450,18 +450,41 @@ export const DEFAULT_SETTINGS = {
   upiName: ""
 };
 
-// What a tuning file order can include, priced in credits. The owner edits these in the admin panel.
+// What a tuning file order can include, priced in credits (up to two decimals), following the
+// fast-chiptuningfiles.com price list the workshop resells. The owner edits these in the admin panel.
 // Emissions equipment (DPF, EGR, AdBlue, catalyst, lambda) and immobiliser removal are deliberately
 // not offered.
+const tuneOption = (id, name, credits, description = "", kind = "tune") => ({ id, name, kind, credits, description, active: true });
 export const SEED_TUNE_OPTIONS = [
+  tuneOption("stage-1", "Car tuning (Stage 1)", 1, "Software only, for a standard car."),
+  tuneOption("stage-2", "Car tuning (Stage 2)", 1.2, "For cars with supporting hardware: intake, intercooler, downpipe with catalyst."),
+  tuneOption("stage-3", "Car tuning (Stage 3)", 3, "Bigger turbo builds, with matching fuelling and supporting hardware."),
+  tuneOption("options-car", "Only options (car)", 0, "No power tune: just the options you choose below."),
+  tuneOption("tcu-stage-1", "TCU tuning (Stage 1)", 1, "Gearbox: higher internal torque limits and faster shifts."),
+  tuneOption("options-tcu", "Only options (TCU)", 0, "Gearbox options only."),
+  tuneOption("truck-agri-stage-1", "Truck / agriculture tuning (Stage 1)", 1, "Trucks, buses, tractors and farm machines."),
+  tuneOption("options-truck-agri", "Only options (truck / agriculture)", 0, "Truck and agriculture options only."),
+  tuneOption("ethanol", "E85 conversion", 2, "Fuelling and timing for ethanol, from E20 to E85. Name the blend in the info."),
+  tuneOption("back-to-stock", "Back to stock", 0.2, "The ECU's original calibration, written back."),
+  tuneOption("file-review", "Tuning file review", 0.2, "We check a tuned file you already have."),
+  tuneOption("ecu-clone", "ECU clone service", 0.5, "The data prepared for a replacement ECU of the same type."),
+  tuneOption("pops-bangs", "Pops & bangs", 1, "Overrun crackle, petrol cars only.", "addon"),
+  tuneOption("launch-control", "Launch control", 1, "", "addon"),
+  tuneOption("start-stop-off", "Start-stop off", 1, "Engine start-stop disabled by default.", "addon")
+];
+
+// The tune options as first released, so update 9 replaces only those the owner hasn't changed.
+const LAUNCH_TUNE_OPTIONS = [
   { id: "stage-1", name: "Stage 1", kind: "tune", credits: 1, description: "Software only, for a standard car.", active: true },
   { id: "stage-2", name: "Stage 2", kind: "tune", credits: 2, description: "For cars with supporting hardware: intake, intercooler, downpipe with catalyst.", active: true },
   { id: "ethanol", name: "Ethanol tune (E20–E85)", kind: "tune", credits: 2, description: "Fuelling and timing for the ethanol blend you name in the notes.", active: true },
-  { id: "economy", name: "Economy", kind: "tune", credits: 1, description: "More low-down torque for better fuel economy.", active: true },
-  { id: "pops-bangs", name: "Pops & bangs", kind: "addon", credits: 1, description: "Overrun crackle, petrol cars only.", active: true },
-  { id: "launch-control", name: "Launch control", kind: "addon", credits: 1, description: "", active: true },
-  { id: "start-stop-off", name: "Start-stop off", kind: "addon", credits: 1, description: "Engine start-stop disabled by default.", active: true }
+  { id: "economy", name: "Economy", kind: "tune", credits: 1, description: "More low-down torque for better fuel economy.", active: true }
 ];
+
+// Credit packs at ₹9,599 a credit.
+const CREDIT_PRICE = 9599;
+const creditPack = (id, name, credits) => ({ id, name, credits, price: credits * CREDIT_PRICE, note: "", active: true });
+export const SEED_CREDIT_PACKS = [creditPack("single", "Single", 1), creditPack("starter", "Starter", 2), creditPack("tuner", "Tuner", 5), creditPack("workshop", "Workshop", 10)];
 
 // The "Our work" gallery's first photos, from the workshop's Instagram (newest first). Each opens the
 // Instagram page, since no post link is set.
@@ -517,8 +540,26 @@ export const CATALOG_UPDATES = [
     }
   },
   // The workshop's address, for sites that still have none set.
-  { version: 8, settings: { address: ["", WORKSHOP_ADDRESS] } }
+  { version: 8, settings: { address: ["", WORKSHOP_ADDRESS] } },
+  // The file service's price list (fast-chiptuningfiles.com's tuning types), the owner's credit packs
+  // (1, 2, 5 and 10 credits at ₹9,599 a credit, set even where a pack of that name exists), and rupees
+  // for a database still on the original US dollar default. Tune options the owner edited are kept;
+  // Economy, not on the list, is hidden rather than deleted.
+  {
+    version: 9,
+    settings: { currency: ["USD", "INR"] },
+    add: { tuneOptions: SEED_TUNE_OPTIONS },
+    upsert: { creditPacks: SEED_CREDIT_PACKS },
+    replace: {
+      tuneOptions: [
+        ...LAUNCH_TUNE_OPTIONS.slice(0, 3).map((from) => ({ from, to: SEED_TUNE_OPTIONS.find((option) => option.id === from.id) })),
+        { from: LAUNCH_TUNE_OPTIONS[3], to: { ...LAUNCH_TUNE_OPTIONS[3], active: false } }
+      ]
+    },
+    order: { tuneOptions: SEED_TUNE_OPTIONS.map((option) => option.id) }
+  }
 ];
+
 export const CATALOG_VERSION = Math.max(1, ...CATALOG_UPDATES.map((update) => update.version));
 
 const clone = (value) => structuredClone(value);
@@ -542,7 +583,7 @@ export function seedData(envSettings = {}) {
     // Tuning file service: options and credit packs (edited in the admin panel), customer accounts,
     // their credit history, credit purchases and file orders.
     tuneOptions: clone(SEED_TUNE_OPTIONS),
-    creditPacks: [],
+    creditPacks: clone(SEED_CREDIT_PACKS),
     customers: [],
     creditLedger: [],
     creditPurchases: [],

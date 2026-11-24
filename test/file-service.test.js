@@ -243,7 +243,8 @@ test("buying credits by UPI: the customer gives the reference and the admin conf
   assert.equal((await admin.admin("/api/admin/settings", { method: "PUT", body: { ...settings, currency: "INR", upiId: "unityperformance@okaxis", upiName: "Unity Performance" } })).status, 200);
 
   const catalog = (await person.request("/api/portal/catalog")).data;
-  assert.deepEqual(catalog.packs.map((item) => [item.name, item.credits, item.price]), [["Tuner 5", 5, 9999]]);
+  const listed = catalog.packs.find((item) => item.id === packId);
+  assert.deepEqual([listed.credits, listed.price], [5, 9999]);
   assert.deepEqual(catalog.payments, { upi: true, online: true });
 
   const created = await person.portal("/api/portal/purchases", { method: "POST", body: { packId, method: "upi" } });
@@ -384,6 +385,13 @@ test("the order form: required and optional fields, the vehicle list, extra file
 
   const catalog = (await person.request("/api/portal/catalog")).data;
   assert.ok(catalog.makes.includes("Maruti Suzuki") && catalog.makes.includes("Volkswagen"));
+  assert.ok(catalog.models["Maruti Suzuki"].includes("Swift") && catalog.models.Hyundai.includes("Creta"));
+  assert.ok(catalog.models.Volkswagen.includes("Polo 1.0 TSI"), "cars in the vehicle database are in the model list too");
+  assert.equal(catalog.makeTypes["Royal Enfield"], "bike");
+  // The starting price list: fast-chiptuningfiles.com's tuning types, and packs at ₹9,599 a credit.
+  assert.deepEqual(catalog.packs.filter((pack) => ["single", "starter", "tuner", "workshop"].includes(pack.id)).map((pack) => [pack.credits, pack.price]), [[1, 9599], [2, 19198], [5, 47995], [10, 95990]]);
+  assert.deepEqual(catalog.options.filter((entry) => ["stage-1", "stage-2", "stage-3", "back-to-stock", "ecu-clone"].includes(entry.id)).map((entry) => entry.credits), [1, 1.2, 3, 0.2, 0.5]);
+  assert.equal(catalog.currency, "INR");
   assert.ok(catalog.brands.some((brand) => brand.title === "Volkswagen"));
   assert.equal(catalog.ecus.bosch_med17, "Bosch MED17 / ME17 / MEVD17");
   assert.equal(catalog.toolModes.slave, "Slave");

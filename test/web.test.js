@@ -7,7 +7,7 @@ process.env.ADMIN_PASSWORD = "correct-horse-battery";
 process.env.WHATSAPP_NUMBER = "94770000000";
 
 const { createApp } = await import("../src/web/app.js");
-const { validateBrand, validateEcu, validatePhoto, validateProduct, validateService, validateVehicle, vehicleFormValues } = await import("../src/validation.js");
+const { validateBrand, validateCreditPack, validateEcu, validatePhoto, validateProduct, validateService, validateTuneOption, validateVehicle, vehicleFormValues } = await import("../src/validation.js");
 const { vehicleEntries } = await import("../src/vehicles.js");
 const { db } = await import("../src/db.js");
 
@@ -49,7 +49,7 @@ test("every seed vehicle passes the admin validation", () => {
 });
 
 test("every seed brand, ECU, service, product and photo passes the admin validation", () => {
-  for (const [name, validate] of [["brands", validateBrand], ["ecus", validateEcu], ["services", validateService], ["products", validateProduct], ["photos", validatePhoto]]) {
+  for (const [name, validate] of [["brands", validateBrand], ["ecus", validateEcu], ["services", validateService], ["products", validateProduct], ["photos", validatePhoto], ["tuneOptions", validateTuneOption], ["creditPacks", validateCreditPack]]) {
     for (const item of db()[name]) assert.doesNotThrow(() => validate(item), `${name}: ${item.id}`);
   }
 });

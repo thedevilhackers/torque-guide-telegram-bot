@@ -395,7 +395,8 @@ async function viewNew() {
   async function loadModels() {
     const brand = catalog.brands.find((entry) => entry.title.toLowerCase() === makeValue().toLowerCase());
     brandVehicles = brand ? (await api(`/api/vehicles?brand=${encodeURIComponent(brand.id)}`).catch(() => ({ vehicles: [] }))).vehicles : [];
-    modelList.replaceChildren(...[...new Set(brandVehicles.map((vehicle) => vehicle.model))].map((value) => h("option", { value })));
+    const models = new Set([...(catalog.models[makeValue()] ?? []), ...brandVehicles.map((vehicle) => vehicle.model)]);
+    modelList.replaceChildren(...[...models].map((value) => h("option", { value })));
     loadEngines();
   }
   function loadEngines() {
@@ -404,6 +405,7 @@ async function viewNew() {
   }
   makeSelect.addEventListener("change", () => {
     makeOther.hidden = makeSelect.value !== "__other";
+    if (catalog.makeTypes[makeSelect.value]) form.elements.vehicleType.value = catalog.makeTypes[makeSelect.value];
     if (!makeOther.hidden) makeOther.focus();
     catalogId.value = "";
     chosen.hidden = true;
@@ -435,6 +437,19 @@ async function viewNew() {
     loadModels();
     draw();
   }
+  // A make and model from the model list: the engine and the rest are typed in.
+  function pickModel({ make, model: name }) {
+    setMake(make);
+    form.elements.vehicleType.value = catalog.makeTypes[make] ?? "car";
+    model.value = name;
+    catalogId.value = "";
+    chosen.replaceChildren(h("b", { text: `${make} ${name}` }), " filled in below. Add the engine and the year.");
+    chosen.hidden = false;
+    results.hidden = true;
+    search.value = "";
+    loadModels().then(() => engine.focus());
+    draw();
+  }
   let searchTimer;
   search.addEventListener("input", () => {
     clearTimeout(searchTimer);
@@ -445,14 +460,25 @@ async function viewNew() {
     }
     searchTimer = setTimeout(async () => {
       const { vehicles } = await api(`/api/vehicles?q=${encodeURIComponent(query)}`).catch(() => ({ vehicles: [] }));
+      const found = vehicles.slice(0, 6);
+      // Then makes and models from the model list, which fill in the make and model only.
+      const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+      const shown = new Set(found.map((vehicle) => `${vehicle.brand} ${vehicle.model}`.toLowerCase()));
+      const listed = Object.entries(catalog.models)
+        .flatMap(([make, models]) => models.map((name) => ({ make, model: name })))
+        .filter(({ make, model: name }) => words.every((word) => `${make} ${name}`.toLowerCase().includes(word)) && !shown.has(`${make} ${name}`.toLowerCase()))
+        .slice(0, Math.max(3, 8 - found.length));
       results.replaceChildren(
-        ...vehicles.slice(0, 6).map((vehicle) =>
+        ...found.map((vehicle) =>
           h("button", { class: "vehicle-result", type: "button", onclick: () => pickVehicle(vehicle) },
             h("b", { text: `${vehicle.brand} ${vehicle.model}` }),
             h("small", { text: [vehicle.generation, vehicle.years, vehicle.engine, vehicle.stock?.hp ? `${vehicle.stock.hp} hp` : ""].filter(Boolean).join(" · ") })
           )
         ),
-        ...(vehicles.length ? [] : [h("p", { class: "vehicle-results__none", text: "Not in our list. Choose the make below and type the rest." })])
+        ...listed.map((entry) =>
+          h("button", { class: "vehicle-result", type: "button", onclick: () => pickModel(entry) }, h("b", { text: `${entry.make} ${entry.model}` }), h("small", { text: "Fills in the make and model; add the engine." }))
+        ),
+        ...(found.length || listed.length ? [] : [h("p", { class: "vehicle-results__none", text: "Not in our list. Choose the make below and type the rest." })])
       );
       results.hidden = false;
     }, 200);

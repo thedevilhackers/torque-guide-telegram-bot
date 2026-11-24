@@ -57,8 +57,8 @@ In the admin panel:
    - Fill in **UPI ID for credit payments** (for example `yourname@okaxis`) and **UPI payee name**.
    - Tick **Alert me about new file orders and UPI payments**.
    - Press **Save settings**.
-3. **Credit packs → New credit pack**: add each pack you sell, with its name, number of credits and price. Tick **Sell on the file service**. There are no packs until you add them; until then customers are asked to buy credits on WhatsApp.
-4. **Tune options**: check the credit cost of each tune and add-on. The ones there are starting values; change them, or untick **Offer on the file service** for anything you don't do.
+3. **Credit packs**: Single, Starter, Tuner and Workshop are ready, at 1, 2, 5 and 10 credits for ₹9,599 a credit. Change a price or untick **Sell on the file service** there.
+4. **Tune options**: the tuning types and prices follow fast-chiptuningfiles.com's list (Stage 1 at 1 credit, Stage 2 at 1.20, Stage 3 at 3, back to stock at 0.20, and so on). Change a price, or untick **Offer on the file service** for anything you don't do.
 5. **Settings → Telegram alerts**: if no chat is linked yet, press **Connect a Telegram chat** and open the link on your phone.
 
 ### Try it once yourself
@@ -107,11 +107,19 @@ With Razorpay, customers pay on Razorpay's page and their credits are added auto
 
 ## Part 4: Connecting fast-chiptuningfiles.com automatically
 
-Files go to fast-chiptuningfiles.com by hand for now (see "When a real order comes in" above), because their API isn't published. To make sending automatic:
+Files go to fast-chiptuningfiles.com by hand for now (see "When a real order comes in" above). Sending them automatically needs two things from fast-chiptuningfiles.com, and they go in two different places:
 
-1. Ask fast-chiptuningfiles.com for their **reseller API documentation** and an **API key**.
-2. Send the documentation to Claude so the sending can be written.
-3. Put the key only in the server's settings file, the same way as the Razorpay keys, as `FCF_API_URL=…` and `FCF_API_KEY=…`. Restart the site afterwards.
+1. **The API documentation** (the page or PDF that lists their API addresses and how to send a file). Log in to your fast-chiptuningfiles.com account and look for **API**, or ask their support for reseller API access. Send the documentation to Claude, who writes the sending code into `src/providers/fast-chiptuningfiles.js`.
+2. **Your API address and key.** These go only in the server's settings file, never in a chat, email or GitHub. Connect with `ssh root@81.19.137.7`, run `sudo nano /etc/unity-performance/env`, and add two lines at the end:
+
+   ```
+   FCF_API_URL=https://the-address-from-their-documentation
+   FCF_API_KEY=your-key
+   ```
+
+   Save (Ctrl+O, Enter, Ctrl+X) and run `sudo systemctl restart unity-performance`.
+
+Until both are done, each file order in the admin panel shows the steps for sending by hand.
 
 ## Everyday commands (on the server)
 

@@ -164,3 +164,41 @@ test("update 8 fills in the workshop address, keeping one the owner set", () => 
   replaceData(own);
   assert.equal(db().settings.address, "Shop 4, Main Road, Ranchi");
 });
+
+test("update 9 brings in the file service's price list and credit packs, keeping the owner's own prices", () => {
+  const launch = [
+    { id: "stage-1", name: "Stage 1", kind: "tune", credits: 1, description: "Software only, for a standard car.", active: true },
+    // The owner changed this one's price, so it stays as it is.
+    { id: "stage-2", name: "Stage 2", kind: "tune", credits: 3, description: "For cars with supporting hardware: intake, intercooler, downpipe with catalyst.", active: true },
+    { id: "ethanol", name: "Ethanol tune (E20–E85)", kind: "tune", credits: 2, description: "Fuelling and timing for the ethanol blend you name in the notes.", active: true },
+    { id: "economy", name: "Economy", kind: "tune", credits: 1, description: "More low-down torque for better fuel economy.", active: true },
+    { id: "pops-bangs", name: "Pops & bangs", kind: "addon", credits: 1, description: "Overrun crackle, petrol cars only.", active: true },
+    { id: "launch-control", name: "Launch control", kind: "addon", credits: 1, description: "", active: true },
+    { id: "start-stop-off", name: "Start-stop off", kind: "addon", credits: 1, description: "Engine start-stop disabled by default.", active: true }
+  ];
+  const before = seedData();
+  before.catalogVersion = 8;
+  before.settings.currency = "USD";
+  before.tuneOptions = structuredClone(launch);
+  before.creditPacks = [{ id: "tuner", name: "Tuner", credits: 5, price: 9999, note: "", active: true, createdAt: "2026-11-20T10:00:00.000Z" }, { id: "own-pack", name: "Own pack", credits: 3, price: 25000, note: "", active: true }];
+  replaceData(before);
+  const option = (id) => db().tuneOptions.find((entry) => entry.id === id);
+  assert.equal(option("stage-1").name, "Car tuning (Stage 1)");
+  assert.equal(option("stage-2").credits, 3, "the owner's price is kept");
+  assert.equal(option("ethanol").name, "E85 conversion");
+  assert.equal(option("economy").active, false, "hidden, not deleted");
+  assert.equal(option("back-to-stock").credits, 0.2);
+  assert.deepEqual(db().tuneOptions.slice(0, 4).map((entry) => entry.id), ["stage-1", "stage-2", "stage-3", "options-car"]);
+  assert.equal(db().tuneOptions.at(-1).id, "economy");
+  const pack = (id) => db().creditPacks.find((entry) => entry.id === id);
+  assert.deepEqual(["single", "starter", "tuner", "workshop"].map((id) => [pack(id).credits, pack(id).price]), [[1, 9599], [2, 19198], [5, 47995], [10, 95990]]);
+  assert.equal(pack("tuner").createdAt, "2026-11-20T10:00:00.000Z");
+  assert.equal(pack("own-pack").price, 25000, "other packs are left alone");
+  assert.equal(db().settings.currency, "INR");
+
+  const own = seedData();
+  own.catalogVersion = 8;
+  own.settings.currency = "LKR";
+  replaceData(own);
+  assert.equal(db().settings.currency, "LKR", "a currency the owner chose is kept");
+});

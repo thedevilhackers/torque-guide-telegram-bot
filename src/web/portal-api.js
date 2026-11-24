@@ -3,6 +3,7 @@ import { config } from "../config.js";
 import { settings } from "../db.js";
 import * as files from "../file-service.js";
 import { createPaymentLink, fetchPaymentLink, razorpayEnabled, validCallback } from "../razorpay.js";
+import { MAKE_TYPES } from "../data/vehicle-models.js";
 import { brandsWithVehicles } from "../vehicles.js";
 import { currentCustomer, endCustomerSession, endOtherSessions, startCustomerSession } from "./customer-auth.js";
 import { HttpError, rateLimiter, readJson, sameOrigin, saveBody, sendDownload } from "./http.js";
@@ -125,6 +126,8 @@ export function registerPortalRoutes(route, { fetchImpl } = {}) {
       readMethods: files.READ_METHODS,
       vehicleTypes: files.VEHICLE_TYPES,
       makes: files.makes(),
+      models: files.modelsByMake(),
+      makeTypes: MAKE_TYPES,
       brands: brandsWithVehicles().map(({ id, title }) => ({ id, title })),
       ecus: Object.fromEntries(ecus().filter((ecu) => ecu.id !== "unknown").map((ecu) => [ecu.id, ecu.title])),
       fuels: files.FUELS,

@@ -5,7 +5,8 @@ import { promisify } from "node:util";
 import { DATA_DIR, db, settings, transact } from "./db.js";
 import { events } from "./events.js";
 import { InputError } from "./records.js";
-import { brandsWithVehicles, getVehicle } from "./vehicles.js";
+import { VEHICLE_MODELS } from "./data/vehicle-models.js";
+import { brandsWithVehicles, getVehicle, vehiclesForBrand } from "./vehicles.js";
 
 // The tuning file service: tuners and workshops open an account, buy credits, upload an original ECU
 // read, choose a tune, and download the modified file when the workshop has made it. Credits are whole
@@ -40,14 +41,18 @@ export const OCTANES = { ron91: "91 RON (regular)", ron95: "95 RON (premium)", r
 export const GEARBOXES = { manual: "Manual", automatic: "Automatic" };
 export const MODIFIED_PARTS = { no: "No, standard", yes: "Yes (list them in the info)" };
 export const TIME_FRAMES = { asap: "As soon as possible", today: "Today", day: "Within 24 hours", relaxed: "No rush (2–3 days)" };
-// Makes offered in the list, along with every brand in the vehicle database.
-const COMMON_MAKES = [
-  "Ashok Leyland", "Audi", "Bajaj", "BharatBenz", "BMW", "Chevrolet", "Citroen", "Eicher", "Fiat", "Force Motors", "Ford", "Hero",
-  "Honda", "Hyundai", "Isuzu", "Jaguar", "Jeep", "John Deere", "Kawasaki", "Kia", "KTM", "Land Rover", "Lexus", "Mahindra",
-  "Maruti Suzuki", "Mercedes-Benz", "MG", "Mini", "Mitsubishi", "Nissan", "Porsche", "Renault", "Royal Enfield", "Skoda", "Sonalika",
-  "Swaraj", "Tata", "Toyota", "TVS", "Volkswagen", "Volvo", "Yamaha"
-];
-export const makes = () => [...new Set([...COMMON_MAKES, ...brandsWithVehicles().map((brand) => brand.title)])].sort((a, b) => a.localeCompare(b));
+// Makes and their models for the order form's lists: data/vehicle-models.js plus every car in the
+// vehicle database (whose entries also carry engines and figures).
+export function modelsByMake() {
+  const byMake = new Map(Object.entries(VEHICLE_MODELS).map(([make, models]) => [make, new Set(models)]));
+  for (const brand of brandsWithVehicles()) {
+    const models = byMake.get(brand.title) ?? byMake.set(brand.title, new Set()).get(brand.title);
+    for (const vehicle of vehiclesForBrand(brand.id)) models.add(vehicle.model);
+  }
+  const sorted = (values) => [...values].sort((a, b) => a.localeCompare(b, "en", { numeric: true }));
+  return Object.fromEntries(sorted(byMake.keys()).map((make) => [make, sorted(byMake.get(make))]));
+}
+export const makes = () => Object.keys(modelsByMake());
 const MAX_EXTRA_FILES = 5;
 
 const UPLOAD_ID = /^u[a-f0-9]{32}$/;
