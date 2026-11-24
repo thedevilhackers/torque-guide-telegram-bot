@@ -9,6 +9,7 @@ namespace Gateway;
  *
  * - re-checks unpaid OxaPay orders (a missed webhook still gets credited)
  * - low-balance alerts to customers who linked Telegram
+ * - fraud guard: spending limits, expensive calls, too many calls at once (app/FraudGuard.php)
  * - daily report to admins at telegram.report_hour
  * - health alerts when MagnusBilling or OxaPay stop answering (and when they are back)
  */
@@ -34,6 +35,9 @@ final class Cron
             },
             'health' => function (): string {
                 return $this->health();
+            },
+            'fraud' => function (): string {
+                return $this->app->fraudGuard()->run();
             },
             'low_balance' => function (): string {
                 return $this->lowBalance();

@@ -118,6 +118,16 @@ final class App
                 'notify_admins' => true,
                 'report_hour' => 9,
             ],
+            'fraud' => [
+                // Fraud guard (see app/FraudGuard.php). Amounts are MagnusBilling credit; 0 turns a check off.
+                'enabled' => true,
+                'daily_limit' => 50,        // per customer per day; change one customer with /limit in the bot
+                'hour_limit' => 20,         // per customer in the last hour
+                'max_rate' => 1.0,          // price per minute of a single call
+                'max_calls' => 10,          // calls at the same time
+                'auto_block' => false,      // block customers over the daily or hourly limit straight away
+                'risky_prefixes' => ['870', '881', '882', '883', '979'], // satellite and premium international ranges
+            ],
             'panel' => [
                 // Customer-panel add-on (public/panel/), shown inside MagnusBilling. See panel-addon.sh.
                 'enabled' => true,
@@ -250,6 +260,11 @@ final class App
     public function cron(): Cron
     {
         return new Cron($this);
+    }
+
+    public function fraudGuard(): FraudGuard
+    {
+        return new FraudGuard($this);
     }
 
     /**

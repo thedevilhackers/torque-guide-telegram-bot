@@ -1517,6 +1517,122 @@ test('one-tap top-up: amount buttons create the payment at once', function () {
     check(strpos(end($last)['text'], 'wait a few minutes') !== false, 'rate limited');
 });
 
+// ------------------------------------------------------------ fraud guard
+
+/**
+ * A MagnusBilling-like database with call records, live calls and the database clock NOW().
+ */
+function fraudDb(): \PDO
+{
+    $pdo = new \PDO('sqlite::memory:', null, null, [\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION, \PDO::ATTR_DEFAULT_FETCH_MODE => \PDO::FETCH_ASSOC]);
+    $pdo->sqliteCreateFunction('NOW', static function (): string { return date('Y-m-d H:i:s'); }, 0);
+    $pdo->exec('CREATE TABLE pkg_user (id INTEGER PRIMARY KEY, username TEXT)');
+    $pdo->exec("INSERT INTO pkg_user VALUES (7, 'alice'), (8, '100234'), (11, 'carol'), (12, 'dave')");
+    $pdo->exec('CREATE TABLE pkg_cdr (id INTEGER PRIMARY KEY AUTOINCREMENT, id_user INTEGER, starttime TEXT, sessiontime INTEGER, calledstation TEXT, sessionbill REAL)');
+    $pdo->exec('CREATE TABLE pkg_call_online (id INTEGER PRIMARY KEY AUTOINCREMENT, id_user INTEGER)');
+
+    return $pdo;
+}
+
+function addCall(\PDO $pdo, int $user, float $cost, int $seconds = 120, string $number = '447700900123', int $minutesAgo = 5): void
+{
+    $stmt = $pdo->prepare('INSERT INTO pkg_cdr (id_user, starttime, sessiontime, calledstation, sessionbill) VALUES (?, ?, ?, ?, ?)');
+    $stmt->execute([$user, date('Y-m-d H:i:s', time() - $minutesAgo * 60), $seconds, $number, $cost]);
+}
+
+function adminAlerts(FakeServices $fake): array
+{
+    return array_values(array_filter(messagesTo($fake, '999'), static function (array $m): bool {
+        return strpos($m['text'], 'Fraud guard') !== false;
+    }));
+}
+
+test('fraud guard: daily and hourly limits alert once, per-customer limits and OK today', function () {
+    [$app, $fake] = makeApp(['fraud' => ['hour_limit' => 20, 'daily_limit' => 50, 'max_rate' => 0, 'max_calls' => 0]]);
+    $pdo = fraudDb();
+    $guard = new \Gateway\FraudGuard($app, new \Gateway\MagnusDb($app, $pdo));
+    $guard->run(); // first run only remembers where the call records end
+    for ($i = 0; $i < 6; $i++) {
+        addCall($pdo, 7, 10.0, 600, '447700900123', 120 + $i);  // alice: 60 today, two hours ago
+    }
+    addCall($pdo, 11, 60.0, 600, '447700900124', 180);           // carol: 60 today, but her own limit is 100
+    $guard->setDailyLimit('carol', 100.0, 'test');
+    addCall($pdo, 12, 25.0, 300, '447700900125', 10);            // dave: 25 in the last hour
+    same('2 alerts', $guard->run());
+    $alerts = adminAlerts($fake);
+    same(2, count($alerts));
+    check(strpos($alerts[0]['text'], 'alice') !== false && strpos($alerts[0]['text'], '60.00') !== false && strpos($alerts[0]['text'], 'today') !== false, 'daily alert');
+    check(strpos($alerts[1]['text'], 'dave') !== false && strpos($alerts[1]['text'], 'last hour') !== false, 'hourly alert');
+    same(['adm:block:alice', 'adm:fraudok:alice'], array_column($alerts[0]['reply_markup']['inline_keyboard'][0], 'callback_data'));
+    same('0 alerts', $guard->run(), 'not repeated');
+    same(true, $fake->users[7]['active'] ?? true, 'not blocked without auto-block');
+
+    // An admin taps "OK today": no more alerts for alice today.
+    tgTap($app, $fake, 999, 'adm:fraudok:alice');
+    $app->db()->kvSet('fraud:day:alice:' . date('Y-m-d'), null);
+    same('0 alerts', $guard->run(), 'OK today respected');
+});
+
+test('fraud guard: expensive and satellite calls, too many calls at once', function () {
+    [$app, $fake] = makeApp(['fraud' => ['daily_limit' => 0, 'hour_limit' => 0, 'max_rate' => 1.0, 'max_calls' => 10]]);
+    $pdo = fraudDb();
+    $guard = new \Gateway\FraudGuard($app, new \Gateway\MagnusDb($app, $pdo));
+    addCall($pdo, 7, 50.0, 60, '447700900999');  // before the first run: ignored
+    same('0 alerts', $guard->run());
+    addCall($pdo, 7, 0.02, 60);                    // normal
+    addCall($pdo, 7, 6.0, 120, '+4790012345678');  // 3.00 per minute
+    addCall($pdo, 8, 0.10, 30, '00882161234567');  // cheap, but a satellite range
+    for ($i = 0; $i < 12; $i++) {
+        $pdo->exec('INSERT INTO pkg_call_online (id_user) VALUES (12)');
+    }
+    same('3 alerts', $guard->run());
+    $text = implode("\n", array_column(adminAlerts($fake), 'text'));
+    check(strpos($text, '4790•••5678') !== false && strpos($text, '3.00/min') !== false, 'expensive call, number partly hidden');
+    check(strpos($text, 'premium/satellite range 882') !== false, 'satellite range');
+    check(strpos($text, '12</b> calls at the same time') !== false, 'calls at once');
+    check(strpos($text, '447700900999') === false && strpos($text, '4477•••0999') === false, 'old calls not reported');
+});
+
+test('fraud guard: automatic block, customer told, admins can unblock', function () {
+    [$app, $fake] = makeApp(['fraud' => ['daily_limit' => 50, 'hour_limit' => 0, 'max_rate' => 0, 'max_calls' => 0, 'auto_block' => true]]);
+    linkChat($app, $fake, 555, 'alice');
+    $pdo = fraudDb();
+    $guard = new \Gateway\FraudGuard($app, new \Gateway\MagnusDb($app, $pdo));
+    $guard->run();
+    addCall($pdo, 7, 75.0, 3000);
+    $guard->run();
+    same(0, $fake->users[7]['active'], 'blocked in MagnusBilling');
+    $alert = adminAlerts($fake)[0];
+    check(strpos($alert['text'], 'Blocked automatically') !== false, 'admins told');
+    same('adm:unblock:alice', $alert['reply_markup']['inline_keyboard'][0][0]['callback_data'], 'Unblock button');
+    $customer = messagesTo($fake, '555');
+    check(strpos(end($customer)['text'], 'Account paused') !== false, 'customer told');
+});
+
+test('fraud guard: settings and /limit from the bot', function () {
+    [$app, $fake] = makeApp();
+    $screen = tgTap($app, $fake, 999, 'adm:fraud');
+    check(strpos($screen['text'], 'Daily limit per customer: <b>50.00</b>') !== false, 'screen shows the limit');
+    tgTap($app, $fake, 999, 'adm:fraudset:daily');
+    $confirm = tgSay($app, $fake, 999, '75');
+    tgTap($app, $fake, 999, confirmButton($confirm));
+    same(75.0, (float) $app->config['fraud']['daily_limit'], 'daily limit changed');
+    $confirm = tgTap($app, $fake, 999, 'adm:fraudauto');
+    tgTap($app, $fake, 999, confirmButton($confirm));
+    same(true, $app->config['fraud']['auto_block'], 'auto-block on');
+
+    $confirm = tgSay($app, $fake, 999, '/limit alice 200');
+    tgTap($app, $fake, 999, confirmButton($confirm));
+    same(200.0, $app->fraudGuard()->dailyLimit('alice'));
+    $confirm = tgSay($app, $fake, 999, '/limit alice default');
+    tgTap($app, $fake, 999, confirmButton($confirm));
+    same(75.0, $app->fraudGuard()->dailyLimit('alice'), 'back to the normal limit');
+    $reply = tgSay($app, $fake, 999, '/limit nobody 10');
+    check(strpos($reply['text'], 'No account found') !== false, 'unknown account');
+    tgTap($app, $fake, 4242, 'adm:fraudok:alice');
+    same(false, $app->fraudGuard()->isOkToday('alice'), 'customers cannot press admin buttons');
+});
+
 test('telegram: unexpected errors reply politely instead of crashing', function () {
     [$app, $fake] = makeApp();
     $fake->magnusDown = true;

@@ -49,6 +49,8 @@ final class BotProfile
         'retry' => ['Re-check and credit an order: /retry id', false],
         'markpaid' => ['Credit an order by hand: /markpaid id', false],
         'report' => ['Send the daily report now', false],
+        'fraud' => ['Fraud guard settings', true],
+        'limit' => ['Daily spending limit: /limit username amount', false],
     ];
 
     /** Legal suffixes left out of the company name in the bot texts. */

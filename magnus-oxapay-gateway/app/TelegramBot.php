@@ -248,6 +248,12 @@ final class TelegramBot
                 case '/stats':
                     $this->sendStats($chatId);
                     return;
+                case '/limit':
+                    $this->commandLimit($chatId, $args);
+                    return;
+                case '/fraud':
+                    $this->sendFraudSettings($chatId);
+                    return;
                 case '/sip':
                     $this->sendSipAccounts($chatId, (string) ($args[0] ?? ''));
                     return;
@@ -982,13 +988,18 @@ final class TelegramBot
                 if (strpos((string) $action['name'], 'bot_') === 0) {
                     $this->say($chatId, '✅ Saved. ' . $this->applyBotProfile());
                     $this->sendBotProfile($chatId);
+                } elseif (strpos((string) $action['name'], 'fraud_') === 0) {
+                    $this->say($chatId, '✅ Saved.');
+                    $this->sendFraudSettings($chatId);
                 } else {
                     $this->say($chatId, '✅ Saved.');
                     $this->sendSettings($chatId);
                 }
                 $labels = ['min_amount' => 'the minimum top-up', 'max_amount' => 'the maximum top-up', 'currency' => 'the currency',
                     'low_balance' => 'the low-balance alert', 'report_hour' => 'the daily report time', 'bank_instructions' => 'the bank transfer details',
-                    'theme' => 'the website theme', 'bot_description' => 'the bot description', 'bot_about' => 'the bot About text'];
+                    'theme' => 'the website theme', 'bot_description' => 'the bot description', 'bot_about' => 'the bot About text',
+                    'fraud_daily' => 'the fraud daily limit', 'fraud_hour' => 'the fraud hourly limit', 'fraud_rate' => 'the expensive-call price',
+                    'fraud_calls' => 'the calls-at-once limit', 'fraud_autoblock' => 'automatic blocking'];
                 $this->notifyOtherAdmins($chatId, '⚙️ ' . self::e($this->actor) . ' changed ' . self::e($labels[(string) $action['name']] ?? 'a setting') . '.');
                 return;
 
@@ -1288,7 +1299,8 @@ final class TelegramBot
         $changed = array_map(static function (string $name): string {
             return ['min_amount' => 'minimum', 'max_amount' => 'maximum', 'currency' => 'currency', 'low_balance' => 'low-balance alert',
                 'report_hour' => 'report time', 'bank_instructions' => 'bank details', 'theme' => 'theme',
-                'bot_description' => 'bot description', 'bot_about' => 'bot About text'][$name] ?? $name;
+                'bot_description' => 'bot description', 'bot_about' => 'bot About text', 'fraud_daily' => 'fraud daily limit',
+                'fraud_hour' => 'fraud hourly limit', 'fraud_rate' => 'expensive-call price', 'fraud_calls' => 'calls at once', 'fraud_autoblock' => 'auto-block'][$name] ?? $name;
         }, array_keys($overrides));
         $low = (float) ($pay['low_balance'] ?? 0);
         $hour = (int) ($this->app->config['telegram']['report_hour'] ?? -1);
@@ -1310,6 +1322,7 @@ final class TelegramBot
             [['text' => '💱 Currency', 'callback_data' => 'adm:cur'], ['text' => '🪫 Low-balance alert', 'callback_data' => 'adm:setlow']],
             [['text' => '📊 Report time', 'callback_data' => 'adm:sethour'], ['text' => '🏦 Bank details', 'callback_data' => 'adm:setbank']],
             [['text' => '🎨 Website theme', 'callback_data' => 'adm:theme'], ['text' => '🤖 Bot profile', 'callback_data' => 'adm:botprofile']],
+            [['text' => '🛡 Fraud guard', 'callback_data' => 'adm:fraud']],
         ];
         if (array_intersect(array_keys($overrides), ['min_amount', 'max_amount', 'currency']) !== []) {
             $keyboard[] = [['text' => '↩️ Reset to config.php', 'callback_data' => 'adm:reset']];
@@ -1341,6 +1354,15 @@ final class TelegramBot
             $text = (int) $value >= 0 ? '📊 Send the daily report at <b>' . sprintf('%02d:00', (int) $value) . '</b> (server time)?' : '📊 Turn the daily report off?';
         } elseif ($name === 'theme') {
             $text = '🎨 Switch the payment website to <b>' . self::e(Settings::THEMES[$value]) . '</b>?';
+        } elseif ($name === 'fraud_autoblock') {
+            $text = $value === '1'
+                ? '⛔ Block customers <b>automatically</b> when they go over the daily or hourly limit? Admins still get the alert and can unblock.'
+                : '⛔ Stop blocking automatically? You will still get alerts with a Block button.';
+        } elseif (strpos($name, 'fraud_') === 0) {
+            $labels = ['fraud_daily' => 'daily spending limit', 'fraud_hour' => 'hourly spending limit', 'fraud_rate' => 'expensive-call price per minute',
+                'fraud_calls' => 'limit of calls at the same time'];
+            $shown = $name === 'fraud_calls' ? (string) (int) $value : number_format((float) $value, 2);
+            $text = (float) $value > 0 ? '🛡 Set the ' . $labels[$name] . ' to <b>' . self::e($shown) . '</b>?' : '🛡 Turn the ' . $labels[$name] . ' check off?';
         } elseif ($name === 'bot_description' || $name === 'bot_about') {
             $label = $name === 'bot_description' ? 'description' : 'About text';
             $text = $value !== ''

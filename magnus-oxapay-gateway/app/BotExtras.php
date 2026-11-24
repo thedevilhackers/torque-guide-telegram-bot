@@ -15,7 +15,7 @@ trait BotExtras
 {
     /** Admin buttons that view-only admins may use. */
     private static $viewerCommands = ['panel', 'recent', 'stats', 'order', 'account', 'find', 'findu', 'sip', 'live',
-        'linked', 'calls', 'cust', 'banks', 'promos', 'settings', 'botprofile'];
+        'linked', 'calls', 'cust', 'banks', 'promos', 'settings', 'botprofile', 'fraud'];
 
     // ------------------------------------------------------------ public hooks
 
@@ -467,6 +467,31 @@ trait BotExtras
             case 'botprofile':
                 $this->sendBotProfile($chatId);
                 return true;
+            case 'fraud':
+                $this->sendFraudSettings($chatId);
+                return true;
+            case 'fraudset':
+                $names = ['daily' => 'fraud_daily', 'hour' => 'fraud_hour', 'rate' => 'fraud_rate', 'calls' => 'fraud_calls'];
+                if (!isset($names[$arg])) {
+                    return true;
+                }
+                $questions = [
+                    'daily' => '💸 Alert when a customer\'s calls cost more than how much <b>per day</b>? (e.g. <code>50</code>, or <code>off</code>)',
+                    'hour' => '⏱ Alert when a customer\'s calls cost more than how much <b>in one hour</b>? (e.g. <code>20</code>, or <code>off</code>)',
+                    'rate' => '🌍 Alert on calls that cost more than how much <b>per minute</b>? (e.g. <code>1</code>, or <code>off</code>)',
+                    'calls' => '📞 Alert when a customer has more than how many <b>calls at the same time</b>? (e.g. <code>10</code>, or <code>off</code>)',
+                ];
+                $this->setSession($chatId, 'adm_setting', ['name' => $names[$arg]]);
+                $this->say($chatId, $questions[$arg], $this->cancelKeyboard());
+                return true;
+            case 'fraudauto':
+                $this->askSettingChange($chatId, 'fraud_autoblock', empty($this->app->config['fraud']['auto_block']) ? 'on' : 'off');
+                return true;
+            case 'fraudok':
+                $this->app->fraudGuard()->okToday($arg);
+                $this->say($chatId, '🙈 OK. No more fraud alerts for <code>' . self::e($arg) . '</code> today.');
+                $this->notifyOtherAdmins($chatId, '🛡 ' . self::e($this->actor) . ' marked <code>' . self::e($arg) . '</code> as OK for today.');
+                return true;
             case 'botdesc':
             case 'botabout':
                 $name = $command === 'botdesc' ? 'bot_description' : 'bot_about';
@@ -486,6 +511,75 @@ trait BotExtras
         }
 
         return false;
+    }
+
+    // ------------------------------------------------------------- fraud guard
+
+    private function sendFraudSettings(string $chatId): void
+    {
+        $f = $this->app->config['fraud'];
+        $limit = static function ($value): string {
+            return (float) $value > 0 ? '<b>' . number_format((float) $value, 2) . '</b>' : '<b>off</b>';
+        };
+        $custom = $this->app->db()->all('SELECT username, daily_limit FROM ' . $this->app->db()->table('fraud_limits') . ' ORDER BY username LIMIT 15');
+        $lines = [
+            '🛡 <b>Fraud guard</b>' . (empty($f['enabled']) ? ' (off in config.php)' : ''),
+            'Checked every 5 minutes from MagnusBilling\'s call records. Admins get an alert with Block and OK buttons.',
+            '',
+            '💸 Daily limit per customer: ' . $limit($f['daily_limit']),
+            '⏱ Hourly limit per customer: ' . $limit($f['hour_limit']),
+            '🌍 Expensive calls: over ' . $limit($f['max_rate']) . ' per minute',
+            '📡 Premium/satellite ranges: ' . self::e(implode(', ', (array) $f['risky_prefixes']) ?: 'none') . ' <i>(config.php)</i>',
+            '📞 Calls at once: more than ' . ((int) $f['max_calls'] > 0 ? '<b>' . (int) $f['max_calls'] . '</b>' : '<b>off</b>'),
+            '⛔ Block automatically over the daily/hourly limit: <b>' . (!empty($f['auto_block']) ? 'on' : 'off') . '</b>',
+        ];
+        if ($custom !== []) {
+            $lines[] = '';
+            $lines[] = '<b>Own daily limits</b> (/limit username amount):';
+            foreach ($custom as $row) {
+                $lines[] = '• <code>' . self::e((string) $row['username']) . '</code>: ' . $limit($row['daily_limit']);
+            }
+        } else {
+            $lines[] = '';
+            $lines[] = 'Give one customer a different daily limit with /limit username amount.';
+        }
+        $this->say($chatId, implode("\n", $lines), ['reply_markup' => ['inline_keyboard' => [
+            [['text' => '💸 Daily limit', 'callback_data' => 'adm:fraudset:daily'], ['text' => '⏱ Hourly limit', 'callback_data' => 'adm:fraudset:hour']],
+            [['text' => '🌍 Per-minute price', 'callback_data' => 'adm:fraudset:rate'], ['text' => '📞 Calls at once', 'callback_data' => 'adm:fraudset:calls']],
+            [['text' => !empty($f['auto_block']) ? '⛔ Auto-block: turn off' : '⛔ Auto-block: turn on', 'callback_data' => 'adm:fraudauto']],
+            [['text' => '« Settings', 'callback_data' => 'adm:settings']],
+        ]]]);
+    }
+
+    /**
+     * /limit <username> <amount|off|default>
+     */
+    private function commandLimit(string $chatId, array $args): void
+    {
+        $username = (string) ($args[0] ?? '');
+        $value = strtolower((string) ($args[1] ?? ''));
+        if ($username === '' || $value === '') {
+            $this->say($chatId, "Usage: <code>/limit username 100</code> sets that customer's daily spending limit.\n"
+                . '<code>/limit username off</code> turns it off for them, <code>/limit username default</code> goes back to the normal limit.');
+            return;
+        }
+        $user = $this->payments()->lookupUser($username);
+        if ($user === null) {
+            throw new UserError('unknown_user', 'No account found with that username.');
+        }
+        $name = (string) $user['username'];
+        if ($value === 'default') {
+            $limit = null;
+        } elseif ($value === 'off') {
+            $limit = 0.0;
+        } else {
+            $limit = (float) Settings::validateAmount($value);
+        }
+        $this->askConfirm($chatId, '🛡 ' . ($limit === null ? 'Use the normal daily limit for <code>' . self::e($name) . '</code>?'
+            : ($limit > 0 ? 'Alert when <code>' . self::e($name) . '</code> spends more than <b>' . number_format($limit, 2) . '</b> a day?'
+                : 'Turn the daily limit off for <code>' . self::e($name) . '</code>?')), [
+            'type' => 'fraud_limit', 'username' => $name, 'limit' => $limit,
+        ]);
     }
 
     // ------------------------------------------------------------- bot profile
@@ -571,6 +665,13 @@ trait BotExtras
     {
         $magnus = $this->app->magnus();
         switch ($action['type'] ?? '') {
+            case 'fraud_limit':
+                $limit = $action['limit'] === null ? null : (float) $action['limit'];
+                $this->app->fraudGuard()->setDailyLimit((string) $action['username'], $limit, $this->actor);
+                $this->say($chatId, '✅ Saved. ' . ($limit === null ? 'The normal daily limit applies to <code>' . self::e((string) $action['username']) . '</code>.'
+                    : 'Daily limit for <code>' . self::e((string) $action['username']) . '</code>: <b>' . ($limit > 0 ? number_format($limit, 2) : 'off') . '</b>.'));
+                $this->notifyOtherAdmins($chatId, '🛡 ' . self::e($this->actor) . ' changed the daily limit of <code>' . self::e((string) $action['username']) . '</code>.');
+                return true;
             case 'bot_default':
                 $settings = $this->app->settings();
                 $settings->set('bot_description', '', $this->actor);

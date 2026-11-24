@@ -240,7 +240,7 @@ final class Database
 
         $this->pdo->exec('CREATE TABLE IF NOT EXISTS ' . $this->table('settings') . ' (
             skey VARCHAR(100) NOT NULL PRIMARY KEY,
-            svalue VARCHAR(500) NOT NULL,
+            svalue TEXT NOT NULL,
             updated_at BIGINT NOT NULL,
             updated_by VARCHAR(100) NULL
         )' . $suffix);
@@ -253,5 +253,18 @@ final class Database
             window_start BIGINT NOT NULL,
             hits INTEGER NOT NULL
         )' . $suffix);
+
+        $this->pdo->exec('CREATE TABLE IF NOT EXISTS ' . $this->table('fraud_limits') . ' (
+            username VARCHAR(100) NOT NULL PRIMARY KEY,
+            daily_limit DECIMAL(14,4) NOT NULL,
+            updated_by VARCHAR(100) NULL,
+            updated_at BIGINT NOT NULL
+        )' . $suffix);
+
+        // MySQL: settings values were VARCHAR(500); bank details and the bot description can be longer.
+        if ($this->pdo->getAttribute(\PDO::ATTR_DRIVER_NAME) === 'mysql' && $this->kvGet('schema:settings_text') === null) {
+            $this->pdo->exec('ALTER TABLE ' . $this->table('settings') . ' MODIFY svalue TEXT NOT NULL');
+            $this->kvSet('schema:settings_text', '1');
+        }
     }
 }

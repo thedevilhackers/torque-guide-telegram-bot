@@ -54,6 +54,11 @@ final class Settings
         'theme' => ['site', 'theme'],
         'bot_description' => ['telegram', 'description'],
         'bot_about' => ['telegram', 'short_description'],
+        'fraud_daily' => ['fraud', 'daily_limit'],
+        'fraud_hour' => ['fraud', 'hour_limit'],
+        'fraud_rate' => ['fraud', 'max_rate'],
+        'fraud_calls' => ['fraud', 'max_calls'],
+        'fraud_autoblock' => ['fraud', 'auto_block'],
     ];
 
     /** Settings stored as text (the others are numbers). */
@@ -84,14 +89,27 @@ final class Settings
                 $config[$section]['currency_symbol'] = self::CURRENCIES[$value] ?? '';
             } elseif (in_array($name, self::TEXTS, true)) {
                 $config[$section][$key] = $value;
-            } elseif ($name === 'report_hour') {
+            } elseif ($name === 'report_hour' || $name === 'fraud_calls') {
                 $config[$section][$key] = (int) $value;
+            } elseif ($name === 'fraud_autoblock') {
+                $config[$section][$key] = $value === '1';
             } else {
                 $config[$section][$key] = (float) $value;
             }
         }
 
         return $config;
+    }
+
+    /** Parses an amount such as 50, 12.5 or €20 (more than 0); returns it with two decimals. */
+    public static function validateAmount(string $value): string
+    {
+        $text = str_replace(',', '.', trim(ltrim(trim($value), '€$£')));
+        if (!preg_match('/^\d{1,7}(\.\d{1,2})?$/', $text) || (float) $text <= 0) {
+            throw new UserError('invalid_amount', 'Enter an amount greater than 0, such as 50 or 12.50.');
+        }
+
+        return number_format((float) $text, 2, '.', '');
     }
 
     public static function symbolFor(string $currency): string
@@ -154,6 +172,29 @@ final class Settings
             }
             return $value;
         }
+        if ($name === 'fraud_autoblock') {
+            $value = strtolower(trim($value));
+            if (in_array($value, ['1', 'on', 'yes', 'true'], true)) {
+                return '1';
+            }
+            if (in_array($value, ['0', 'off', 'no', 'false'], true)) {
+                return '0';
+            }
+            throw new UserError('invalid_value', 'Send on or off.');
+        }
+        if ($name === 'fraud_calls') {
+            $value = strtolower(trim($value));
+            if ($value === 'off') {
+                return '0';
+            }
+            if (!preg_match('/^\d{1,4}$/', $value)) {
+                throw new UserError('invalid_value', 'Send a whole number such as 10, or off.');
+            }
+            return (string) (int) $value;
+        }
+        if (strpos($name, 'fraud_') === 0 && in_array(strtolower(trim($value)), ['off', '0'], true)) {
+            return '0';
+        }
         if ($name === 'theme') {
             $raw = strtolower(trim($value));
             $value = self::normalizeTheme($raw);
@@ -173,11 +214,11 @@ final class Settings
             return (string) (int) $value;
         }
         $text = str_replace(',', '.', trim(ltrim(trim($value), '€$£')));
-        if (!preg_match('/^\d{1,7}(\.\d{1,2})?$/', $text) || ((float) $text <= 0 && $name !== 'low_balance')) {
+        if (!preg_match('/^\d{1,7}(\.\d{1,2})?$/', $text) || ((float) $text <= 0 && $name !== 'low_balance' && strpos($name, 'fraud_') !== 0)) {
             throw new UserError('invalid_amount', 'Enter an amount greater than 0, such as 5 or 2.50.');
         }
         $amount = (float) $text;
-        if ($name === 'low_balance') {
+        if ($name === 'low_balance' || strpos($name, 'fraud_') === 0) {
             return number_format($amount, 2, '.', '');
         }
         if ($name === 'min_amount' && $amount >= (float) $pay['max_amount']) {
