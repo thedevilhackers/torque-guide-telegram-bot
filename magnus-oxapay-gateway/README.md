@@ -361,6 +361,51 @@ There are three ways to use your own texts:
 
 Telegram shows the description only in an empty chat. To check it, open the bot from an account that has never used it, or delete the chat and open it again.
 
+## Fraud guard
+
+Every 5 minutes the gateway reads MagnusBilling's call records. It only reads them and never changes them. If it sees one of the warning signs below, admins get a Telegram alert. A stolen SIP password can run up a large bill in hours, and this catches it early.
+
+| Check | Default | |
+| --- | --- | --- |
+| 💸 Calls cost more than this per customer per day | 50 | Give one customer a different limit with `/limit username 200` (`off` or `default` also work) |
+| ⏱ … or more than this in the last hour | 20 | Catches sudden spikes |
+| 🌍 A call costs more than this per minute | 1.00 | Expensive destinations |
+| 📡 Calls to premium or satellite ranges | 870, 881, 882, 883, 979 | Set in `config.php` (`fraud.risky_prefixes`) |
+| 📞 More calls at the same time than this | 10 | |
+
+- Each alert has **⛔ Block**, **🙈 OK today** and **👤 Account** buttons. Alerts are sent once per customer and period. Numbers are partly hidden, for example `4790•••5678`.
+- **⛔ Auto-block** is off by default. When it is on, a customer who goes over the daily or hourly limit is blocked straight away through the MagnusBilling API. They get a message in Telegram, and admins can tap **✅ Unblock**.
+- Change the limits in **🛠 Admin panel → ⚙️ Settings → 🛡 Fraud guard**, or with `/fraud`. Amounts are in MagnusBilling credit, and `off` (or 0) turns a check off.
+
+## Nightly backups
+
+Every night at 03:17, `bin/backup.sh` backs up the server:
+
+- **What:** the MagnusBilling database (without call history, unless `backup.include_calls` is on), `/etc/asterisk`, and the gateway's `config.php` and database.
+- **Encryption:** AES-256, with the key in `/root/unitycarrier-backups/backup.key`.
+- **Copies:** the last 7 are kept in `/root/unitycarrier-backups/nightly/`. Each one is also sent to the Telegram admin chats, which is the copy off the server. Backups over 45 MB are sent in parts.
+- **Problems:** if a backup fails, admins get a Telegram message.
+
+**Save the key somewhere safe, off the server (a password manager).** Without it nobody can open the backups, not even you. The installer shows it once. To show it again:
+
+```bash
+bash /var/www/unitycarrier-pay/bin/backup.sh --show-key
+```
+
+To make a backup now:
+
+```bash
+bash /var/www/unitycarrier-pay/bin/backup.sh --now
+```
+
+To open a backup, run the command below. It decrypts the backup into a folder and prints the restore steps. For a backup downloaded from Telegram in parts, give it the first file (`….part-aa`) and it joins the parts itself.
+
+```bash
+bash /var/www/unitycarrier-pay/bin/backup.sh --restore /root/unitycarrier-backups/nightly/backup-….tar.gz.enc
+```
+
+To change the time, the number of copies kept, the Telegram copy or call history, edit `backup` in `config.php`, then run `install.sh --yes`. The log is in `/var/log/unitycarrier-backup.log`.
+
 ## Customer-panel add-on (Top up, Telegram, two-step login)
 
 This adds two items to the menu your customers see in the MagnusBilling 8 panel. Customers also get a desktop icon for each.

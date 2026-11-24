@@ -61,4 +61,39 @@ final class Http
 
         return ['status' => $status, 'body' => (string) $response];
     }
+
+    /**
+     * multipart/form-data POST with files. A field given as ['file' => '/path'] is uploaded as a file.
+     *
+     * @param array<string, string|array{file:string}> $fields
+     */
+    public static function upload(string $url, array $fields, int $timeout = 600): array
+    {
+        if (self::$transport !== null) {
+            return (self::$transport)('POST', $url, ['Content-Type: multipart/form-data'], (string) json_encode($fields));
+        }
+        $post = [];
+        foreach ($fields as $name => $value) {
+            $post[$name] = is_array($value) ? new \CURLFile((string) $value['file'], 'application/octet-stream', basename((string) $value['file'])) : (string) $value;
+        }
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => $post,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_CONNECTTIMEOUT => 15,
+            CURLOPT_TIMEOUT => $timeout,
+            CURLOPT_USERAGENT => 'MagnusOxaPayGateway/1.0',
+        ]);
+        $response = curl_exec($ch);
+        if ($response === false) {
+            $error = curl_error($ch);
+            curl_close($ch);
+            throw new \RuntimeException('Upload to ' . parse_url($url, PHP_URL_HOST) . " failed: {$error}");
+        }
+        $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+        curl_close($ch);
+
+        return ['status' => $status, 'body' => (string) $response];
+    }
 }

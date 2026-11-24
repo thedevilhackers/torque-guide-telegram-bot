@@ -118,6 +118,14 @@ final class App
                 'notify_admins' => true,
                 'report_hour' => 9,
             ],
+            'backup' => [
+                // Nightly backups (bin/backup.sh, installed by install.sh)
+                'enabled' => true,
+                'hour' => 3,                // server time
+                'keep' => 7,                // encrypted backups kept on the server
+                'telegram' => true,         // also send each backup to the admin chats (the copy off the server)
+                'include_calls' => false,   // include call history (pkg_cdr...); can make backups very large
+            ],
             'fraud' => [
                 // Fraud guard (see app/FraudGuard.php). Amounts are MagnusBilling credit; 0 turns a check off.
                 'enabled' => true,

@@ -47,6 +47,8 @@ TG_TOKEN=""
 TG_ADMINS=""
 TG_VIEWERS=""
 CRON_FILE="/etc/cron.d/unitycarrier-pay"
+BACKUP_CRON="/etc/cron.d/unitycarrier-backup"
+BACKUP_DIR="/root/unitycarrier-backups"
 THEME=""
 CURRENCY=""
 LE_EMAIL=""
@@ -147,6 +149,10 @@ if [[ $ACTION == uninstall ]]; then
     if [[ -f $CRON_FILE ]]; then
         rm -f "$CRON_FILE"
         ok "Scheduled jobs removed"
+    fi
+    if [[ -f $BACKUP_CRON ]]; then
+        rm -f "$BACKUP_CRON"
+        ok "Nightly backups stopped (the backups and key in $BACKUP_DIR are kept)"
     fi
     link="$WEB_ROOT/$URL_PATH"
     if [[ -L $link && "$(readlink -f "$link")" == "$APP_DIR/public" ]]; then
@@ -483,6 +489,32 @@ chmod 644 "$CRON_FILE"
 ok "Runs every 5 minutes ($CRON_FILE)"
 as_web php "$APP_DIR/bin/cli.php" cron | sed 's/^/  /' || true
 
+# ---------------------------------------------------------------- nightly backups
+
+step "Nightly backups"
+backup_settings=$(php "$APP_DIR/bin/cli.php" backup:settings 2>/dev/null || true)
+backup_hour=$(sed -n 's/^hour=//p' <<<"$backup_settings")
+if [[ $(sed -n 's/^enabled=//p' <<<"$backup_settings") == 0 ]]; then
+    rm -f "$BACKUP_CRON"
+    ok "Turned off (backup.enabled in config.php)"
+else
+    mkdir -p "$BACKUP_DIR" && chmod 700 "$BACKUP_DIR"
+    new_backup_key=0
+    if [[ ! -s $BACKUP_DIR/backup.key ]]; then
+        (umask 077; openssl rand -base64 48 > "$BACKUP_DIR/backup.key")
+        new_backup_key=1
+    fi
+    printf '%s\n' "# Unity Carrier: nightly encrypted backup of MagnusBilling, /etc/asterisk and the gateway (bin/backup.sh)" \
+        "17 ${backup_hour:-3} * * * root bash $APP_DIR/bin/backup.sh >> /var/log/unitycarrier-backup.log 2>&1" > "$BACKUP_CRON"
+    chmod 644 "$BACKUP_CRON"
+    ok "Every night at ${backup_hour:-3}:17 into $BACKUP_DIR/nightly (7 kept)$([[ $(sed -n 's/^telegram=//p' <<<"$backup_settings") == 1 ]] && echo ', plus a copy to the Telegram admin chats')"
+    if [[ $new_backup_key == 1 ]]; then
+        warn "Backups are encrypted with this new key. Save it somewhere safe OFF this server (a password manager):"
+        printf '      %s\n' "$(cat "$BACKUP_DIR/backup.key")"
+        warn "Without the key nobody can open the backups, not even you. Show it again with: bash $APP_DIR/bin/backup.sh --show-key"
+    fi
+fi
+
 # ---------------------------------------------------------------- check
 
 step "Final check"
@@ -497,6 +529,7 @@ echo "  JSON API:         $BASE_URL/api.php"
 [[ -n $new_api_key ]] && echo "  API key for your other systems (save it): $new_api_key"
 echo "  Config file:      $APP_DIR/config.php   (amounts, bonus, colours...; then run install.sh again or just save)"
 echo "  Orders / retry:   php $APP_DIR/bin/cli.php orders   (also: order <id>, retry <id>, check)"
+echo "  Backups:          bash $APP_DIR/bin/backup.sh --now   (also: --show-key, --restore FILE)"
 if [[ $BASE_URL == http://* ]]; then
     if [[ -n $DOMAIN ]]; then
         echo "  Tip: once $DOMAIN points here and port 80 is open, run install.sh again to get HTTPS."

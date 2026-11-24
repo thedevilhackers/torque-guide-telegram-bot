@@ -39,6 +39,21 @@ final class Telegram
     }
 
     /**
+     * Sends a file (up to 50 MB, Telegram's limit for bots).
+     */
+    public function sendDocument($chatId, string $path, string $caption = ''): void
+    {
+        $response = Http::upload(
+            'https://api.telegram.org/bot' . $this->token . '/sendDocument',
+            ['chat_id' => (string) $chatId, 'document' => ['file' => $path], 'caption' => $caption, 'parse_mode' => 'HTML']
+        );
+        $json = json_decode($response['body'], true);
+        if (!is_array($json) || empty($json['ok'])) {
+            throw new \RuntimeException('Telegram sendDocument failed: ' . (is_array($json) ? (string) ($json['description'] ?? 'unknown error') : 'invalid response'));
+        }
+    }
+
+    /**
      * @param array<string,mixed> $extra e.g. ['reply_markup' => [...]]
      */
     public function sendMessage($chatId, string $html, array $extra = []): void

@@ -1633,6 +1633,18 @@ test('fraud guard: settings and /limit from the bot', function () {
     same(false, $app->fraudGuard()->isOkToday('alice'), 'customers cannot press admin buttons');
 });
 
+test('backups: encrypted file goes to Telegram as a document', function () {
+    [$app, $fake] = makeApp();
+    $file = tempnam(sys_get_temp_dir(), 'bk');
+    file_put_contents($file, 'encrypted bytes');
+    $app->telegram()->sendDocument('999', $file, '💾 <b>Nightly backup</b>');
+    $call = lastCall($fake, 'sendDocument');
+    same('999', $call['chat_id']);
+    same($file, $call['document']['file'], 'uploaded as a file');
+    same('💾 <b>Nightly backup</b>', $call['caption']);
+    unlink($file);
+});
+
 test('telegram: unexpected errors reply politely instead of crashing', function () {
     [$app, $fake] = makeApp();
     $fake->magnusDown = true;

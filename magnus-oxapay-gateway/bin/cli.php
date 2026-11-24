@@ -49,6 +49,7 @@ function usage(): void
     line('  cron               scheduled jobs (order checks, low-balance alerts, daily report, health alerts)');
     line('  report             send the daily report to admins now');
     line('  twostep:off <user> turn off two-step login for a customer who lost their phone');
+    line('  backup:settings    nightly backup settings (used by bin/backup.sh)');
 }
 
 if (in_array($command, ['help', '--help', '-h'], true)) {
@@ -61,8 +62,10 @@ if ($command === 'secret') {
     exit(0);
 }
 
-// Run as the owner of data/ (www-data) so SQLite files never end up owned by root.
-if (function_exists('posix_geteuid') && posix_geteuid() === 0) {
+// Run as the owner of data/ (www-data) so SQLite files never end up owned by root. The backup commands keep root:
+// they read root-only backup files and never open the gateway database.
+$keepRoot = in_array($command, ['backup:settings', 'backup:send', 'backup:notify'], true);
+if (!$keepRoot && function_exists('posix_geteuid') && posix_geteuid() === 0) {
     $owner = @fileowner(GATEWAY_ROOT . '/data');
     $group = @filegroup(GATEWAY_ROOT . '/data');
     if ($owner !== false && $owner !== 0 && $group !== false) {
@@ -170,6 +173,32 @@ try {
 
         case 'report':
             line('report: ' . $app->cron()->dailyReport(true));
+            break;
+
+        case 'backup:settings':
+            $b = $app->config['backup'];
+            line('enabled=' . (int) !empty($b['enabled']));
+            line('hour=' . max(0, min(23, (int) $b['hour'])));
+            line('keep=' . max(1, (int) $b['keep']));
+            line('telegram=' . (int) (!empty($b['telegram']) && $app->telegramEnabled() && $app->config['telegram']['admin_chat_ids'] !== []));
+            line('include_calls=' . (int) !empty($b['include_calls']));
+            break;
+
+        case 'backup:send':
+            $file = (string) ($argv[2] ?? '');
+            if (!is_file($file)) {
+                throw new \RuntimeException('Usage: php bin/cli.php backup:send FILE [caption]');
+            }
+            foreach ((array) $app->config['telegram']['admin_chat_ids'] as $chat) {
+                $app->telegram()->sendDocument((string) $chat, $file, (string) ($argv[3] ?? ''));
+            }
+            line('sent ' . basename($file));
+            break;
+
+        case 'backup:notify':
+            foreach ((array) $app->config['telegram']['admin_chat_ids'] as $chat) {
+                $app->telegram()->sendMessage((string) $chat, htmlspecialchars((string) ($argv[2] ?? ''), ENT_QUOTES, 'UTF-8'));
+            }
             break;
 
         case 'twostep:off':

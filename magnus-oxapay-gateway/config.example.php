@@ -104,6 +104,28 @@ return [
         'short_description' => '',      // About text on the bot's profile, max 120 characters (empty = standard text)
     ],
 
+    // ------------------------------------------------------------ fraud guard
+    // Alerts admins about suspicious calls (MagnusBilling credit; 0 = check off). Also in the bot: Settings > Fraud guard.
+    'fraud' => [
+        'enabled' => true,
+        'daily_limit' => 50,         // per customer per day (one customer: /limit username amount)
+        'hour_limit' => 20,          // per customer in the last hour
+        'max_rate' => 1.0,           // price per minute of a single call
+        'max_calls' => 10,           // calls at the same time
+        'auto_block' => false,       // block a customer over the daily/hourly limit straight away
+        'risky_prefixes' => ['870', '881', '882', '883', '979'],
+    ],
+
+    // ---------------------------------------------------------- nightly backups
+    // bin/backup.sh, run by cron at hour:17. Run install.sh --yes after changing these.
+    'backup' => [
+        'enabled' => true,
+        'hour' => 3,
+        'keep' => 7,                 // encrypted backups kept in /root/unitycarrier-backups/nightly
+        'telegram' => true,          // also send each backup to the Telegram admin chats
+        'include_calls' => false,    // include call history (can make backups very large)
+    ],
+
     // ------------------------------------------------------ customer-panel add-on
     // Top up / Telegram / two-step login pages inside the MagnusBilling panel. Install with panel-addon.sh.
     'panel' => [
