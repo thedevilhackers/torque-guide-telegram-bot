@@ -39,7 +39,7 @@ export function createFranchiseLead(input) {
   const city = clean(input?.city, 80);
   if (city.length < 2) throw new InputError("Your city is required.");
   const background = clean(input?.background, 20);
-  if (background && !FRANCHISE_BACKGROUNDS[background]) throw new InputError("Please choose what you do today again.");
+  if (background && !Object.hasOwn(FRANCHISE_BACKGROUNDS, background)) throw new InputError("Please choose what you do today again.");
   const packageId = clean(input?.packageId, 60);
   const chosen = packageId ? activePackages().find((entry) => entry.id === packageId) : null;
   if (packageId && !chosen) throw new InputError("That package isn't offered any more. Please choose again.");

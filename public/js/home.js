@@ -1,5 +1,5 @@
 import { dynoChart } from "./chart.js";
-import { $, $$, api, bootPage, h, loadProducts, observeReveals, productCard, reducedMotion, whatsappUrl } from "./common.js";
+import { $, $$, api, bootPage, h, loadProducts, observeReveals, offerCard, productCard, reducedMotion, savedReferral, whatsappUrl } from "./common.js";
 import { icon } from "./icons.js";
 
 const STORY_VEHICLE = "vw_golf7_gti";
@@ -292,6 +292,7 @@ function openEnquiry(vehicle, query, current = { stage: 1, ...vehicle.stage1 }) 
     h("label", { class: "field" }, h("span", { text: "Where is the car?" }), location),
     useLocation,
     h("label", { class: "field" }, h("span", { text: "Message (optional)" }), h("textarea", { name: "message", rows: 3, placeholder: "Preferred day, modifications, questions…" })),
+    h("label", { class: "field" }, h("span", { text: "Referral code (optional)" }), h("input", { name: "referralCode", value: savedReferral(), autocomplete: "off", autocapitalize: "characters", maxlength: 12, placeholder: "e.g. RAVI482" })),
     error,
     submit
   );
@@ -310,6 +311,7 @@ function openEnquiry(vehicle, query, current = { stage: 1, ...vehicle.stage1 }) 
           ecu: fields.ecu.value,
           location: fields.location.value,
           message: fields.message.value,
+          referralCode: fields.referralCode.value,
           stage: current.stage,
           ...(vehicle.source === "catalog" ? { vehicleId: vehicle.id } : { vehicleText: `${vehicle.brand} ${vehicle.model} ${vehicle.generation} ${vehicle.engine}`.trim() || query })
         }
@@ -416,6 +418,15 @@ const isInstagram = (url) => {
 
 // "Our work": the owner's photos from the admin panel, newest first. A photo opens its own link
 // (usually the Instagram post), or else the Instagram profile.
+// Current offers from Admin → Offers; the section stays hidden without any.
+function setupOffers() {
+  const section = $("[data-offers-section]");
+  if (!section || !site.offers?.length) return;
+  $("[data-offers]", section).replaceChildren(...site.offers.map((offer, index) => offerCard(offer, site.settings, index * 0.06)));
+  section.hidden = false;
+  observeReveals(section);
+}
+
 function setupWork() {
   const section = $("[data-work]");
   if (!site.photos?.length) return;
@@ -497,6 +508,7 @@ function setupVisit() {
 }
 
 setupServices();
+setupOffers();
 setupWork();
 setupEcus();
 setupVisit();

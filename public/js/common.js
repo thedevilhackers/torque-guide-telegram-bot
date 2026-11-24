@@ -416,8 +416,34 @@ function addWhatsappButton(settings) {
 
 // ---------- Boot ----------
 
+// A shared Refer & earn link (?ref=CODE) is remembered for this visitor's next booking.
+const REFERRAL_KEY = "up-ref";
+function rememberReferral() {
+  const code = new URLSearchParams(location.search).get("ref")?.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 12);
+  if (code && code.length >= 4) storage("set", REFERRAL_KEY, code);
+}
+export const savedReferral = () => storage("get", REFERRAL_KEY) ?? "";
+
+const rupees = (amount) => `₹${Number(amount).toLocaleString("en-IN")}`;
+
+// An offer from Admin → Offers, with a WhatsApp button to book it.
+export function offerCard(offer, settings, delay = 0) {
+  const book = settings.whatsappNumber ? whatsappUrl(settings.whatsappNumber, `Hello ${settings.businessName}, I'd like to book the offer: ${offer.title}.`) : "";
+  return h("article", { class: "offer-card reveal", style: { "--delay": `${delay}s` } },
+    offer.badge ? h("p", { class: "offer-badge", text: offer.badge }) : null,
+    h("h3", { text: offer.title }),
+    offer.price !== null && offer.price !== undefined
+      ? h("p", { class: "offer-price" }, offer.price === 0 ? "Free" : rupees(offer.price), offer.compareAtPrice ? h("s", { text: rupees(offer.compareAtPrice) }) : null)
+      : null,
+    offer.description ? h("p", { class: "offer-text", text: offer.description }) : null,
+    offer.terms ? h("p", { class: "offer-terms", text: offer.terms }) : null,
+    book ? h("a", { class: "btn btn-whatsapp btn-small", href: book, target: "_blank", rel: "noopener", text: "Book on WhatsApp" }) : null
+  );
+}
+
 export async function bootPage() {
   document.documentElement.classList.remove("no-js");
+  rememberReferral();
   setupNav();
   observeReveals();
   const site = await loadSite();

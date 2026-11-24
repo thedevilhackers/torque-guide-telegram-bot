@@ -163,7 +163,7 @@ test("local search: city pages, questions, areas served and the founder", async 
   // The workshop is in Ranchi; the other city pages say so rather than suggest a branch there.
   for (const path of ["/car-tuning-kolkata", "/car-tuning-shillong"]) assert.match((await request(path)).data.toString(), /Our workshop is in Ranchi, Jharkhand\./, path);
   // Claims the site can't back up stay out of every page.
-  for (const path of ["/", "/franchise", "/api/franchise", "/car-tuning-ranchi", "/car-tuning-kolkata", "/car-tuning-shillong"]) {
+  for (const path of ["/", "/franchise", "/api/franchise", "/offers", "/refer", "/mechanics", "/car-tuning-ranchi", "/car-tuning-kolkata", "/car-tuning-shillong"]) {
     const text = (await request(path)).data.toString();
     assert.doesNotMatch(text, /best (car )?tun(ing|er)s? in India|India's best|No\. ?1|number one|cheapest|guaranteed/i, path);
     assert.doesNotMatch(text, /(DPF|EGR|AdBlue|cat(alyst)?) (delete|removal|off)\b/i, path);
@@ -245,11 +245,116 @@ test("franchise: packages, applications, the admin list and the closed switch", 
   await request("/api/admin/settings", { method: "PUT", admin: true, body: { ...data.settings, franchiseOpen: true } });
 });
 
+test("refer & earn: codes, bookings with a code, earnings and payouts", async (t) => {
+  const { request, login, close } = await startApp();
+  t.after(close);
+  assert.equal((await request("/refer")).status, 200);
+  const program = (await request("/api/refer")).data;
+  assert.deepEqual([program.open, program.reward, program.discount], [true, 500, 500]);
+
+  assert.equal((await request("/api/refer", { method: "POST", body: { name: "Ravi", phone: "12", city: "Ranchi" } })).status, 400);
+  assert.equal((await request("/api/refer", { method: "POST", body: { name: "Ravi", phone: "+91 98765 43210", city: "Ranchi", upiId: "not a upi" } })).status, 400);
+  const signed = await request("/api/refer", { method: "POST", body: { name: "Ravi Kumar", phone: "+91 98765 43210", city: "Ranchi", upiId: "ravi@okaxis" } });
+  assert.equal(signed.status, 200);
+  const { code } = signed.data;
+  assert.match(code, /^RAVIKU\d{3}$/);
+  // Signing up again with the same number (written differently) gives the same code.
+  const again = await request("/api/refer", { method: "POST", body: { name: "Ravi K", phone: "9876543210", city: "Ranchi" } });
+  assert.deepEqual(again.data, { code, existing: true });
+  assert.deepEqual((await request(`/api/refer/check?code=${code.toLowerCase()}`)).data, { valid: true, code, discount: 500 });
+  assert.deepEqual((await request("/api/refer/check?code=NOPE123")).data, { valid: false });
+
+  // A booking with the code records a referral; a wrong code or the owner's own code is refused.
+  const enquiry = (body) => request("/api/enquiries", { method: "POST", body: { name: "Asha Singh", phone: "+91 90000 11111", message: "Polo GT", ...body } });
+  assert.equal((await enquiry({ referralCode: "NOPE123" })).status, 400);
+  assert.match((await enquiry({ referralCode: code, phone: "098765 43210" })).data.error, /own referral code/);
+  const booked = await enquiry({ referralCode: ` ${code.toLowerCase()} ` });
+  assert.equal(booked.status, 200);
+  assert.match(decodeURIComponent(new URL(booked.data.whatsappUrl).searchParams.get("text")), new RegExp(`Referral code: ${code}`));
+  const referral = db().referrals.find((entry) => entry.enquiryId === booked.data.id);
+  assert.deepEqual([referral.code, referral.status, referral.reward, referral.discount, referral.customer.name], [code, "pending", 500, 500, "Asha Singh"]);
+  assert.equal((await enquiry({})).status, 200, "the code is optional");
+
+  // Earnings need the code and the number it was made with.
+  assert.equal((await request("/api/refer/status", { method: "POST", body: { code, phone: "9999999999" } })).status, 400);
+  const status = (await request("/api/refer/status", { method: "POST", body: { code, phone: "98765-43210" } })).data;
+  assert.deepEqual([status.referred, status.pending, status.owed, status.paid], [1, 1, 0, 0]);
+
+  // The owner confirms the tune (reward owed), then pays.
+  await login();
+  assert.ok((await request("/api/admin/dashboard")).data.newReferrals >= 1);
+  const confirmed = await request(`/api/admin/referrals/${referral.id}`, { method: "PATCH", admin: true, body: { status: "confirmed", reward: "750" } });
+  assert.equal(confirmed.data.item.reward, 750);
+  const referrer = (await request("/api/admin/referrers")).data.items.find((entry) => entry.code === code);
+  assert.deepEqual([referrer.owed, referrer.paid, referrer.upiId], [750, 0, "ravi@okaxis"]);
+  const paid = await request(`/api/admin/referrers/${referrer.id}/paid`, { method: "POST", admin: true, body: {} });
+  assert.deepEqual([paid.data.paid, paid.data.item.owed, paid.data.item.paid], [1, 0, 750]);
+  const after = (await request("/api/refer/status", { method: "POST", body: { code, phone: "+919876543210" } })).data;
+  assert.deepEqual([after.owed, after.paid], [0, 750]);
+
+  // A paused code can't be used for new bookings.
+  await request(`/api/admin/referrers/${referrer.id}`, { method: "PATCH", admin: true, body: { status: "paused" } });
+  assert.equal((await enquiry({ referralCode: code })).status, 400);
+  assert.equal((await request(`/api/admin/referrers/${referrer.id}`, { method: "PATCH", admin: true, body: { status: "gone" } })).status, 400);
+});
+
+test("mechanic network: sign-up, approval, and a public list without phone numbers", async (t) => {
+  const { request, login, close } = await startApp();
+  t.after(close);
+  assert.equal((await request("/mechanics")).status, 200);
+  const empty = (await request("/api/mechanics")).data;
+  assert.ok(empty.skills.electrical && empty.availability.part);
+  const sign = (body) => request("/api/mechanics", { method: "POST", body: { name: "Sunil Kumar Mahto", phone: "+91 91234 56789", city: "Ranchi", area: "Harmu", skills: ["service", "electrical"], rate: "600", experience: "8", availability: "part", ...body } });
+  assert.equal((await sign({ skills: [] })).status, 400, "needs a kind of work");
+  assert.equal((await sign({ skills: ["rocket", "constructor"] })).status, 400);
+  assert.equal((await sign({ rate: "" })).status, 400, "needs a price");
+  const joined = await sign({});
+  assert.equal(joined.status, 200);
+  assert.equal((await sign({ name: "Someone Else" })).status, 400, "one sign-up per number");
+  assert.equal((await request("/api/mechanics")).data.mechanics.length, 0, "not listed until approved");
+
+  await login();
+  assert.ok((await request("/api/admin/dashboard")).data.newMechanics >= 1);
+  const listed = await request(`/api/admin/mechanics/${joined.data.id}`, { method: "PATCH", admin: true, body: { status: "approved", rate: "650" } });
+  assert.equal(listed.status, 200);
+  const shown = (await request("/api/mechanics")).data.mechanics;
+  assert.equal(shown.length, 1);
+  assert.deepEqual(shown[0], { id: joined.data.id, name: "Sunil M.", city: "Ranchi", area: "Harmu", skills: ["service", "electrical"], rate: 650, experience: 8, availability: "part" });
+  assert.doesNotMatch(JSON.stringify(shown), /91234|56789/);
+  await request(`/api/admin/mechanics/${joined.data.id}`, { method: "DELETE", admin: true });
+  assert.equal((await request("/api/mechanics")).data.mechanics.length, 0);
+});
+
+test("offers and the new shop parts", async (t) => {
+  const { request, login, close } = await startApp();
+  t.after(close);
+  const page = await request("/offers");
+  assert.equal(page.status, 200);
+  assert.match(page.data.toString(), /<link rel="canonical" href="http:\/\/127\.0\.0\.1:\d+\/offers">/);
+  const { offers } = (await request("/api/site")).data;
+  assert.deepEqual(offers.map((offer) => offer.id), ["service-bogo", "road-trip-check", "coffee-with-wash", "oil-change"]);
+  const home = (await request("/")).data.toString();
+  for (const path of ["/offers", "/refer", "/mechanics", "/franchise"]) assert.match(home, new RegExp(`href="${path}`), `home links to ${path}`);
+  const sitemap = (await request("/sitemap.xml")).data.toString();
+  for (const path of ["/offers", "/refer", "/mechanics"]) assert.match(sitemap, new RegExp(`${path}</loc>`));
+
+  await login();
+  const added = await request("/api/admin/offers", { method: "POST", admin: true, body: { title: "Free AC check", badge: "", price: "0", description: "With any service.", terms: "", active: true } });
+  assert.equal(added.status, 200);
+  assert.equal((await request("/api/admin/offers", { method: "POST", admin: true, body: { title: "Odd", price: "500", compareAtPrice: "400", active: true } })).status, 400, "the usual price must be higher");
+  assert.ok((await request("/api/site")).data.offers.some((offer) => offer.title === "Free AC check" && offer.price === 0));
+
+  const products = (await request("/api/products")).data.products;
+  for (const id of ["oil-10w30-mineral", "oil-5w40-premium", "obd2-scanner", "battery-charger", "floor-mats"]) assert.ok(products.some((product) => product.id === id), id);
+  const oils = products.filter((product) => product.category === "Engine oil").map((product) => product.price);
+  assert.deepEqual(oils, [...oils].sort((a, b) => a - b), "oils run from budget to premium");
+});
+
 test("nothing tells customers the workshop has a dyno", async (t) => {
   const { request, close } = await startApp();
   t.after(close);
   const claim = /on (our|the) dyno|dyno (run|sheet|power run)|confirmed on the dyno|verified on our dyno/i;
-  for (const path of ["/", "/files", "/shop", "/franchise", "/car-tuning-ranchi", "/car-tuning-kolkata", "/car-tuning-shillong", "/api/site", "/api/products", "/api/franchise"]) assert.doesNotMatch((await request(path)).data.toString(), claim, path);
+  for (const path of ["/", "/files", "/shop", "/franchise", "/offers", "/refer", "/mechanics", "/car-tuning-ranchi", "/car-tuning-kolkata", "/car-tuning-shillong", "/api/site", "/api/products", "/api/franchise"]) assert.doesNotMatch((await request(path)).data.toString(), claim, path);
   for (const file of ["public/index.html", "public/files.html", "src/web/seo.js", "public/js/home.js", "public/js/files.js", "public/js/common.js", "public/admin/admin.js", "src/conversation.js", "src/dyno-chart.js"]) {
     assert.doesNotMatch(readFileSync(new URL(`../${file}`, import.meta.url), "utf8").replace(/dyno-chart|dynoChart|dyno-\w+/g, ""), claim, file);
   }

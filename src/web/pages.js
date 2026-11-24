@@ -40,7 +40,7 @@ export function robotsTxt(req) {
 
 export function sitemapXml(req) {
   const origin = siteOrigin(req).replace(/&/g, "&amp;");
-  const paths = ["/", ...Object.values(CITY_PAGES).map((city) => city.path), "/franchise", "/files", "/tools", "/shop"];
+  const paths = ["/", ...Object.values(CITY_PAGES).map((city) => city.path), "/offers", "/mechanics", "/refer", "/franchise", "/files", "/tools", "/shop"];
   const urls = paths.map((path) => `  <url><loc>${origin}${path}</loc></url>`).join("\n");
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>\n`;
 }

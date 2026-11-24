@@ -241,6 +241,21 @@ export function validateCreditPack(input) {
   };
 }
 
+export function validateOffer(input) {
+  const price = number(input.price, "Price", { min: 0, max: 10_000_000, optional: true });
+  const compareAtPrice = number(input.compareAtPrice, "Usual price", { min: 0, max: 10_000_000, optional: true });
+  if (compareAtPrice !== null && (price === null || compareAtPrice <= price)) throw new InputError("The usual price must be higher than the offer price (or left empty).");
+  return {
+    title: text(input.title, "Title", { required: true, max: 80 }),
+    badge: text(input.badge, "Label", { max: 30 }),
+    description: text(input.description, "Description", { max: 300 }),
+    terms: text(input.terms, "Terms", { max: 300 }),
+    price: price === null ? null : Math.round(price),
+    compareAtPrice: compareAtPrice === null ? null : Math.round(compareAtPrice),
+    active: bool(input.active)
+  };
+}
+
 export function validateFranchisePackage(input) {
   return {
     name: text(input.name, "Name", { required: true, max: 60 }),
@@ -279,6 +294,11 @@ export function validateSettings(input) {
     upiName: text(input.upiName, "UPI payee name", { max: 60 }),
     franchiseOpen: bool(input.franchiseOpen),
     franchiseTerms: list(input.franchiseTerms, "Good to know", { max: 12, itemMax: 200 }),
+    referralOpen: bool(input.referralOpen),
+    referralReward: Math.round(number(input.referralReward, "Reward per tune", { min: 0, max: 100_000 })),
+    referralDiscount: Math.round(number(input.referralDiscount, "Discount for the customer", { min: 0, max: 100_000 })),
+    referralTerms: list(input.referralTerms, "Refer & earn terms", { max: 10, itemMax: 200 }),
+    mechanicsOpen: bool(input.mechanicsOpen),
     siteUrl: httpsUrl(input.siteUrl, "Website address").replace(/\/+$/, ""),
     announcement: text(input.announcement, "Announcement bar", { max: 140 }),
     currency,

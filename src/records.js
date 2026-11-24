@@ -3,6 +3,7 @@ import { ecuById } from "./catalog.js";
 import { transact } from "./db.js";
 import { labelLines } from "./ecu-label.js";
 import { events } from "./events.js";
+import { referralFor } from "./referrals.js";
 import { availableStages, getVehicle, stageFigures, vehicleName } from "./vehicles.js";
 import { locationText } from "./whatsapp.js";
 
@@ -139,6 +140,7 @@ export function createEnquiry(input) {
   const vehicleText = clean(input?.vehicleText, 120);
   const stage = [1, 2, 3].includes(Number(input?.stage)) ? Number(input.stage) : 1;
   if (vehicle && !availableStages(vehicle).includes(stage)) throw new InputError(`Stage ${stage} isn't available for this vehicle.`);
+  const referral = referralFor(input?.referralCode, { name, phone });
   const now = new Date().toISOString();
   const enquiry = {
     id: randomUUID(),
@@ -151,9 +153,13 @@ export function createEnquiry(input) {
     ecu: ecu?.id ?? "",
     location: clean(input?.location, 120),
     message: clean(input?.message, 600),
+    referralCode: referral?.code ?? "",
     notes: ""
   };
-  transact((data) => data.enquiries.unshift(enquiry));
+  transact((data) => {
+    data.enquiries.unshift(enquiry);
+    if (referral) data.referrals.unshift({ ...referral, enquiryId: enquiry.id, vehicle: enquiry.vehicle?.name ?? "" });
+  });
   events.emit("enquiry", enquiry);
   return { enquiry, vehicle, stage };
 }

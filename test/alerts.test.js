@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { alertChats, broadcast, createLinkCode, enquiryAlert, franchiseAlert, linkChat, orderAlert, startAlerts, unlinkChat } from "../src/alerts.js";
+import { alertChats, broadcast, createLinkCode, enquiryAlert, franchiseAlert, linkChat, mechanicAlert, referrerAlert, orderAlert, startAlerts, unlinkChat } from "../src/alerts.js";
 import { transact } from "../src/db.js";
 import { events } from "../src/events.js";
 import { createEnquiry, createOrder, recordTelegramEnquiry } from "../src/records.js";
@@ -140,4 +140,15 @@ test("franchise alerts show the city and package, escape the applicant's text an
   assert.match(text, /Ravi &lt;b&gt;/);
   assert.match(text, /Two bays &amp; a lift/);
   assert.equal(buttons[0][0].url, "https://wa.me/919000000000");
+});
+
+test("sign-up alerts for Refer & earn and the mechanic network", () => {
+  const referrer = referrerAlert({ id: "r1", code: "RAVI482", name: "Ravi", phone: "+91 98765 43210", city: "Ranchi", upiId: "ravi@okaxis" });
+  assert.match(referrer.text, /Code <b>RAVI482<\/b>/);
+  assert.match(referrer.text, /UPI ravi@okaxis/);
+  const mechanic = mechanicAlert({ id: "m1", name: "Sunil <x>", phone: "+91 91234 56789", city: "Ranchi", area: "Harmu", skills: ["service", "ac"], rate: 1500, experience: 8, message: "" });
+  assert.match(mechanic.text, /General service, AC repair/);
+  assert.match(mechanic.text, /₹1,500 per session · 8 years/);
+  assert.match(mechanic.text, /Sunil &lt;x&gt;/);
+  assert.equal(mechanic.buttons[0][0].url, "https://wa.me/919123456789");
 });

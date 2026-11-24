@@ -4,6 +4,7 @@ import { db, settings, transact } from "./db.js";
 import { events } from "./events.js";
 import { FUELS, READ_METHODS, TIME_FRAMES, TOOL_MODES, TOOLS, creditText } from "./file-service.js";
 import { FRANCHISE_BACKGROUNDS } from "./franchise.js";
+import { MECHANIC_SKILLS } from "./mechanics.js";
 import { escapeHtml as h, sendText } from "./telegram.js";
 
 // Instant Telegram alerts for new orders and enquiries. The owner links a chat from the admin
@@ -94,7 +95,8 @@ export function enquiryAlert(enquiry) {
     "",
     `👤 ${h(who)}${customer.phone ? ` · ${h(customer.phone)}` : ""}`,
     enquiry.location ? `📍 ${h(enquiry.location)}` : null,
-    enquiry.message ? `📝 ${h(enquiry.message)}` : null
+    enquiry.message ? `📝 ${h(enquiry.message)}` : null,
+    enquiry.referralCode ? `🎟 Referral code ${h(enquiry.referralCode)}` : null
   ];
   return { text: fit(lines.filter((line) => line !== null).join("\n")), buttons: contactButtons(customer, `enquiries/${enquiry.id}`) };
 }
@@ -142,6 +144,31 @@ export function franchiseAlert(lead) {
   return { text: fit(lines.filter((line) => line !== null).join("\n")), buttons: contactButtons({ name: lead.name, phone: lead.phone }, `franchise/${lead.id}`) };
 }
 
+export function referrerAlert(referrer) {
+  const lines = [
+    "🎟 <b>New Refer &amp; earn sign-up</b>",
+    `Code <b>${h(referrer.code)}</b>`,
+    "",
+    `👤 ${h(referrer.name)} · ${h(referrer.phone)}`,
+    `📍 ${h(referrer.city)}`,
+    referrer.upiId ? `💸 UPI ${h(referrer.upiId)}` : null
+  ];
+  return { text: fit(lines.filter((line) => line !== null).join("\n")), buttons: contactButtons({ name: referrer.name, phone: referrer.phone }, `referrers/${referrer.id}`) };
+}
+
+export function mechanicAlert(mechanic) {
+  const lines = [
+    "🔧 <b>New mechanic sign-up</b> · waiting for approval",
+    `📍 ${h(mechanic.area)}, ${h(mechanic.city)}`,
+    `🛠 ${h(mechanic.skills.map((skill) => MECHANIC_SKILLS[skill] ?? skill).join(", "))}`,
+    `💰 ₹${mechanic.rate.toLocaleString("en-IN")} per session${mechanic.experience !== null ? ` · ${mechanic.experience} years` : ""}`,
+    "",
+    `👤 ${h(mechanic.name)} · ${h(mechanic.phone)}`,
+    mechanic.message ? `📝 ${h(mechanic.message)}` : null
+  ];
+  return { text: fit(lines.filter((line) => line !== null).join("\n")), buttons: contactButtons({ name: mechanic.name, phone: mechanic.phone }, `mechanics/${mechanic.id}`) };
+}
+
 export async function broadcast({ text, buttons }, send = sendText) {
   let sent = 0;
   for (const chat of alertChats()) {
@@ -172,17 +199,23 @@ export function startAlerts({ send = sendText } = {}) {
   const onOrder = safely(() => settings().alertOrders, orderAlert, send);
   const onEnquiry = safely(() => settings().alertEnquiries, enquiryAlert, send);
   const onFranchise = safely(() => settings().alertEnquiries, franchiseAlert, send);
+  const onReferrer = safely(() => settings().alertEnquiries, referrerAlert, send);
+  const onMechanic = safely(() => settings().alertEnquiries, mechanicAlert, send);
   const onFileOrder = safely(() => settings().alertFiles, fileOrderAlert, send);
   const onPayment = safely(() => settings().alertFiles, paymentAlert, send);
   events.on("order", onOrder);
   events.on("enquiry", onEnquiry);
   events.on("franchise", onFranchise);
+  events.on("referrer", onReferrer);
+  events.on("mechanic", onMechanic);
   events.on("fileOrder", onFileOrder);
   events.on("creditPayment", onPayment);
   return () => {
     events.off("order", onOrder);
     events.off("enquiry", onEnquiry);
     events.off("franchise", onFranchise);
+    events.off("referrer", onReferrer);
+    events.off("mechanic", onMechanic);
     events.off("fileOrder", onFileOrder);
     events.off("creditPayment", onPayment);
   };

@@ -2,7 +2,9 @@ import { ecus } from "../catalog.js";
 import { db, settings } from "../db.js";
 import { buildDynoCurves, renderStageChart } from "../dyno-chart.js";
 import { FRANCHISE_BACKGROUNDS, activePackages, createFranchiseLead, franchiseText } from "../franchise.js";
+import { MECHANIC_AVAILABILITY, MECHANIC_SKILLS, publicMechanics, registerMechanic } from "../mechanics.js";
 import { createEnquiry, createOrder, orderText } from "../records.js";
+import { findReferrer, registerReferrer, referrerStatus } from "../referrals.js";
 import { AUTOTUNER_SOURCE, searchAutotuner } from "../tool-lists.js";
 import { imageDataUrl, labelMatches } from "../ecu-label.js";
 import * as tuningService from "../tuning-service.js";
@@ -78,6 +80,8 @@ export function registerPublicRoutes(route, { botUsername, ai = tuningService })
   const orderLimiter = rateLimiter({ windowMs: 60 * 60_000, max: 5 });
   const enquiryLimiter = rateLimiter({ windowMs: 60 * 60_000, max: 10 });
   const franchiseLimiter = rateLimiter({ windowMs: 60 * 60_000, max: 3 });
+  const signupLimiter = rateLimiter({ windowMs: 60 * 60_000, max: 5 });
+  const lookupLimiter = rateLimiter({ windowMs: 15 * 60_000, max: 20 });
   const aiLimiter = rateLimiter({ windowMs: 60 * 60_000, max: 8 });
   const graphLimiter = rateLimiter({ windowMs: 60_000, max: 60 });
 
@@ -91,6 +95,7 @@ export function registerPublicRoutes(route, { botUsername, ai = tuningService })
       ecus: ecus().map(({ id, title, fuels, status, method, tools }) => ({ id, title, fuels, status, method, tools: tools ?? {} })),
       services: db().services.filter((service) => service.active),
       photos: db().photos.filter((photo) => photo.active).slice(0, MAX_SITE_PHOTOS).map(({ id, image, caption, link }) => ({ id, image, caption, link })),
+      offers: db().offers.filter((entry) => entry.active).map(({ id, title, badge, description, terms, price, compareAtPrice }) => ({ id, title, badge, description, terms, price, compareAtPrice })),
       vehicleCount: vehicleEntries().length,
       stats: siteStats(),
       aiEnabled: aiEnabled()
@@ -189,7 +194,7 @@ export function registerPublicRoutes(route, { botUsername, ai = tuningService })
       ecu: enquiry.ecu,
       customer: { name: enquiry.customer.name },
       location: enquiry.location ? { text: enquiry.location } : undefined,
-      message: [enquiry.vehicle?.source === "ai" ? `Vehicle: ${enquiry.vehicle.name} (AI estimate)` : "", enquiry.message].filter(Boolean).join(". ")
+      message: [enquiry.vehicle?.source === "ai" ? `Vehicle: ${enquiry.vehicle.name} (AI estimate)` : "", enquiry.message, enquiry.referralCode ? `Referral code: ${enquiry.referralCode}` : ""].filter(Boolean).join(". ")
     });
     return { id: enquiry.id, whatsappUrl: whatsappLink(text) };
   });
@@ -203,6 +208,40 @@ export function registerPublicRoutes(route, { botUsername, ai = tuningService })
       packages: activePackages().map(({ id, name, price, items, note, featured }) => ({ id, name, price, items, note, featured })),
       backgrounds: FRANCHISE_BACKGROUNDS
     };
+  });
+
+  // Refer & earn: the rates and terms, sign-up, checking a code in the booking form, and earnings.
+  route("GET", "/api/refer", () => {
+    const { referralOpen, referralReward, referralDiscount, referralTerms } = settings();
+    return { open: referralOpen, reward: referralReward, discount: referralDiscount, terms: referralTerms };
+  });
+
+  route("POST", "/api/refer", async ({ req, ip }) => {
+    const input = await publicPost(req, ip, signupLimiter);
+    const { referrer, existing } = accept(signupLimiter, ip, () => registerReferrer(input));
+    return { code: referrer.code, existing };
+  });
+
+  route("GET", "/api/refer/check", ({ url, ip }) => {
+    if (lookupLimiter.blocked(ip)) throw tooMany();
+    lookupLimiter.hit(ip);
+    const referrer = findReferrer(url.searchParams.get("code"));
+    return referrer ? { valid: true, code: referrer.code, discount: settings().referralDiscount } : { valid: false };
+  });
+
+  route("POST", "/api/refer/status", async ({ req, ip }) => {
+    const input = await publicPost(req, ip, lookupLimiter);
+    lookupLimiter.hit(ip);
+    return referrerStatus(input);
+  });
+
+  // Mechanic network: approved mechanics (no phone numbers) and sign-up.
+  route("GET", "/api/mechanics", () => ({ open: settings().mechanicsOpen, mechanics: publicMechanics(), skills: MECHANIC_SKILLS, availability: MECHANIC_AVAILABILITY }));
+
+  route("POST", "/api/mechanics", async ({ req, ip }) => {
+    const input = await publicPost(req, ip, signupLimiter);
+    const mechanic = accept(signupLimiter, ip, () => registerMechanic(input));
+    return { id: mechanic.id };
   });
 
   route("POST", "/api/franchise", async ({ req, ip }) => {

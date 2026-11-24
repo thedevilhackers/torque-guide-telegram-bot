@@ -14,6 +14,9 @@ const PAGES = {
   "/files": "files.html",
   "/shop": "shop.html",
   "/franchise": "franchise.html",
+  "/offers": "offers.html",
+  "/refer": "refer.html",
+  "/mechanics": "mechanics.html",
   "/tools": "tools.html",
   "/admin": "admin/index.html"
 };

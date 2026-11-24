@@ -256,3 +256,27 @@ test("update 12 names Ranchi in the home page's sub-headline, unless the owner r
   replaceData(edited);
   assert.equal(db().settings.heroSubtitle, "Our own words.");
 });
+
+test("update 13 adds engine oils, service parts, tools and accessories to the shop, keeping the owner's products", () => {
+  const before = seedData();
+  before.catalogVersion = 12;
+  before.products = before.products.filter((product) => !["oil-5w40-premium", "obd2-scanner"].includes(product.id));
+  before.products.find((product) => product.id === "battery-charger").price = 2999;
+  replaceData(before);
+  const product = (id) => db().products.find((entry) => entry.id === id);
+  assert.ok(product("oil-5w40-premium"));
+  assert.ok(product("obd2-scanner"));
+  assert.equal(product("battery-charger").price, 2999, "an existing product is left alone");
+});
+
+test("update 14 hides the sample products still at their old dollar prices, keeping edited ones", () => {
+  const before = seedData();
+  before.catalogVersion = 13;
+  before.products.find((product) => product.id === "hoodie").price = 1499;
+  replaceData(before);
+  const product = (id) => db().products.find((entry) => entry.id === id);
+  assert.equal(product("stage1-voucher").active, false);
+  assert.equal(product("cap").active, false);
+  assert.equal(product("hoodie").active, true, "the owner's price is kept on sale");
+  assert.equal(product("oil-5w40-premium").active, true, "the new rupee-priced parts stay on sale");
+});

@@ -2160,6 +2160,254 @@ a.photo-card:hover .photo-caption {
   }
 }
 
+/* ---------- Offers, refer & earn, mechanics, work with us ---------- */
+
+.btn-outline {
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--text);
+}
+
+.offer-grid,
+.mechanic-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
+  gap: 12px;
+}
+
+.offer-card,
+.mechanic-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 26px 24px;
+  border-radius: var(--radius);
+  background: linear-gradient(160deg, rgba(var(--glow), 0.16), transparent 60%), var(--surface);
+}
+
+.offer-card h3,
+.mechanic-card h3 {
+  font-size: 21px;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+.offer-badge {
+  align-self: flex-start;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(var(--glow), 0.22);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.offer-price {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.offer-price s {
+  margin-left: 10px;
+  color: var(--muted);
+  font-size: 16px;
+  font-weight: 400;
+}
+
+.offer-text {
+  color: var(--text-2);
+}
+
+.offer-terms,
+.mechanic-meta {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.offer-card .btn,
+.mechanic-card .btn {
+  align-self: flex-start;
+  margin-top: auto;
+}
+
+.mechanic-area {
+  color: var(--text-2);
+}
+
+.mechanic-rate {
+  font-size: 15px;
+  color: var(--text-2);
+}
+
+.mechanic-rate strong {
+  color: var(--text);
+  font-size: 22px;
+}
+
+.skill-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.skill-chips li {
+  padding: 3px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--text-2);
+  font-size: 12px;
+}
+
+.mechanic-filters {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.skill-boxes {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+}
+
+.skill-boxes legend {
+  margin-bottom: 8px;
+  color: var(--text-2);
+  font-size: 14px;
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  cursor: pointer;
+}
+
+.check input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent-fill);
+}
+
+.refer-forms {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.stack-form {
+  display: grid;
+  gap: 14px;
+  margin-top: 24px;
+}
+
+.stack-form .btn {
+  justify-self: start;
+}
+
+.stack-form .form-error,
+.refer-done p {
+  margin: 0;
+}
+
+.refer-done {
+  margin-top: 24px;
+}
+
+.refer-label {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.visit-card .refer-code {
+  margin: 6px 0 14px;
+  color: var(--text);
+  font-size: clamp(36px, 5vw, 52px);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.earnings {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px 20px;
+  margin: 24px 0 0;
+}
+
+.earnings dt {
+  color: var(--text-2);
+}
+
+.earnings dd {
+  margin: 0;
+  font-weight: 600;
+  text-align: right;
+}
+
+.join-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.join-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.join-card h3 {
+  font-size: clamp(22px, 2.4vw, 28px);
+}
+
+.join-card .btn {
+  align-self: flex-start;
+  margin-top: auto;
+}
+
+@media (max-width: 900px) {
+  .join-grid,
+  .refer-forms {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .mechanic-filters {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (min-width: 821px) and (max-width: 1120px) {
+  .nav-links {
+    gap: 16px;
+  }
+}
+
+@media (min-width: 821px) and (max-width: 980px) {
+  .nav-links {
+    gap: 11px;
+  }
+
+  .nav-links a {
+    font-size: 12px;
+  }
+
+  .nav-logo-image {
+    width: 120px;
+    height: auto;
+  }
+}
+
 /* ---------- Floating WhatsApp button ---------- */
 
 .whatsapp-fab {
@@ -2969,4 +3217,12 @@ body.theme-light .nav {
 .visit-card .eyebrow {
   margin: 0 0 10px;
   color: var(--accent);
+}
+
+.skill-boxes .check input {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  min-height: 0;
+  padding: 0;
 }

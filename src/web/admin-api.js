@@ -4,9 +4,11 @@ import { join } from "node:path";
 import { alertChats, broadcast, createLinkCode, unlinkChat } from "../alerts.js";
 import { DATA_DIR, db, replaceData, settings, transact } from "../db.js";
 import { FRANCHISE_STATUSES } from "../franchise.js";
+import { MECHANIC_STATUSES } from "../mechanics.js";
+import { REFERRAL_STATUSES, REFERRER_STATUSES, referrerSummary } from "../referrals.js";
 import { DEFAULT_SETTINGS } from "../seed-data.js";
 import { ENQUIRY_STATUSES, InputError, ORDER_STATUSES } from "../records.js";
-import { slugify, validateBrand, validateCreditPack, validateEcu, validateFranchisePackage, validatePhoto, validateProduct, validateService, validateSettings, validateTuneOption, validateVehicle, vehicleFormValues } from "../validation.js";
+import { slugify, validateBrand, validateCreditPack, validateEcu, validateFranchisePackage, validateOffer, validatePhoto, validateProduct, validateService, validateSettings, validateTuneOption, validateVehicle, vehicleFormValues } from "../validation.js";
 import { adminEnabled, checkCredentials, currentAdmin, endSession, startSession } from "./auth.js";
 import { registerFileAdminRoutes } from "./file-admin-api.js";
 import { HttpError, rateLimiter, readJson, sameOrigin, sendJson } from "./http.js";
@@ -37,7 +39,8 @@ const COLLECTIONS = {
     id: (entry) => slugify(entry.name)
   },
   creditPacks: { validate: (input) => validateCreditPack(input), id: (entry) => slugify(entry.name) || "pack" },
-  franchisePackages: { validate: (input) => validateFranchisePackage(input), id: (entry) => slugify(entry.name) || "package" }
+  franchisePackages: { validate: (input) => validateFranchisePackage(input), id: (entry) => slugify(entry.name) || "package" },
+  offers: { validate: (input) => validateOffer(input), id: (entry) => slugify(entry.title) || "offer" }
 };
 
 function uniqueId(base, taken) {
@@ -90,6 +93,8 @@ function dashboard(data) {
     newFileOrders: data.fileOrders.filter((order) => order.status === "submitted").length,
     paymentsToCheck: data.creditPurchases.filter((purchase) => purchase.status === "submitted").length,
     newFranchiseLeads: data.franchiseLeads.filter((lead) => lead.status === "new").length,
+    newReferrals: data.referrals.filter((entry) => entry.status === "pending").length,
+    newMechanics: data.mechanics.filter((entry) => entry.status === "pending").length,
     enquiries30: data.enquiries.filter((enquiry) => Date.parse(enquiry.createdAt) >= now - 30 * day).length,
     lowStock: data.products.filter((product) => product.active && product.stock !== null && product.stock <= 3).map(({ id, name, stock }) => ({ id, name, stock })),
     daily,
@@ -101,7 +106,7 @@ function dashboard(data) {
 
 const ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,59}$/;
 // Lists that older backups may not have.
-const LATER_LISTS = new Set(["photos", "tuneOptions", "creditPacks", "franchisePackages", "franchiseLeads", "customers", "creditLedger", "creditPurchases", "fileOrders"]);
+const LATER_LISTS = new Set(["photos", "tuneOptions", "creditPacks", "franchisePackages", "franchiseLeads", "offers", "referrers", "referrals", "mechanics", "customers", "creditLedger", "creditPurchases", "fileOrders"]);
 const FILE_SERVICE_LISTS = ["customers", "creditLedger", "creditPurchases", "fileOrders"];
 const isDate = (value) => typeof value === "string" && !Number.isNaN(Date.parse(value));
 const isText = (value) => typeof value === "string";
@@ -120,6 +125,13 @@ function validFranchiseLead(lead) {
   return isDate(lead.createdAt) && FRANCHISE_STATUSES.includes(lead.status) && isText(lead.name) && isText(lead.phone) && isText(lead.city) && (lead.package === null || isText(lead.package?.name));
 }
 
+// Sign-ups and referrals: checked enough that the admin lists and totals can't break.
+const PEOPLE_CHECKS = {
+  referrers: ["Refer & earn sign-up", (entry) => isText(entry.code) && /^[A-Z0-9]{2,12}$/.test(entry.code) && isText(entry.name) && isText(entry.phone) && REFERRER_STATUSES.includes(entry.status)],
+  referrals: ["Referral", (entry) => isDate(entry.createdAt) && isText(entry.code) && REFERRAL_STATUSES.includes(entry.status) && Number.isFinite(entry.reward) && isText(entry.customer?.name)],
+  mechanics: ["Mechanic", (entry) => isDate(entry.createdAt) && isText(entry.name) && isText(entry.phone) && MECHANIC_STATUSES.includes(entry.status) && Array.isArray(entry.skills) && Number.isFinite(entry.rate)]
+};
+
 function validEnquiry(enquiry) {
   return (
     isDate(enquiry.createdAt) && ENQUIRY_STATUSES.includes(enquiry.status) && ["website", "telegram"].includes(enquiry.source) &&
@@ -134,7 +146,7 @@ function cleanBackup(backup) {
   // Lists added after launch (the photo gallery, the tuning file service) may be missing from an older
   // backup; restoring one gives those lists their starting contents, as for any older database.
   const present = (name) => backup[name] !== undefined || !LATER_LISTS.has(name);
-  for (const name of [...Object.keys(COLLECTIONS), "orders", "enquiries", "franchiseLeads", ...FILE_SERVICE_LISTS].filter(present)) {
+  for (const name of [...Object.keys(COLLECTIONS), "orders", "enquiries", "franchiseLeads", ...Object.keys(PEOPLE_CHECKS), ...FILE_SERVICE_LISTS].filter(present)) {
     const list = backup[name];
     if (!Array.isArray(list) || list.some((item) => !item || typeof item !== "object" || !ID.test(String(item.id)))) throw new InputError(`The backup's ${name} list is damaged.`);
     if (new Set(list.map((item) => item.id)).size !== list.length) throw new InputError(`The backup has duplicate ${name}.`);
@@ -158,6 +170,10 @@ function cleanBackup(backup) {
   if (enquiries.length) throw new InputError(`Enquiry "${enquiries[0].id}" in the backup is damaged.`);
   const leads = present("franchiseLeads") ? backup.franchiseLeads.filter((lead) => !validFranchiseLead(lead)) : [];
   if (leads.length) throw new InputError(`Franchise application "${leads[0].id}" in the backup is damaged.`);
+  for (const [name, [label, valid]] of Object.entries(PEOPLE_CHECKS)) {
+    const bad = present(name) ? backup[name].find((entry) => !valid(entry)) : null;
+    if (bad) throw new InputError(`${label} "${bad.id}" in the backup is damaged.`);
+  }
   let settingValues;
   try {
     settingValues = validateSettings({ ...DEFAULT_SETTINGS, ...backup.settings });
@@ -183,6 +199,8 @@ function cleanBackup(backup) {
     ...(present("creditPacks") && { creditPacks: each("creditPacks", "Credit pack", validateCreditPack) }),
     ...(present("franchisePackages") && { franchisePackages: each("franchisePackages", "Franchise package", validateFranchisePackage) }),
     ...(present("franchiseLeads") && { franchiseLeads: backup.franchiseLeads }),
+    ...(present("offers") && { offers: each("offers", "Offer", validateOffer) }),
+    ...Object.fromEntries(Object.keys(PEOPLE_CHECKS).filter(present).map((name) => [name, backup[name]])),
     ...fileService,
     orders: backup.orders,
     enquiries: backup.enquiries,
@@ -366,6 +384,70 @@ export function registerAdminRoutes(route, { botUsername = () => "", sendAlert =
       return { ok: true };
     })
   );
+
+  // Lists people send from the website (sign-ups, referrals): a status, private notes, delete.
+  const statusList = (path, list, label, statuses, patch) => {
+    admin("PATCH", `/api/admin/${path}/:id`, ({ body, params }) =>
+      transact((data) => {
+        const item = data[list][findIndex(data[list], params.id, label)];
+        if (body.status !== undefined) {
+          if (!statuses.includes(body.status)) throw new InputError(`Unknown ${label.toLowerCase()} status.`);
+          item.status = body.status;
+        }
+        if (body.notes !== undefined) item.notes = String(body.notes).slice(0, 2000);
+        patch?.(item, body);
+        item.updatedAt = new Date().toISOString();
+        return { item };
+      })
+    );
+    admin("DELETE", `/api/admin/${path}/:id`, ({ params }) =>
+      transact((data) => {
+        data[list].splice(findIndex(data[list], params.id, label), 1);
+        return { ok: true };
+      })
+    );
+  };
+
+  admin("GET", "/api/admin/referrals", () => ({ items: db().referrals, statuses: REFERRAL_STATUSES }));
+  statusList("referrals", "referrals", "Referral", REFERRAL_STATUSES, (item, body) => {
+    if (body.reward !== undefined) {
+      const reward = Number(body.reward);
+      if (!Number.isFinite(reward) || reward < 0 || reward > 100_000) throw new InputError("Reward must be between 0 and 100000.");
+      item.reward = Math.round(reward);
+    }
+  });
+
+  admin("GET", "/api/admin/referrers", () => {
+    const { referrers, referrals } = db();
+    return { items: referrers.map((referrer) => ({ ...referrer, ...referrerSummary(referrer, referrals) })), statuses: REFERRER_STATUSES };
+  });
+  statusList("referrers", "referrers", "Sign-up", REFERRER_STATUSES, (item, body) => {
+    if (body.upiId !== undefined) item.upiId = String(body.upiId).trim().slice(0, 60);
+  });
+  // After paying a code owner by UPI: everything confirmed for them becomes paid.
+  admin("POST", "/api/admin/referrers/:id/paid", ({ params }) =>
+    transact((data) => {
+      const referrer = data.referrers[findIndex(data.referrers, params.id, "Sign-up")];
+      const now = new Date().toISOString();
+      let count = 0;
+      for (const entry of data.referrals) {
+        if (entry.referrerId !== referrer.id || entry.status !== "confirmed") continue;
+        entry.status = "paid";
+        entry.updatedAt = now;
+        count++;
+      }
+      return { paid: count, item: { ...referrer, ...referrerSummary(referrer, data.referrals) } };
+    })
+  );
+
+  admin("GET", "/api/admin/mechanics", () => ({ items: db().mechanics, statuses: MECHANIC_STATUSES }));
+  statusList("mechanics", "mechanics", "Mechanic", MECHANIC_STATUSES, (item, body) => {
+    if (body.rate !== undefined) {
+      const rate = Number(body.rate);
+      if (!Number.isFinite(rate) || rate < 0 || rate > 100_000) throw new InputError("Price per session must be between 0 and 100000.");
+      item.rate = Math.round(rate);
+    }
+  });
 
   admin("GET", "/api/admin/settings", () => ({ settings: db().settings, effective: settings() }));
 

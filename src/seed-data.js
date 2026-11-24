@@ -459,7 +459,18 @@ export const DEFAULT_SETTINGS = {
     "You trade as Unity Performance, with GST billing and a business bank account.",
     "Sell Unity Performance products and merchandise from your workshop.",
     "We're opening five franchise workshops this year."
-  ]
+  ],
+  // Refer & earn (/refer), in rupees per completed tune.
+  referralOpen: true,
+  referralReward: 500,
+  referralDiscount: 500,
+  referralTerms: [
+    "You earn the reward once the referred car's tune is done and paid for.",
+    "Rewards are paid by UPI, usually within a week of the tune.",
+    "One discount per car. Codes can't be used by their owner."
+  ],
+  // Mechanic network (/mechanics).
+  mechanicsOpen: true
 };
 
 // What a tuning file order can include, priced in credits (up to two decimals), following the
@@ -556,6 +567,37 @@ export const SEED_FRANCHISE_PACKAGES = [
   franchisePackage("premium", "Premium", 1599000, [
     "2 tuning tools", "2 toolkits", "4 shop banners", "10 ceramic coating boxes", "20 file-service credits", "Unity Performance merchandise", "Franchise fee (₹5 lakh) included"
   ], true)
+];
+
+// Offers on the home page and /offers, edited in Admin → Offers. price is optional (rupees); without
+// one, the offer asks customers to message for the price.
+const offer = (id, title, badge, description, terms = "") => ({ id, title, badge, description, terms, price: null, compareAtPrice: null, active: true });
+export const SEED_OFFERS = [
+  offer("service-bogo", "Buy one service, get one free", "Offer", "Book a car service and get a second, smaller service free, such as a wash or a health check.", "One free service with each paid service. Ask us which services pair up."),
+  offer("road-trip-check", "Road-trip health check", "Before you travel", "Going on a long drive? We check brakes, tyres, fluids, battery and lights and scan for fault codes, with a written report.", ""),
+  offer("coffee-with-wash", "Coffee with every wash", "On the house", "Every wash comes with a fresh coffee in a Unity Performance cup while you wait.", ""),
+  offer("oil-change", "Engine oil change, budget to premium", "Your choice", "Choose your oil, from budget mineral to premium fully synthetic, and we change it with a new filter.", "Price depends on the oil and your car. Oils are also in the shop.")
+];
+
+// Service parts, engine oils from budget to premium, tools and accessories for the shop. Prices are
+// typical Indian prices for the owner to check and change in Admin → Products.
+const part = (id, name, category, price, description, features = [], featured = false) => ({ id, name, category, price, compareAtPrice: null, stock: null, featured, active: true, image: "", description, features });
+export const SHOP_PARTS = [
+  part("oil-10w30-mineral", "Engine Oil 10W-30 Mineral (3.5 L)", "Engine oil", 999, "Budget mineral oil for older petrol cars and everyday driving.", ["Budget choice", "For older petrol engines", "Check your car's grade with us"]),
+  part("oil-5w30-semi", "Engine Oil 5W-30 Semi-Synthetic (3.5 L)", "Engine oil", 1799, "Semi-synthetic oil for most modern petrol and diesel cars.", ["Good everyday protection", "Petrol and diesel", "Check your car's grade with us"]),
+  part("oil-5w30-full", "Engine Oil 5W-30 Fully Synthetic (4 L)", "Engine oil", 2999, "Fully synthetic oil for turbo petrol and diesel engines.", ["Turbo engines", "Longer change intervals", "Check your car's grade with us"]),
+  part("oil-5w40-premium", "Engine Oil 5W-40 Premium Fully Synthetic (4 L)", "Engine oil", 4499, "Our premium choice for tuned and hard-driven engines.", ["For tuned cars", "Holds up under heat and boost", "Check your car's grade with us"], true),
+  part("oil-filter", "Oil Filter", "Service parts", 349, "A new oil filter for your car, fitted with every oil change.", ["Tell us your car to match the filter"]),
+  part("air-filter", "Engine Air Filter", "Service parts", 599, "A standard replacement engine air filter.", ["Tell us your car to match the filter"]),
+  part("cabin-filter", "Cabin (AC) Filter", "Service parts", 499, "Cleaner air inside the car and better AC airflow.", ["Tell us your car to match the filter"]),
+  part("brake-pads-front", "Front Brake Pads (set)", "Service parts", 1999, "A set of front brake pads for your car.", ["Tell us your car to match the pads", "Fitting available at the workshop"]),
+  part("obd2-scanner", "OBD2 Bluetooth Scanner", "Tools", 1999, "Reads and clears engine fault codes and shows live data on your phone.", ["Works with Android and iPhone apps", "Plugs into the OBD port", "Engine codes and live data"], true),
+  part("battery-charger", "Smart Battery Charger 12 V", "Tools", 3499, "Charges and maintains a 12 V car battery, safe to leave connected.", ["Automatic charge and maintain", "For 12 V car batteries", "Spark and reverse-polarity protection"], true),
+  part("tyre-inflator", "12 V Tyre Inflator", "Tools", 2499, "Plugs into the car's 12 V socket and fills tyres to the pressure you set.", ["Digital pressure gauge", "Auto stop at the set pressure"]),
+  part("microfibre-pack", "Microfibre Cloths (pack of 5)", "Accessories", 399, "Soft, lint-free cloths for washing, drying and interiors.", ["Pack of five", "Safe on paint and glass"]),
+  part("floor-mats", "Custom-Fit Floor Mats", "Accessories", 2999, "Floor mats cut for your car.", ["Tell us your car and year"], true),
+  part("air-freshener", "Car Air Freshener", "Accessories", 299, "A long-lasting freshener for the cabin.", []),
+  part("coffee-mug", "Unity Performance Coffee Mug", "Merch", 399, "The mug our coffee comes in at the workshop.", ["Ceramic", "Unity Performance logo"])
 ];
 
 // The "Our work" gallery's first photos, from the workshop's Instagram (newest first). Each opens the
@@ -661,7 +703,13 @@ export const CATALOG_UPDATES = [
     settings: {
       heroSubtitle: ["ECU remapping, ceramic coating, detailing, diagnostics and servicing. All under one roof.", DEFAULT_SETTINGS.heroSubtitle]
     }
-  }
+  },
+  // Engine oils, service parts, tools and accessories in the shop.
+  { version: 13, add: { products: SHOP_PARTS } },
+  // The first sample products were priced in dollars (a ₹350 Stage 1 voucher, a ₹25 cap) and became
+  // rupees when the currency changed. Those the owner never edited are hidden, not deleted: set a
+  // price and tick "Show in shop" in Admin → Products to sell one.
+  { version: 14, replace: { products: SEED_PRODUCTS.map((from) => ({ from, to: { ...from, active: false } })) } }
 ];
 
 export const CATALOG_VERSION = Math.max(1, ...CATALOG_UPDATES.map((update) => update.version));
@@ -677,7 +725,7 @@ export function seedData(envSettings = {}) {
     ecus: clone(SEED_ECUS),
     vehicles: clone(SEED_VEHICLES),
     services: clone(SEED_SERVICES),
-    products: clone(SEED_PRODUCTS).map((product) => ({ ...product, createdAt: "2026-01-01T00:00:00.000Z" })),
+    products: clone([...SEED_PRODUCTS, ...SHOP_PARTS]).map((product) => ({ ...product, createdAt: "2026-01-01T00:00:00.000Z" })),
     // The home page's "Our work" gallery; the owner adds more photos in the admin panel.
     photos: clone(SEED_PHOTOS),
     orders: [],
@@ -690,6 +738,10 @@ export function seedData(envSettings = {}) {
     creditPacks: clone(SEED_CREDIT_PACKS),
     franchisePackages: clone(SEED_FRANCHISE_PACKAGES),
     franchiseLeads: [],
+    offers: clone(SEED_OFFERS),
+    referrers: [],
+    referrals: [],
+    mechanics: [],
     customers: [],
     creditLedger: [],
     creditPurchases: [],

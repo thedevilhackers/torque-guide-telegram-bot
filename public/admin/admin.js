@@ -13,12 +13,16 @@ const SECTIONS = [
   ["orders", "Orders"],
   ["enquiries", "Enquiries"],
   ["franchise", "Franchise"],
+  ["referrals", "Referrals"],
+  ["referrers", "Refer & earn sign-ups"],
+  ["mechanics", "Mechanics"],
   ["files", "File orders"],
   ["payments", "Payments"],
   ["customers", "Customers"],
   ["tuneOptions", "Tune options"],
   ["creditPacks", "Credit packs"],
   ["franchisePackages", "Franchise packages"],
+  ["offers", "Offers"],
   ["products", "Products"],
   ["vehicles", "Vehicles"],
   ["ecus", "ECUs"],
@@ -31,6 +35,10 @@ const SECTIONS = [
 const ORDER_LABELS = { new: "New", confirmed: "Confirmed", ready: "Ready", completed: "Completed", cancelled: "Cancelled" };
 const ENQUIRY_LABELS = { new: "New", contacted: "Contacted", booked: "Booked", closed: "Closed" };
 const FRANCHISE_LABELS = { new: "New", contacted: "Contacted", meeting: "Meeting set", signed: "Signed", closed: "Closed" };
+const REFERRAL_LABELS = { pending: "Waiting for tune", confirmed: "Earned, to pay", paid: "Paid", rejected: "Rejected" };
+const REFERRER_LABELS = { active: "Active", paused: "Paused" };
+const MECHANIC_LABELS = { pending: "To check", approved: "Listed", hidden: "Hidden" };
+const rupees = (amount) => `₹${Number(amount ?? 0).toLocaleString("en-IN")}`;
 // ₹9,99,000 → "₹9.99 lakh", as the franchise page shows it.
 const lakh = (amount) => (amount >= 100000 ? `₹${Number((amount / 100000).toFixed(2))} lakh` : `₹${Number(amount).toLocaleString("en-IN")}`);
 const ECU_LABELS = { supported: "Supported", on_request: "On request", not_supported: "Not supported" };
@@ -413,7 +421,8 @@ async function viewDashboard(main) {
     h("div", { class: "grid grid-4", style: { marginTop: "16px" } },
       tile("New file orders", String(data.newFileOrders), "Waiting to be started"),
       tile("Payments to check", String(data.paymentsToCheck), "UPI references sent by customers"),
-      tile("Franchise applications", String(data.newFranchiseLeads), "New, from the franchise page")
+      tile("Franchise applications", String(data.newFranchiseLeads), "New, from the franchise page"),
+      tile("Referrals & mechanics", `${data.newReferrals} · ${data.newMechanics}`, "Referrals waiting · mechanics to check")
     ),
     h("div", { class: "grid grid-main", style: { marginTop: "16px" } },
       h("section", { class: "card" }, h("div", { class: "card-head" }, h("h2", { text: "Revenue, last 14 days" }), h("p", { text: `${state.currency}, excluding cancelled orders` })), barChart(data.daily)),
@@ -701,6 +710,213 @@ async function viewFranchise(main, id) {
   if (open) detail(open);
 }
 
+// Shared by the referral, sign-up and mechanic screens: a detail dialog with a status, private notes,
+// optional extra fields and delete.
+function peopleDialog({ title, rows, labels, item, path, extra = [], onSaved, actions = [] }) {
+  const notes = h("textarea", { rows: 3, "aria-label": "Private notes" });
+  notes.value = item.notes ?? "";
+  const status = statusSelect(labels, item.status, () => {});
+  const fields = extra.map((field) => {
+    const input = h("input", { type: field.type ?? "text", value: item[field.name] ?? "", ...(field.type === "number" && { min: "0", step: "1" }) });
+    return { field, input, element: h("label", { class: "field", style: { marginTop: "14px" } }, h("span", { text: field.label }), input) };
+  });
+  const body = h("div", {},
+    h("dl", { class: "detail-grid" }, ...rows.filter(Boolean).flatMap(([label, value]) => [h("dt", { text: label }), h("dd", {}, value ?? "—")]), h("dt", { text: "Status" }), h("dd", {}, status)),
+    ...fields.map((entry) => entry.element),
+    h("label", { class: "field", style: { marginTop: "18px" } }, h("span", { text: "Private notes" }), notes)
+  );
+  const remove = h("button", { class: "btn btn-danger spacer", type: "button", text: "Delete" });
+  const save = h("button", { class: "btn btn-primary", type: "button", text: "Save" });
+  const dialog = modal({ title, body, footer: [remove, ...actions, save], wide: true });
+  save.addEventListener("click", async () => {
+    try {
+      const changes = { status: status.value, notes: notes.value, ...Object.fromEntries(fields.map(({ field, input }) => [field.name, input.value])) };
+      await api(`/api/admin/${path}/${item.id}`, { method: "PATCH", body: changes });
+      toast("Saved");
+      refreshBadges();
+      dialog.close();
+      onSaved();
+    } catch (error) {
+      reportError(error);
+    }
+  });
+  remove.addEventListener("click", async () => {
+    if (!(await confirmDialog("Delete this entry?"))) return;
+    try {
+      await api(`/api/admin/${path}/${item.id}`, { method: "DELETE" });
+      toast("Deleted");
+      refreshBadges();
+      dialog.close();
+      onSaved();
+    } catch (error) {
+      reportError(error);
+    }
+  });
+  return dialog;
+}
+
+const contactLinks = (phone) => {
+  const number = digits(phone);
+  return [h("a", { href: `tel:${number}`, text: phone }), " · ", h("a", { href: `https://wa.me/${number}`, target: "_blank", rel: "noopener", text: "WhatsApp" })];
+};
+
+const quickStatus = (path, labels, item) =>
+  statusSelect(labels, item.status, async (value, select) => {
+    try {
+      const { item: saved } = await api(`/api/admin/${path}/${item.id}`, { method: "PATCH", body: { status: value } });
+      Object.assign(item, saved);
+      toast("Updated");
+      refreshBadges();
+    } catch (error) {
+      select.value = item.status;
+      reportError(error);
+    }
+  });
+
+// Bookings made with a Refer & earn code. Confirm once the tune is done (the code owner then has the
+// reward owed); mark paid from Refer & earn sign-ups after paying them.
+async function viewReferrals(main, id) {
+  const { items } = await api("/api/admin/referrals");
+  const detail = (entry) =>
+    peopleDialog({
+      title: `Referral for ${entry.customer.name}`,
+      item: entry,
+      path: "referrals",
+      labels: REFERRAL_LABELS,
+      rows: [
+        ["Received", dateTime(entry.createdAt)],
+        ["Customer", entry.customer.name],
+        ["Contact", contactLinks(entry.customer.phone)],
+        ["Vehicle", entry.vehicle || "—"],
+        ["Code", `${entry.code} · ${entry.referrerName ?? ""}`],
+        ["Customer discount", rupees(entry.discount)],
+        entry.enquiryId ? ["Enquiry", h("a", { href: `#enquiries/${entry.enquiryId}`, text: "Open the enquiry" })] : null
+      ],
+      extra: [{ name: "reward", label: "Reward for the code owner (₹)", type: "number" }],
+      onSaved: () => viewReferrals(main)
+    });
+  const owed = items.filter((entry) => entry.status === "confirmed").reduce((sum, entry) => sum + entry.reward, 0);
+  listView({
+    main,
+    title: "Referrals",
+    subtitle: `Bookings made with a Refer & earn code. Set "Earned, to pay" once the tune is done; pay code owners from Refer & earn sign-ups. Owed now: ${rupees(owed)}.`,
+    items,
+    labels: REFERRAL_LABELS,
+    empty: "No bookings with a referral code yet.",
+    search: (entry) => `${entry.customer.name} ${entry.customer.phone} ${entry.code} ${entry.referrerName ?? ""} ${entry.vehicle}`,
+    detail,
+    columns: [
+      { label: "Received", cell: (entry) => dateTime(entry.createdAt) },
+      { label: "Customer", cell: (entry) => [entry.customer.name, h("span", { class: "sub", text: entry.vehicle || entry.customer.phone })] },
+      { label: "Code", cell: (entry) => [entry.code, h("span", { class: "sub", text: entry.referrerName ?? "" })] },
+      { label: "Reward", class: "num", cell: (entry) => rupees(entry.reward) },
+      { label: "Status", cell: (entry) => quickStatus("referrals", REFERRAL_LABELS, entry) }
+    ]
+  });
+  const open = items.find((entry) => entry.id === id);
+  if (open) detail(open);
+}
+
+// Everyone with a Refer & earn code, what they've earned and what's been paid.
+async function viewReferrers(main, id) {
+  const { items } = await api("/api/admin/referrers");
+  const detail = (referrer) => {
+    const pay = h("button", { class: "btn", type: "button", text: `Mark ${rupees(referrer.owed)} as paid`, disabled: !referrer.owed });
+    const dialog = peopleDialog({
+      title: `${referrer.name} · ${referrer.code}`,
+      item: referrer,
+      path: "referrers",
+      labels: REFERRER_LABELS,
+      rows: [
+        ["Signed up", dateTime(referrer.createdAt)],
+        ["Contact", contactLinks(referrer.phone)],
+        ["City", referrer.city],
+        ["Bookings", `${referrer.referred} (${referrer.pending} waiting for the tune)`],
+        ["Owed", rupees(referrer.owed)],
+        ["Paid so far", rupees(referrer.paid)]
+      ],
+      extra: [{ name: "upiId", label: "UPI ID for payouts" }],
+      actions: [pay],
+      onSaved: () => viewReferrers(main)
+    });
+    pay.addEventListener("click", async () => {
+      if (!(await confirmDialog(`Have you paid ${referrer.name} ${rupees(referrer.owed)}${referrer.upiId ? ` to ${referrer.upiId}` : ""}? This marks their earned referrals as paid.`, { confirmLabel: "Yes, paid", danger: false }))) return;
+      try {
+        const { paid } = await api(`/api/admin/referrers/${referrer.id}/paid`, { method: "POST", body: {} });
+        toast(`${paid} referral${paid === 1 ? "" : "s"} marked paid`);
+        dialog.close();
+        viewReferrers(main);
+      } catch (error) {
+        reportError(error);
+      }
+    });
+  };
+  listView({
+    main,
+    title: "Refer & earn sign-ups",
+    subtitle: "People with a referral code. Rates and terms are in Settings → Refer & earn.",
+    items,
+    labels: REFERRER_LABELS,
+    empty: "No one has signed up for a code yet.",
+    search: (referrer) => `${referrer.name} ${referrer.phone} ${referrer.code} ${referrer.city}`,
+    detail,
+    columns: [
+      { label: "Name", cell: (referrer) => [referrer.name, h("span", { class: "sub", text: referrer.phone })] },
+      { label: "Code", cell: (referrer) => [referrer.code, h("span", { class: "sub", text: referrer.city })] },
+      { label: "Bookings", class: "num", cell: (referrer) => String(referrer.referred) },
+      { label: "Owed", class: "num", cell: (referrer) => rupees(referrer.owed) },
+      { label: "Paid", class: "num", cell: (referrer) => rupees(referrer.paid) },
+      { label: "Status", cell: (referrer) => pill(referrer.status === "active" ? "active" : "hidden", REFERRER_LABELS[referrer.status]) }
+    ]
+  });
+  const open = items.find((referrer) => referrer.id === id);
+  if (open) detail(open);
+}
+
+// Mechanics who signed up on /mechanics. Only "Listed" ones appear on the website.
+async function viewMechanics(main, id) {
+  const { items } = await api("/api/admin/mechanics");
+  const { skills, availability } = await api("/api/mechanics");
+  const skillText = (mechanic) => mechanic.skills.map((skill) => skills[skill] ?? skill).join(", ");
+  const detail = (mechanic) =>
+    peopleDialog({
+      title: mechanic.name,
+      item: mechanic,
+      path: "mechanics",
+      labels: MECHANIC_LABELS,
+      rows: [
+        ["Signed up", dateTime(mechanic.createdAt)],
+        ["Contact", contactLinks(mechanic.phone)],
+        ["Area", `${mechanic.area}, ${mechanic.city}`],
+        ["Work", skillText(mechanic)],
+        ["Experience", mechanic.experience === null ? "—" : `${mechanic.experience} years`],
+        ["Available", availability[mechanic.availability] ?? "—"],
+        mechanic.message ? ["Message", mechanic.message] : null
+      ],
+      extra: [{ name: "rate", label: "Price per session (₹)", type: "number" }],
+      onSaved: () => viewMechanics(main)
+    });
+  listView({
+    main,
+    title: "Mechanics",
+    subtitle: "Sign-ups from the mechanic network page. Call each one, then set Listed to show them on the website.",
+    items,
+    labels: MECHANIC_LABELS,
+    empty: "No mechanics have signed up yet.",
+    search: (mechanic) => `${mechanic.name} ${mechanic.phone} ${mechanic.area} ${mechanic.city} ${skillText(mechanic)}`,
+    detail,
+    columns: [
+      { label: "Name", cell: (mechanic) => [mechanic.name, h("span", { class: "sub", text: mechanic.phone })] },
+      { label: "Area", cell: (mechanic) => [mechanic.area, h("span", { class: "sub", text: mechanic.city })] },
+      { label: "Work", cell: (mechanic) => skillText(mechanic) },
+      { label: "Per session", class: "num", cell: (mechanic) => rupees(mechanic.rate) },
+      { label: "Status", cell: (mechanic) => quickStatus("mechanics", MECHANIC_LABELS, mechanic) }
+    ]
+  });
+  const open = items.find((mechanic) => mechanic.id === id);
+  if (open) detail(open);
+}
+
 // Products, vehicles, ECUs, brands, services and photos share one list-and-form screen.
 async function collectionView(main, id, config) {
   const { items } = await api(`/api/admin/${config.name}`);
@@ -980,6 +1196,29 @@ const COLLECTION_VIEWS = {
       { label: "Visibility", cell: (pack) => pill(pack.active ? "active" : "hidden", pack.active ? "On sale" : "Hidden") }
     ]
   },
+  offers: {
+    name: "offers",
+    title: "Offers",
+    singular: "offer",
+    subtitle: "Offers on the home page and /offers, each with a Book on WhatsApp button.",
+    label: (entry) => entry.title,
+    defaults: { active: true },
+    search: (entry) => `${entry.title} ${entry.badge} ${entry.description}`,
+    fields: () => [
+      { name: "title", label: "Title", full: true, placeholder: "Buy one service, get one free" },
+      { name: "badge", label: "Label", placeholder: "Offer", help: "A short tag above the title. Optional." },
+      { name: "price", label: "Price (₹)", type: "number", step: "1", min: "0", help: "Optional. 0 shows Free; empty shows no price." },
+      { name: "compareAtPrice", label: "Usual price (₹)", type: "number", step: "1", min: "0", help: "Optional, shown struck through." },
+      { name: "description", label: "Description", type: "textarea", full: true },
+      { name: "terms", label: "Terms", type: "textarea", full: true, help: "Optional small print." },
+      { name: "active", label: "Show on the website", type: "checkbox" }
+    ],
+    columns: () => [
+      { label: "Offer", cell: (entry) => [entry.title, entry.badge ? h("span", { class: "sub", text: entry.badge }) : null] },
+      { label: "Price", class: "num", cell: (entry) => (entry.price === null || entry.price === undefined ? "—" : entry.price === 0 ? "Free" : rupees(entry.price)) },
+      { label: "Visibility", cell: (entry) => pill(entry.active ? "active" : "hidden", entry.active ? "Shown" : "Hidden") }
+    ]
+  },
   franchisePackages: {
     name: "franchisePackages",
     title: "Franchise packages",
@@ -1063,6 +1302,15 @@ const SETTINGS_SECTIONS = [
   ["Franchise", [
     { name: "franchiseOpen", label: "Take franchise applications", type: "checkbox", full: true },
     { name: "franchiseTerms", label: "Good to know", type: "lines", rows: 6, full: true, help: "One per line, shown under the packages on the franchise page: training, agreement term and so on." }
+  ]],
+  ["Refer & earn", [
+    { name: "referralOpen", label: "Take new Refer & earn sign-ups", type: "checkbox", full: true },
+    { name: "referralReward", label: "Reward per completed tune (₹)", type: "number", step: "1", min: "0", help: "What the code's owner earns. Applies to new bookings." },
+    { name: "referralDiscount", label: "Discount for the customer (₹)", type: "number", step: "1", min: "0", help: "Shown on the Refer & earn page." },
+    { name: "referralTerms", label: "Refer & earn terms", type: "lines", rows: 4, full: true, help: "One per line." }
+  ]],
+  ["Mechanic network", [
+    { name: "mechanicsOpen", label: "Take new mechanic sign-ups", type: "checkbox", full: true }
   ]],
   ["Stage 2 & 3 descriptions", [
     { name: "stage2Note", label: "Stage 2: what's included", type: "textarea", full: true, help: "Shown with Stage 2 graphs on the website and in the bot." },
@@ -1558,12 +1806,12 @@ async function viewPayments(main, id) {
 // ---------- Shell, routing and sign-in ----------
 
 // Sections whose menu entry shows how many new items wait.
-const BADGES = ["orders", "enquiries", "franchise", "files", "payments"];
+const BADGES = ["orders", "enquiries", "franchise", "referrals", "mechanics", "files", "payments"];
 
 async function refreshBadges() {
   try {
     const data = await api("/api/admin/dashboard");
-    state.badges = { orders: data.newOrders, enquiries: data.newEnquiries, franchise: data.newFranchiseLeads, files: data.newFileOrders, payments: data.paymentsToCheck };
+    state.badges = { orders: data.newOrders, enquiries: data.newEnquiries, franchise: data.newFranchiseLeads, referrals: data.newReferrals, mechanics: data.newMechanics, files: data.newFileOrders, payments: data.paymentsToCheck };
     for (const [section, count] of Object.entries(state.badges)) {
       const badge = document.querySelector(`[data-badge="${section}"]`);
       if (badge) {
@@ -1624,6 +1872,9 @@ async function route() {
     else if (known === "orders") await viewOrders(main, id);
     else if (known === "enquiries") await viewEnquiries(main, id);
     else if (known === "franchise") await viewFranchise(main, id);
+    else if (known === "referrals") await viewReferrals(main, id);
+    else if (known === "referrers") await viewReferrers(main, id);
+    else if (known === "mechanics") await viewMechanics(main, id);
     else if (known === "files") await viewFileOrders(main, id);
     else if (known === "customers") await viewCustomers(main, id);
     else if (known === "payments") await viewPayments(main, id);

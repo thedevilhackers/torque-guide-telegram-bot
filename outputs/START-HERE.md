@@ -142,6 +142,21 @@ https://unityperformance.co/franchise shows the two packages (Standard ₹9.99 l
 
 The exit fee and blacklisting terms are not on the website; put them in the signed franchise agreement.
 
+## Part 7: Offers, Refer & earn, mechanics and shop parts
+
+**Offers** (unityperformance.co/offers and on the home page): change them in Admin → **Offers**. Leave the price empty to show no price, or 0 to show "Free".
+
+**Refer & earn** (unityperformance.co/refer):
+1. People sign up and get a code. Their link fills the code into the Stage 1 booking form for anyone who opens it.
+2. A booking with a code appears in Admin → **Referrals** as "Waiting for tune".
+3. When that car's tune is done and paid, set it to **Earned, to pay**.
+4. Pay the person by UPI (their UPI ID is in Admin → **Refer & earn sign-ups**), then press **Mark … as paid**.
+5. Change the reward (₹500) and the customer's discount (₹500) in Admin → **Settings → Refer & earn**.
+
+**Mechanic network** (unityperformance.co/mechanics): mechanics sign up and you get a Telegram alert. Call them, then set them to **Listed** in Admin → **Mechanics** to show them on the website. Their phone numbers are never shown; customers book through your WhatsApp.
+
+**Shop parts**: engine oils, filters, brake pads, a scanner, a battery charger and accessories are in Admin → **Products** at typical prices. Check each price and add your brands. The old sample products with dollar prices (₹350 voucher, ₹25 cap) are hidden; to sell one, set a rupee price and tick **Show in shop**.
+
 ## Everyday commands (on the server)
 
 | What | Command |
