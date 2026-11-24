@@ -1,7 +1,7 @@
 import { get, post } from "../api.js";
 import { editProduct, lookups } from "../product-form.js";
 import { onScan, openCamera, scanField } from "../scanner.js";
-import { $, addDays, beep, confirmDialog, dateTime, html, icon, modal, money, mount, on, options, qty, showError, toMajor, toMinor, toast } from "../ui.js";
+import { $, addDays, beep, confirmDialog, dateTime, dayLabel, html, icon, modal, money, mount, on, options, qty, showError, toMajor, toMinor, toast } from "../ui.js";
 
 export default async function receivePage(el, app) {
   const draftKey = `pos.receive.${app.branchId}`;
@@ -30,7 +30,7 @@ export default async function receivePage(el, app) {
     el,
     html`
       <div class="page-head">
-        <div><h1>Receive stock</h1><p>Scan each item from the delivery, enter its expiry date and quantity, then post the receipt.</p></div>
+        <div><h1>Receive stock</h1><p>Scan each item from the delivery, enter its expiry date and quantity, then post the receipt. Items with a GS1 2D code (DataMatrix/QR) or GS1-128 label fill in their expiry and batch by themselves.</p></div>
         <div class="row"><button class="btn" data-act="history">${icon("receipt", 16)} Recent receipts</button></div>
       </div>
       <div class="grid" style="grid-template-columns:minmax(0,1fr) 320px;align-items:start" data-layout>
@@ -72,7 +72,11 @@ export default async function receivePage(el, app) {
                 ${l.track_expiry && !l.expiry_date ? html`<span class="badge warn">${icon("calendar", 12)} Add expiry</span>` : ""}</td>
               <td><input class="input sm num" data-f="qty" type="number" min="0.001" step="any" value="${l.qty}" /></td>
               <td><input class="input sm" data-f="expiry_date" type="date" min="${app.today}" value="${l.expiry_date ?? ""}" ${l.track_expiry ? "" : "disabled"} title="${l.track_expiry ? "" : "Expiry not tracked for this product"}" />
-                ${l.track_expiry ? html`<div class="row" style="margin-top:4px;gap:2px;flex-wrap:nowrap">${[7, 30, 90, 180].map((d) => html`<button class="btn ghost sm" style="min-height:22px;padding:0 5px;font-size:11.5px" data-plus="${d}" title="Expires in ${d} days">+${d < 30 ? `${d}d` : `${d / 30}m`}</button>`)}</div>` : ""}</td>
+                ${l.track_expiry && l.expiry_from_code && l.expiry_date
+                  ? html`<div style="margin-top:4px"><span class="badge good" title="Read from the item's barcode">${icon("barcode", 12)} From barcode</span></div>`
+                  : l.track_expiry
+                    ? html`<div class="row" style="margin-top:4px;gap:2px;flex-wrap:nowrap">${[7, 30, 90, 180].map((d) => html`<button class="btn ghost sm" style="min-height:22px;padding:0 5px;font-size:11.5px" data-plus="${d}" title="Expires in ${d} days">+${d < 30 ? `${d}d` : `${d / 30}m`}</button>`)}</div>`
+                    : ""}</td>
               <td><input class="input sm" data-f="batch_no" value="${l.batch_no ?? ""}" /></td>
               <td><input class="input sm num" data-f="cost" inputmode="decimal" value="${toMajor(l.cost)}" /></td>
               <td><input class="input sm num" data-f="sell_price" inputmode="decimal" value="${toMajor(l.sell_price ?? l.price)}" title="Change to update the selling price" /></td>
@@ -99,10 +103,25 @@ export default async function receivePage(el, app) {
     );
   }
 
-  function addLine(product, addQty = 1) {
-    const existing = draft.lines.find((l) => l.product_id === product.id && !l.expiry_date && !l.batch_no);
+  /** pack: what the item's GS1 code says about it ({ pack_expiry, batch, serial }), if anything. */
+  function addLine(product, addQty = 1, pack = null) {
+    const expiry = product.track_expiry && pack?.pack_expiry ? pack.pack_expiry : null;
+    const batch = pack?.batch ?? "";
+    if (expiry && expiry < app.today) {
+      beep(false);
+      toast(`${product.name}: this pack expired on ${dayLabel(expiry)}. Don't accept it from the supplier.`, "error", 6000);
+      return;
+    }
+    if (pack?.serial && draft.lines.some((l) => l.product_id === product.id && l.serials?.includes(pack.serial))) {
+      beep(false);
+      toast(`Already scanned: ${product.name}, serial ${pack.serial}`, "warn");
+      return;
+    }
+    // Same product from the same batch/expiry goes on one line; a different batch gets its own line.
+    const existing = draft.lines.find((l) => l.product_id === product.id && (l.expiry_date ?? null) === expiry && (l.batch_no ?? "") === batch);
     if (existing) {
       existing.qty = Math.round((Number(existing.qty) + addQty) * 1000) / 1000;
+      if (pack?.serial) (existing.serials ??= []).push(pack.serial);
       beep(true);
       render(existing.key);
       return;
@@ -120,8 +139,10 @@ export default async function receivePage(el, app) {
       cost: product.cost,
       price: product.effective_price,
       sell_price: null,
-      expiry_date: null,
-      batch_no: ""
+      expiry_date: expiry,
+      expiry_from_code: Boolean(expiry),
+      batch_no: batch,
+      serials: pack?.serial ? [pack.serial] : []
     };
     draft.lines.push(line);
     beep(true);
@@ -131,19 +152,23 @@ export default async function receivePage(el, app) {
   async function handleCode(code) {
     try {
       const hit = await get(`/api/lookup?code=${encodeURIComponent(code)}`);
-      addLine(hit.product, hit.source === "case" ? hit.qty : 1);
+      // Case codes, carton labels and weight labels say how much they hold; other scans count one.
+      addLine(hit.product, ["barcode", "plu", "sku"].includes(hit.source) ? 1 : hit.qty, hit.gs1);
       if (hit.source === "case") toast(`Case barcode: added ${hit.qty} × ${hit.product.name}`, "success");
     } catch (err) {
       if (err.code !== "UNKNOWN_BARCODE") return showError(err);
-      if (!/^\d{6,}$/.test(code)) {
+      const pack = err.details?.gs1 ?? null;
+      if (!pack && !/^\d{6,}$/.test(code)) {
         const { items } = await get(`/api/products?search=${encodeURIComponent(code)}&limit=8&status=all`);
         if (items.length === 1) return addLine(items[0]);
         if (items.length) return choose(items);
       }
       beep(false);
-      if (!app.can("catalog.edit")) return toast(`Barcode ${code} is not in the catalogue. Ask a manager to add it.`, "error", 5000);
-      const saved = await editProduct(app, null, { barcode: /^[A-Za-z0-9._\-/]+$/.test(code) ? code : "" });
-      if (saved) addLine(saved);
+      if (pack && !err.details.code) return toast("This is a shipping label with no product number. Scan the barcode on the item itself.", "error", 6000);
+      const barcode = err.details?.code ?? code;
+      if (!app.can("catalog.edit")) return toast(`Barcode ${barcode} is not in the catalogue. Ask a manager to add it.`, "error", 5000);
+      const saved = await editProduct(app, null, { barcode: /^[A-Za-z0-9._\-/]+$/.test(barcode) ? barcode : "" });
+      if (saved) addLine(saved, pack?.count ?? 1, pack);
     }
   }
 
@@ -183,6 +208,7 @@ export default async function receivePage(el, app) {
       const v = toMinor(f.value);
       line[key] = Number.isFinite(v) ? v : key === "cost" ? 0 : null;
     } else line[key] = key === "qty" ? Number(f.value) : f.value || null;
+    if (key === "expiry_date") line.expiry_from_code = false;
     render();
   });
   on(el, "click", "[data-plus]", (e, b) => {

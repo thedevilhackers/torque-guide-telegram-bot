@@ -29,11 +29,16 @@ function buildLines(db, branchId, today, rawLines) {
     const override = raw.price === undefined || raw.price === null || raw.price === "" ? null : int(raw.price, `lines[${i}].price`, { min: 0 });
     const unitPrice = override ?? product.effective_price;
     const manual = int(raw.discount, `lines[${i}].discount`, { min: 0 });
+    // Expiry read from the pack's own GS1 barcode (DataMatrix/QR/GS1-128), when it has one.
+    const packExpiry = raw.pack_expiry ? str(raw.pack_expiry, `lines[${i}].pack_expiry`, { max: 10 }) : null;
+    if (packExpiry && !/^\d{4}-\d{2}-\d{2}$/.test(packExpiry)) throw badRequest(`lines[${i}].pack_expiry must be YYYY-MM-DD`, "VALIDATION");
+    const expiredPack = packExpiry && packExpiry < today ? packExpiry : null;
     const mergeable = !product.sold_by_weight && override === null;
     const existing = mergeable && merged.find((l) => l.product_id === productId && l.mergeable);
     if (existing) {
       existing.qty = roundQty(existing.qty + qty);
       existing.manual_discount += manual;
+      existing.expired_pack ??= expiredPack;
       return;
     }
     merged.push({
@@ -51,6 +56,7 @@ function buildLines(db, branchId, today, rawLines) {
       min_age: product.min_age,
       cost: product.cost,
       track_stock: product.track_stock,
+      expired_pack: expiredPack,
       mergeable
     });
   });
@@ -94,18 +100,20 @@ export async function checkout(db, principal, input) {
   const minAge = Math.max(0, ...lines.map((l) => l.min_age));
   if (minAge > 0 && !bool(input.age_verified)) throw new HttpError(400, `Check ID: customer must be ${minAge}+`, "AGE_CHECK_REQUIRED", { min_age: minAge });
 
-  // Collect everything a cashier needs a manager PIN for.
+  // Collect everything a cashier needs a manager PIN for (permission → reasons).
   const needs = new Map();
+  const need = (perm, why) => needs.set(perm, needs.has(perm) ? `${needs.get(perm)}; ${why}` : why);
   for (const l of lines) {
-    if (l.price_overridden) needs.set("pos.price_override", `price change on ${l.name}`);
+    if (l.price_overridden) need("pos.price_override", `price change on ${l.name}`);
     const gross = l.unit_price * l.qty;
-    if (gross > 0 && (l.manual_discount / gross) * 100 > settings.max_cashier_discount_pct) needs.set("pos.discount_unlimited", `discount over ${settings.max_cashier_discount_pct}%`);
+    if (gross > 0 && (l.manual_discount / gross) * 100 > settings.max_cashier_discount_pct) need("pos.discount_unlimited", `discount over ${settings.max_cashier_discount_pct}%`);
+    if (l.expired_pack && settings.block_expired_sales) need("pos.sell_expired", `${l.name} expired on ${l.expired_pack}`);
     if (!l.track_stock) continue;
     const stock = availability(db, branchId, l.product_id, today);
-    if (l.qty > stock.sellable && stock.expired > 0 && settings.block_expired_sales) needs.set("pos.sell_expired", `${l.name} only has expired stock left`);
+    if (!l.expired_pack && l.qty > stock.sellable && stock.expired > 0 && settings.block_expired_sales) need("pos.sell_expired", `${l.name} only has expired stock left`);
     if (!settings.allow_negative_stock && l.qty > stock.on_hand) throw badRequest(`${l.name}: only ${stock.on_hand} in stock`, "INSUFFICIENT_STOCK");
   }
-  if (billDiscount?.type === "percent" && billDiscount.value > settings.max_cashier_discount_pct) needs.set("pos.discount_unlimited", `bill discount over ${settings.max_cashier_discount_pct}%`);
+  if (billDiscount?.type === "percent" && billDiscount.value > settings.max_cashier_discount_pct) need("pos.discount_unlimited", `bill discount over ${settings.max_cashier_discount_pct}%`);
 
   let approver = null;
   const missing = [...needs.entries()].filter(([perm]) => !can(principal, perm));

@@ -2,6 +2,10 @@
 // and from the device camera (BarcodeDetector, with a bundled ZXing fallback).
 import { beep, html, icon, modal, toast } from "./ui.js";
 
+const GS = "\x1d"; // field separator inside GS1 codes (DataMatrix, QR, GS1-128)
+// Scanners in keyboard mode send the separator as Ctrl+] (the ASCII control key for code 29).
+const isSeparatorKey = (e) => e.ctrlKey && !e.altKey && !e.metaKey && (e.key === "]" || e.code === "BracketRight");
+
 let handler = null;
 let buffer = "";
 let lastKey = 0;
@@ -30,7 +34,19 @@ document.addEventListener(
   "keydown",
   (e) => {
     const target = e.target;
+    // In a scan field, keep the separator in the text so the server can split the GS1 fields.
+    if (target instanceof HTMLInputElement && target.classList.contains("scan-input") && isSeparatorKey(e)) {
+      e.preventDefault();
+      target.setRangeText(GS, target.selectionStart ?? target.value.length, target.selectionEnd ?? target.value.length, "end");
+      return;
+    }
     const typing = target instanceof HTMLElement && (target.matches("input, textarea, select, [contenteditable=true]") || target.closest("dialog"));
+    if (!typing && buffer && isSeparatorKey(e)) {
+      e.preventDefault();
+      lastKey = performance.now();
+      buffer += GS;
+      return;
+    }
     if (typing || e.ctrlKey || e.metaKey || e.altKey) return;
     const now = performance.now();
     const gap = now - lastKey;
@@ -157,7 +173,8 @@ export async function openCamera({ continuous = true, onCode = (code) => emitSca
     } else {
       try {
         const ZX = await loadZxing();
-        const reader = new ZX.BrowserMultiFormatReader();
+        // Hint 8 = ASSUME_GS1 in this ZXing build: keep GS1-128 separators instead of dropping them.
+        const reader = new ZX.BrowserMultiFormatReader(new Map([[ZX.DecodeHintType?.ASSUME_GS1 ?? 8, true]]));
         zxControls = await reader.decodeFromVideoElement(video, (res) => {
           if (res && !stopped) found(res.getText());
         });

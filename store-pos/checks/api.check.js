@@ -368,6 +368,54 @@ describe("store POS API", () => {
     assert.match(text, /^branch,sku,barcode/);
   });
 
+  test("GS1 codes on the pack give expiry, batch, carton count and weight", async () => {
+    const o = ctx.owner;
+    const GS = "\x1d";
+    const q = (code) => `/api/lookup?code=${encodeURIComponent(code)}`;
+    const yymmdd = (iso) => iso.slice(2).replaceAll("-", "");
+    const yogurtCode = ean("890100000010");
+    const yogurt = ok(await o("POST", "/api/products", { name: "Yogurt", price: 3000, cost: 2000, barcode: yogurtCode })).id;
+    const cheese = ok(await o("POST", "/api/products", { name: "Cheese loose", price: 80000, sold_by_weight: true, unit: "kg", barcode: ean("890100000011") })).id;
+    const gtin = `0${yogurtCode}`;
+    const exp = addDays(today, 40);
+
+    // GS1 DataMatrix as a 2D scanner sends it: symbology id, separators, expiry, batch, serial.
+    const hit = ok(await o("GET", q(`]d201${gtin}17${yymmdd(exp)}10LOT42${GS}21S1`)));
+    assert.equal(hit.product.id, yogurt);
+    assert.equal(hit.qty, 1);
+    assert.deepEqual([hit.gs1.pack_expiry, hit.gs1.batch, hit.gs1.serial], [exp, "LOT42", "S1"]);
+
+    // Supplier carton label: (02) contents + (37) count.
+    const carton = ok(await o("GET", q(`]C102${gtin}3712${GS}17${yymmdd(exp)}10LOT42`)));
+    assert.deepEqual([carton.qty, carton.source, carton.gs1.batch], [12, "case", "LOT42"]);
+
+    // Net weight (310n) on a weighed product.
+    const weighed = ok(await o("GET", q(`01${"0" + ean("890100000011")}3103001250`)));
+    assert.deepEqual([weighed.product.id, weighed.qty, weighed.source], [cheese, 1.25, "scale_weight"]);
+
+    // A scanner set to send symbology ids in front of plain EAN-13 codes still works.
+    assert.equal(ok(await o("GET", q(`]E0${yogurtCode}`))).product.id, yogurt);
+
+    // Unknown product: the error gives the EAN-13 to save and the pack data.
+    const unknown = await o("GET", q(`01${"0" + ean("890100000098")}17${yymmdd(exp)}10NEW1`));
+    assert.equal(unknown.data.error.code, "UNKNOWN_BARCODE");
+    assert.equal(unknown.data.error.details.code, ean("890100000098"));
+    assert.deepEqual([unknown.data.error.details.gs1.pack_expiry, unknown.data.error.details.gs1.batch], [exp, "NEW1"]);
+
+    // Stock on record is fresh, but this pack's own date has passed: a cashier needs a manager PIN.
+    ok(await o("POST", "/api/stock/receive", { items: [{ product_id: yogurt, qty: 5, expiry_date: exp }] }));
+    const expired = ok(await ctx.cashier("GET", q(`01${gtin}17${yymmdd(addDays(today, -3))}`)));
+    assert.equal(expired.gs1.pack_expiry, addDays(today, -3));
+    const line = { product_id: yogurt, qty: 1, pack_expiry: expired.gs1.pack_expiry };
+    const blocked = await ctx.cashier("POST", "/api/pos/checkout", { lines: [line], payments: [{ method: "cash", amount: 3000 }] });
+    assert.equal(blocked.data.error.code, "APPROVAL_REQUIRED");
+    assert.match(blocked.data.error.details.reasons.join(" "), /Yogurt expired on/);
+    ok(await ctx.cashier("POST", "/api/pos/checkout", { lines: [line], payments: [{ method: "cash", amount: 3000 }], override_pin: "2468" }), 201);
+    ok(await ctx.cashier("POST", "/api/pos/checkout", { lines: [{ ...line, pack_expiry: exp }], payments: [{ method: "cash", amount: 3000 }] }), 201);
+    const bad = await ctx.cashier("POST", "/api/pos/checkout", { lines: [{ ...line, pack_expiry: "31/12/2027" }], payments: [{ method: "cash", amount: 3000 }] });
+    assert.equal(bad.status, 400);
+  });
+
   test("serves the web app and shared pricing module", async () => {
     const page = await fetch(`${base}/pos`);
     assert.equal(page.status, 200);

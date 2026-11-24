@@ -1,4 +1,5 @@
 import { all, nextCounter, one, run, tx, value } from "./db.js";
+import { gtinVariants, parseGs1, retailBarcode, stripSymbology } from "./gs1.js";
 import { getSettings } from "./settings.js";
 import { badRequest, bool, conflict, gs1CheckDigit, int, notFound, nowIso, num, optionalId, roundQty, str } from "./util.js";
 
@@ -402,14 +403,65 @@ function barcodeVariants(code) {
   return variants;
 }
 
+function unknownBarcode(details) {
+  const err = notFound("Product for this barcode");
+  err.code = "UNKNOWN_BARCODE";
+  err.details = details;
+  return err;
+}
+
+/**
+ * GS1 2D codes and GS1-128 labels: find the product by its GTIN and return what the code says
+ * about this pack (expiry, batch, serial, carton count, weight) as `gs1`.
+ */
+function lookupGs1(db, gs1, load) {
+  const info = {
+    gtin: gs1.gtin,
+    expiry_date: gs1.expiry_date,
+    best_before: gs1.best_before,
+    // The date to use for stock: expiry (17), else best before (15).
+    pack_expiry: gs1.expiry_date ?? gs1.best_before,
+    batch: gs1.batch,
+    serial: gs1.serial,
+    count: gs1.count,
+    net_weight_kg: gs1.net_weight_kg,
+    sscc: gs1.sscc,
+    ais: gs1.ais
+  };
+  if (gs1.gtin) {
+    const candidates = [...new Set(gtinVariants(gs1.gtin).flatMap(barcodeVariants))];
+    for (const variant of candidates) {
+      const hit = one(db, "SELECT product_id, pack_qty FROM barcodes WHERE code = ?", variant);
+      if (!hit) continue;
+      const product = load(hit.product_id);
+      let qty = hit.pack_qty;
+      let source = hit.pack_qty === 1 ? "barcode" : "case";
+      if (gs1.count) {
+        qty = roundQty(gs1.count * hit.pack_qty);
+        source = "case";
+      } else if (gs1.net_weight_kg && product.sold_by_weight && (product.unit === "kg" || product.unit === "g")) {
+        qty = roundQty(product.unit === "g" ? gs1.net_weight_kg * 1000 : gs1.net_weight_kg);
+        source = "scale_weight";
+      }
+      return { product, qty, source, gs1: info };
+    }
+  }
+  // details.code is the plain barcode to save on a new product (EAN-13 for retail packs).
+  throw unknownBarcode({ code: gs1.gtin ? retailBarcode(gs1.gtin) : null, gs1: info });
+}
+
 /**
  * Resolves whatever the scanner (or cashier) typed into a product and quantity.
- * Order: exact barcode (incl. case packs) → scale/price-embedded EAN-13 → PLU → SKU.
+ * Order: GS1 data (2D codes, GS1-128) → exact barcode (incl. case packs) → scale/price-embedded EAN-13 → PLU → SKU.
  */
 export function lookupCode(db, rawCode, { branchId, today }) {
-  const code = String(rawCode ?? "").trim();
+  let code = String(rawCode ?? "").trim();
   if (!code) throw badRequest("Scan or type a barcode", "VALIDATION");
   const load = (id) => getProduct(db, id, { branchId, today });
+
+  const gs1 = parseGs1(code);
+  if (gs1) return lookupGs1(db, gs1, load);
+  code = stripSymbology(code);
 
   for (const variant of barcodeVariants(code)) {
     const hit = one(db, "SELECT product_id, pack_qty FROM barcodes WHERE code = ?", variant);
@@ -443,8 +495,5 @@ export function lookupCode(db, rawCode, { branchId, today }) {
   const bySku = value(db, "SELECT id FROM products WHERE sku = ?", code);
   if (bySku) return { product: load(bySku), qty: 1, source: "sku" };
 
-  const err = notFound("Product for this barcode");
-  err.code = "UNKNOWN_BARCODE";
-  err.details = { code };
-  throw err;
+  throw unknownBarcode({ code });
 }

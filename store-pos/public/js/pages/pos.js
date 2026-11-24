@@ -10,6 +10,7 @@ import {
   confirmDialog,
   currencyDecimals,
   dateTime,
+  dayLabel,
   debounce,
   expiryBadge,
   html,
@@ -157,7 +158,8 @@ export default async function posPage(el, app) {
                 ${l.promo_name ? html`<span class="badge brand">${icon("tag", 12)} ${l.promo_name}</span>` : ""}
                 ${l.manual_discount ? html`<span class="badge info">-${money(l.manual_discount)}</span>` : ""}
                 ${src.min_age ? html`<span class="badge ${cart.age_verified ? "good" : "warn"}">${src.min_age}+ ${cart.age_verified ? "ID checked" : "ID check"}</span>` : ""}
-                ${lowStock && src.expired_qty > 0 ? html`<span class="badge bad">${icon("alert", 12)} Expired stock</span>` : lowStock ? html`<span class="badge warn">Low stock</span>` : ""}
+                ${src.pack_expiry ? html`<span class="badge bad" title="Date read from the pack's barcode">${icon("alert", 12)} Pack expired ${dayLabel(src.pack_expiry, { day: "numeric", month: "short" })}</span>` : ""}
+                ${!src.pack_expiry && lowStock && src.expired_qty > 0 ? html`<span class="badge bad">${icon("alert", 12)} Expired stock</span>` : !src.pack_expiry && lowStock ? html`<span class="badge warn">Low stock</span>` : ""}
               </div>
             </div>
             ${src.sold_by_weight
@@ -224,10 +226,32 @@ export default async function posPage(el, app) {
     return Boolean(await result);
   }
 
-  async function addProduct(product, addQty = 1, { source = "barcode" } = {}) {
+  async function confirmExpiredPack(product, expiry) {
+    beep(false);
+    const needsPin = !app.can("pos.sell_expired");
+    const { result } = modal({
+      title: "This pack has expired",
+      size: "sm",
+      body: html`<div class="banner danger">${icon("alert", 20)}<div><strong>${product.name}</strong><br />The barcode on this pack says it expired on <strong>${dayLabel(expiry)}</strong>. Take it off the shelf.</div></div>
+        ${needsPin ? html`<p class="small muted" style="margin-top:10px">Selling it anyway needs a manager PIN at payment.</p>` : ""}`,
+      actions: [
+        { label: "Sell anyway", value: true },
+        { label: "Don't sell", kind: "primary", value: false }
+      ]
+    });
+    return Boolean(await result);
+  }
+
+  async function addProduct(product, addQty = 1, { source = "barcode", packExpiry = null } = {}) {
     if (!product.active || !product.branch_active) {
       beep(false);
       toast(`${product.name} is not for sale`, "error");
+      return;
+    }
+    // Expiry read from the pack's own GS1 code: only kept on the line when it has passed.
+    const expiredPack = packExpiry && packExpiry < ctx.today ? packExpiry : null;
+    if (expiredPack && !(await confirmExpiredPack(product, expiredPack))) {
+      toast(`${product.name} not added (expired pack)`, "warn");
       return;
     }
     let q = addQty;
@@ -243,7 +267,7 @@ export default async function posPage(el, app) {
       }
       cart.age_verified = true;
     }
-    let line = !product.sold_by_weight && cart.lines.find((l) => l.product_id === product.id && (l.price_override === null || l.price_override === undefined));
+    let line = !product.sold_by_weight && cart.lines.find((l) => l.product_id === product.id && (l.price_override === null || l.price_override === undefined) && (l.pack_expiry ?? null) === expiredPack);
     if (line) line.qty = Math.round((line.qty + q) * 1000) / 1000;
     else {
       line = {
@@ -262,11 +286,12 @@ export default async function posPage(el, app) {
         min_age: product.min_age,
         track_stock: product.track_stock,
         stock_qty: product.stock_qty,
-        expired_qty: product.expired_qty
+        expired_qty: product.expired_qty,
+        pack_expiry: expiredPack
       };
       cart.lines.push(line);
     }
-    if (product.track_stock && product.expired_qty > 0 && product.stock_qty - product.expired_qty < line.qty) {
+    if (!expiredPack && product.track_stock && product.expired_qty > 0 && product.stock_qty - product.expired_qty < line.qty) {
       toast(`${product.name}: stock on record is expired — check the date on the pack`, "warn", 5000);
     }
     beep(true);
@@ -277,9 +302,15 @@ export default async function posPage(el, app) {
     hideResults();
     try {
       const hit = await get(`/api/lookup?code=${encodeURIComponent(code)}`);
-      await addProduct(hit.product, hit.qty, { source: hit.source });
+      await addProduct(hit.product, hit.qty, { source: hit.source, packExpiry: hit.gs1?.pack_expiry });
     } catch (err) {
       if (err.code !== "UNKNOWN_BARCODE") return showError(err);
+      const pack = err.details?.gs1;
+      if (pack) {
+        beep(false);
+        if (!err.details.code) return toast("This is a shipping label with no product number. Scan the barcode on the item itself.", "error", 6000);
+        return unknownBarcode(err.details.code);
+      }
       // Not a code: try a name search.
       if (!/^\d{6,}$/.test(code)) {
         const { items } = await get(`/api/products?search=${encodeURIComponent(code)}&limit=8`);
@@ -602,7 +633,7 @@ export default async function posPage(el, app) {
           html`<div class="card card-pad stack"><h3>${p.name}</h3>
             <div style="font-size:34px;font-weight:700">${money(p.effective_price)}${p.sold_by_weight ? html`<span class="muted" style="font-size:16px"> / ${p.unit}</span>` : ""}</div>
             ${promos.map((pr) => html`<div><span class="badge brand">${icon("tag", 12)} ${pr.name} — ${promoLabel(pr, money)}</span></div>`)}
-            <dl class="kv"><dt>Stock here</dt><dd>${p.track_stock ? qty(p.stock_qty, p.unit) : "Not tracked"}</dd><dt>Next expiry</dt><dd>${expiryBadge(p.next_expiry, ctx.today)}</dd>
+            <dl class="kv">${hit.gs1?.pack_expiry ? html`<dt>This pack</dt><dd>${expiryBadge(hit.gs1.pack_expiry, ctx.today)}${hit.gs1.batch ? html` <span class="small muted">batch ${hit.gs1.batch}</span>` : ""}</dd>` : ""}<dt>Stock here</dt><dd>${p.track_stock ? qty(p.stock_qty, p.unit) : "Not tracked"}</dd><dt>Next expiry</dt><dd>${expiryBadge(p.next_expiry, ctx.today)}</dd>
             ${p.expired_qty > 0 ? html`<dt>Expired on record</dt><dd><span class="badge bad">${qty(p.expired_qty, p.unit)}</span></dd>` : ""}
             <dt>Barcode</dt><dd class="mono">${p.barcode ?? "—"}</dd><dt>Category</dt><dd>${p.category_name ?? "—"}</dd></dl></div>`
         );
@@ -785,7 +816,7 @@ export default async function posPage(el, app) {
       if (s.due > 0) return false;
       completeBtn.disabled = true;
       const payload = {
-        lines: cart.lines.map((l) => ({ product_id: l.product_id, qty: l.qty, price: l.price_override ?? undefined, discount: l.manual_discount || undefined })),
+        lines: cart.lines.map((l) => ({ product_id: l.product_id, qty: l.qty, price: l.price_override ?? undefined, discount: l.manual_discount || undefined, pack_expiry: l.pack_expiry || undefined })),
         payments,
         customer_id: cart.customer?.id,
         bill_discount: cart.bill_discount ?? undefined,

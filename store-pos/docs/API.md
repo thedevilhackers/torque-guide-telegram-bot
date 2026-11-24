@@ -78,8 +78,32 @@ curl -X POST https://pos.example.com/api/branches/2/lock \
 | `GET /api/products/:id` | One product with batches (expiry), stock in every branch, active promotions |
 | `POST /api/products`, `PATCH /api/products/:id` | Single create / update |
 | `PUT /api/products/:id/branch` | Branch‑specific price / reorder level / on‑off: `{ branch_id, price: 4500 \| null, reorder_level, active }` |
-| `GET /api/lookup?code=8901234567890` | Resolve a scanned code (barcode, case barcode, scale label, PLU or SKU) |
+| `GET /api/lookup?code=8901234567890` | Resolve a scanned code (barcode, case barcode, scale label, GS1 2D code / GS1-128 label, PLU or SKU). URL-encode the code |
 | `GET/POST /api/categories`, `GET/POST /api/suppliers` | Lookup lists |
+
+Scanning a **GS1 DataMatrix / GS1 QR / GS1-128** code (or a GS1 Digital Link URL) also returns what the code says about that pack. The product is found by its GTIN (`01`), or by the contents GTIN (`02`) on a carton label:
+
+```json
+{
+  "product": { "id": 12, "name": "Cola 330ml Can", "...": "..." },
+  "qty": 1,
+  "source": "barcode",
+  "gs1": {
+    "gtin": "05000000000289",
+    "expiry_date": "2027-01-23",
+    "best_before": null,
+    "pack_expiry": "2027-01-23",
+    "batch": "LOTA1",
+    "serial": "SER9",
+    "count": null,
+    "net_weight_kg": null,
+    "sscc": null,
+    "ais": { "01": "05000000000289", "17": "270123", "10": "LOTA1", "21": "SER9" }
+  }
+}
+```
+
+`pack_expiry` is the expiry date (17), or the best-before date (15) when there is no expiry. A carton label with a count (37) returns `qty` = count and `source: "case"`; a net weight (310n) on a product sold by weight returns `qty` = the weight. For an unknown product the 404 error's `details` has `code` (the EAN-13 to save on a new product) and `gs1`. Separators between fields can be the ASCII group separator (code 29), and AIM prefixes such as `]d2`, `]C1`, `]Q3` are understood; the bracket form `(01)05000000000289(17)270123(10)LOTA1` works too.
 
 Product fields:
 
@@ -147,6 +171,8 @@ Checkout body:
   "age_verified": false
 }
 ```
+
+Add `"pack_expiry": "2026-11-20"` to a line when the item's own GS1 code gave its date. If that date has passed, a cashier needs a manager PIN (`override_pin`) to sell it, the same as selling expired stock.
 
 `client_ref` makes checkout **idempotent**: sending the same value again returns the original sale instead of charging twice — use your order id. Sales made with an API key don't need a shift.
 
