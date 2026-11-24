@@ -30,7 +30,8 @@ export function createApp({ dbPath = ":memory:", corsOrigins = [], frameAncestor
   return { db, server, handler };
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
+/** Starts the web server using the settings in .env / environment variables. */
+export function main() {
   loadDotEnv();
   const port = Number(process.env.PORT) || 3000;
   const host = process.env.HOST || "0.0.0.0";
@@ -41,8 +42,22 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
     frameAncestors: process.env.FRAME_ANCESTORS || "'self'"
   });
   const stopScheduler = startScheduler(db);
+  server.on("error", (error) => {
+    if (error.code === "EADDRINUSE") {
+      console.error(`\nPort ${port} is already in use (Store POS may already be running in another window).`);
+      console.error(`Close the other program, or use another port: put the line PORT=3001 in a file named .env in the store-pos folder.\n`);
+    } else if (error.code === "EACCES") {
+      console.error(`\nThis computer does not allow port ${port}. Use another port: put the line PORT=3001 in a file named .env in the store-pos folder.\n`);
+    } else {
+      console.error(error);
+    }
+    stopScheduler();
+    db.close();
+    process.exit(1);
+  });
   server.listen(port, host, () => {
-    console.log(`Store POS v${version} running at http://localhost:${port} (database: ${dbPath})`);
+    console.log(`Store POS v${version} is running. Open http://localhost:${port} in your browser.`);
+    console.log(`Database: ${dbPath}. Press Ctrl+C to stop.`);
   });
   const shutdown = () => {
     console.log("Shutting down...");
@@ -56,3 +71,5 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
   process.on("SIGINT", shutdown);
   process.on("SIGTERM", shutdown);
 }
+
+if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) main();

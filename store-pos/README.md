@@ -49,6 +49,18 @@ npm start
 
 Open <http://localhost:3000>. The first screen sets up your store, first branch and owner account. Tick **Load demo data** to get sample products, a second branch, demo staff and two weeks of sales to try everything; don't tick it for your real store.
 
+Keep the terminal window open while you use it; closing it (or pressing Ctrl+C) stops the server.
+
+### If it doesn't start
+
+| What you see | What to do |
+|---|---|
+| `Store POS needs Node.js 22.13 or newer` | Install the current LTS version from [nodejs.org](https://nodejs.org), close and reopen the terminal, run `npm start` again |
+| `npm: command not found` or `'npm' is not recognized` | Node.js isn't installed, or the terminal was opened before installing it. Install it, then open a new terminal |
+| `Missing script: "start"` or `Could not read package.json` | You're not in the `store-pos` folder. Run `cd store-pos` first |
+| `Port 3000 is already in use` | It's probably already running in another window: just open <http://localhost:3000>. Or use another port by putting `PORT=3001` in a file named `.env` in the `store-pos` folder |
+| The browser says the site can't be reached | Check the terminal still says *Store POS … is running*. `localhost` only works on the computer running it; other devices on your Wi‑Fi use `http://<that computer's IP>:3000` (allow Node.js through the firewall if asked) |
+
 ```bash
 npm test
 ```
