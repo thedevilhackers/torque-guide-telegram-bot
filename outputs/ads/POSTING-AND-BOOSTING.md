@@ -28,13 +28,13 @@ Also put each day's Story image on your **WhatsApp Status**. Your existing custo
 
 | Day | Post | Language | Boost? |
 |---|---|---|---|
-| 1 | Stage 1 video (Reel) | Hindi | ✅ Boost A |
+| 1 | "What's the secret?" tuning video (Reel) | Hindi | ✅ Boost A |
 | 2 | Stage 1 post | English | |
 | 3 | Recent work | Hindi | |
 | 4 | Offers: buy one get one | Hindi | ✅ Boost B |
 | 5 | Refer & earn | English | |
 | 6 | Ceramic coating | Hindi | |
-| 7 | Stage 1 video (Reel) | English | |
+| 7 | "What's the secret?" tuning video (Reel) | English | |
 | 8 | Franchise video (Reel) | English | ✅ Boost C |
 | 9 | Mechanics wanted | Hindi | ✅ Boost D |
 | 10 | Tuning file service | English | |
@@ -42,6 +42,8 @@ Also put each day's Story image on your **WhatsApp Status**. Your existing custo
 | 12 | Refer & earn | Hindi | |
 | 13 | Franchise video (Reel) | Hindi | |
 | 14 | Recent work | English | |
+| 15 | Stage 1 video (Reel) | Hindi | |
+| 16 | Stage 1 video (Reel) | English | |
 
 ---
 
@@ -49,7 +51,7 @@ Also put each day's Story image on your **WhatsApp Status**. Your existing custo
 
 Boost a post once it has been live for a few hours and has some likes. Open the post in the Instagram app and tap **Boost post**. You can also click **Boost** under the post in Business Suite.
 
-| Setting | Boost A: Stage 1 video | Boost B: Offers | Boost C: Franchise video | Boost D: Mechanics |
+| Setting | Boost A: "What's the secret?" video | Boost B: Offers | Boost C: Franchise video | Boost D: Mechanics |
 |---|---|---|---|---|
 | **Goal** | More messages → WhatsApp | More messages → WhatsApp | More messages → WhatsApp (or website visits to /franchise) | More website visits → unityperformance.co/mechanics |
 | **Location** | Ranchi + 40 km | Ranchi + 25 km | Jharkhand, Bihar, West Bengal, Odisha | Ranchi + 25 km |
@@ -62,6 +64,8 @@ That comes to about **₹6,700 plus GST** over two weeks.
 **Settings that matter:**
 - **"More messages → WhatsApp"** puts a WhatsApp button on the ad, so people land straight in your chat. Use the number **+91 87096 47229**, linked under Settings → WhatsApp accounts.
 - **Payment**: add UPI or a card under Settings → Payments. Meta adds GST to ad spend in India, and you can enter your GSTIN there to claim it.
+
+**When the leads come in**: the tuning video ends with "Send your car model on WhatsApp for a free estimate". Reply quickly. Look the car up under Find your car on unityperformance.co, send its Stage 1 figures, and offer a time to visit.
 
 **After 3 days**, check **Insights** on each boost. Keep the ads that bring the most WhatsApp messages and stop the others. Then put the money from the stopped ads into the winner.
 
