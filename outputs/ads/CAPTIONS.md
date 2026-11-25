@@ -160,3 +160,18 @@ More power. Same car. ⚡ Stage 1 ECU remaps in Ranchi, done properly.
 - For the mechanics post, target Ranchi only.
 - Use the **"Send WhatsApp message"** button as the ad's call to action, so people land in your chat directly.
 - Post the story versions to WhatsApp Status too: your customers see them for free.
+
+---
+
+## Video: Franchise (Reel)
+
+Your city. Your workshop. Our brand. 🏁
+
+We're opening five Unity Performance franchise workshops this year: ECU remapping, ceramic coating and detailing, with tools, training at our Ranchi workshop, file-service credits, coating stock and branding in one package.
+
+Standard ₹9.99 lakh · Premium ₹15.99 lakh (franchise fee included)
+
+Apply: 🌐 unityperformance.co/franchise
+📲 WhatsApp +91 87096 47229
+
+#franchise #franchiseopportunity #businessopportunity #startupindia #automobile #cartuning #jharkhand #bihar #westbengal #odisha #unityperformance

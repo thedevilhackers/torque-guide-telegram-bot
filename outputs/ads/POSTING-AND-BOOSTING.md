@@ -35,12 +35,12 @@ Also put each day's Story image on your **WhatsApp Status**. Your existing custo
 | 5 | Refer & earn | English | |
 | 6 | Ceramic coating | Hindi | |
 | 7 | Stage 1 video (Reel) | English | |
-| 8 | Franchise | English | ✅ Boost C |
+| 8 | Franchise video (Reel) | English | ✅ Boost C |
 | 9 | Mechanics wanted | Hindi | ✅ Boost D |
 | 10 | Tuning file service | English | |
 | 11 | Offers | English | |
 | 12 | Refer & earn | Hindi | |
-| 13 | Franchise | Hindi | |
+| 13 | Franchise video (Reel) | Hindi | |
 | 14 | Recent work | English | |
 
 ---
@@ -49,7 +49,7 @@ Also put each day's Story image on your **WhatsApp Status**. Your existing custo
 
 Boost a post once it has been live for a few hours and has some likes. Open the post in the Instagram app and tap **Boost post**. You can also click **Boost** under the post in Business Suite.
 
-| Setting | Boost A: Stage 1 video | Boost B: Offers | Boost C: Franchise | Boost D: Mechanics |
+| Setting | Boost A: Stage 1 video | Boost B: Offers | Boost C: Franchise video | Boost D: Mechanics |
 |---|---|---|---|---|
 | **Goal** | More messages → WhatsApp | More messages → WhatsApp | More messages → WhatsApp (or website visits to /franchise) | More website visits → unityperformance.co/mechanics |
 | **Location** | Ranchi + 40 km | Ranchi + 25 km | Jharkhand, Bihar, West Bengal, Odisha | Ranchi + 25 km |
