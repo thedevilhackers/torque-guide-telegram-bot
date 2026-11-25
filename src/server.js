@@ -2,6 +2,7 @@ import { createServer } from "node:http";
 import { startAlerts } from "./alerts.js";
 import { config, optionalSettingWarnings } from "./config.js";
 import { settings } from "./db.js";
+import { startAutoBackups } from "./backups.js";
 import { startFileCleanup } from "./file-service.js";
 import { startBot } from "./telegram-bot.js";
 import { sendText } from "./telegram.js";
@@ -14,6 +15,7 @@ const sendAlert = config.telegramBotToken ? sendText : null;
 const server = createServer(createApp({ botUsername: () => botUsername, sendAlert }));
 
 startFileCleanup();
+startAutoBackups();
 
 server.listen(config.port, config.host, () => {
   console.log(`${settings().businessName} website is running on http://${config.host ?? "localhost"}:${config.port} (admin: /admin)`);

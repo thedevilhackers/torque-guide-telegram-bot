@@ -350,6 +350,207 @@ test("offers and the new shop parts", async (t) => {
   assert.deepEqual(oils, [...oils].sort((a, b) => a - b), "oils run from budget to premium");
 });
 
+test("staff logins: roles decide what each person can do, and everything is logged", async (t) => {
+  const owner = await startApp();
+  t.after(owner.close);
+  await owner.login();
+  const weak = await owner.request("/api/admin/staff", { method: "POST", admin: true, body: { name: "Rahul", username: "rahul", role: "staff", password: "short" } });
+  assert.equal(weak.status, 400);
+  assert.equal((await owner.request("/api/admin/staff", { method: "POST", admin: true, body: { name: "Fake", username: "admin", role: "manager", password: "long-enough-pass" } })).status, 400, "the owner's username is reserved");
+  const staff = (await owner.request("/api/admin/staff", { method: "POST", admin: true, body: { name: "Rahul", username: "Rahul", role: "staff", password: "staff-password-1" } })).data.item;
+  const manager = (await owner.request("/api/admin/staff", { method: "POST", admin: true, body: { name: "Prakash", username: "prakash", role: "manager", password: "manager-password-1" } })).data.item;
+  assert.equal(staff.username, "rahul");
+  assert.equal(staff.password, undefined, "password hashes never leave the server");
+  assert.equal((await owner.request("/api/admin/staff", { method: "POST", admin: true, body: { name: "Rahul 2", username: "rahul", role: "staff", password: "staff-password-1" } })).status, 400, "usernames are unique");
+
+  const signIn = async (username, password) => {
+    const app = await startApp();
+    t.after(app.close);
+    const result = await app.request("/api/admin/login", { method: "POST", admin: true, body: { username, password } });
+    return { ...app, status: result.status };
+  };
+  assert.equal((await signIn("rahul", "wrong-password-x")).status, 401);
+  const asStaff = await signIn("rahul", "staff-password-1");
+  assert.equal(asStaff.status, 200);
+  const me = (await asStaff.request("/api/admin/me")).data.user;
+  assert.deepEqual([me.name, me.role], ["Rahul", "staff"]);
+
+  // Staff: read, and update orders and enquiries; no deleting, settings, staff or backups.
+  const enquiry = (await asStaff.request("/api/enquiries", { method: "POST", body: { name: "Kiran", phone: "+91 90000 22222" } })).data;
+  assert.equal((await asStaff.request("/api/admin/enquiries")).status, 200);
+  assert.equal((await asStaff.request(`/api/admin/enquiries/${enquiry.id}`, { method: "PATCH", admin: true, body: { status: "contacted" } })).status, 200);
+  assert.equal((await asStaff.request(`/api/admin/enquiries/${enquiry.id}`, { method: "DELETE", admin: true })).status, 403);
+  assert.equal((await asStaff.request("/api/admin/products/cap", { method: "PUT", admin: true, body: {} })).status, 403);
+  const { data: current } = await owner.request("/api/admin/settings");
+  assert.equal((await asStaff.request("/api/admin/settings", { method: "PUT", admin: true, body: current.settings })).status, 403);
+  for (const path of ["/api/admin/staff", "/api/admin/export", "/api/admin/backups"]) assert.equal((await asStaff.request(path)).status, 403, path);
+  assert.equal((await asStaff.request("/api/admin/activity")).status, 403);
+
+  // Manager: deletes and the catalogue, but not settings, staff or backups.
+  const asManager = await signIn("prakash", "manager-password-1");
+  const removed = await asManager.request(`/api/admin/enquiries/${enquiry.id}`, { method: "DELETE", admin: true });
+  assert.equal(removed.status, 200);
+  assert.ok(removed.data.trashId);
+  assert.equal((await asManager.request("/api/admin/settings", { method: "PUT", admin: true, body: current.settings })).status, 403);
+  assert.equal((await asManager.request("/api/admin/staff")).status, 403);
+
+  // The activity log shows who did what.
+  const log = (await asManager.request("/api/admin/activity")).data.items;
+  assert.ok(log.some((entry) => entry.user === "Rahul" && /enquiry Kiran: status “contacted”/.test(entry.action)), "staff change logged");
+  assert.ok(log.some((entry) => entry.user === "Prakash" && /Deleted enquiry Kiran/.test(entry.action)));
+  assert.ok(log.some((entry) => entry.user === "Rahul" && entry.action === "Signed in"));
+  assert.ok(log.some((entry) => /Failed sign-in as “rahul”/.test(entry.action)));
+
+  // Staff change their own password; turning an account off signs it out at once.
+  assert.equal((await asStaff.request("/api/admin/me/password", { method: "POST", admin: true, body: { current: "nope-nope-nope", next: "another-password-2" } })).status, 400);
+  assert.equal((await asStaff.request("/api/admin/me/password", { method: "POST", admin: true, body: { current: "staff-password-1", next: "another-password-2" } })).status, 200);
+  assert.equal((await signIn("rahul", "another-password-2")).status, 200);
+  await owner.request(`/api/admin/staff/${staff.id}`, { method: "PATCH", admin: true, body: { active: false } });
+  assert.equal((await asStaff.request("/api/admin/enquiries")).status, 401);
+  assert.equal((await signIn("rahul", "another-password-2")).status, 401);
+  // A new password from the owner also signs a manager out everywhere.
+  await owner.request(`/api/admin/staff/${manager.id}`, { method: "PATCH", admin: true, body: { password: "reset-by-owner-9" } });
+  assert.equal((await asManager.request("/api/admin/enquiries")).status, 401);
+  await owner.request(`/api/admin/staff/${staff.id}`, { method: "DELETE", admin: true });
+  await owner.request(`/api/admin/staff/${manager.id}`, { method: "DELETE", admin: true });
+  assert.equal(db().staff.length, 0);
+});
+
+test("recycle bin: deletes can be undone, with linked records, for 30 days", async (t) => {
+  const { request, login, close } = await startApp();
+  t.after(close);
+  await login();
+  const ordersBefore = db().orders.map((order) => order.id);
+  const placed = (await request("/api/orders", { method: "POST", body: order([{ id: "cap", qty: 1 }]) })).data.order;
+  const orderId = db().orders.find((order) => order.number === placed.number).id;
+  const deleted = await request(`/api/admin/orders/${orderId}`, { method: "DELETE", admin: true });
+  assert.ok(!db().orders.some((order) => order.id === orderId));
+  const bin = (await request("/api/admin/trash")).data.items;
+  assert.equal(bin[0].id, deleted.data.trashId);
+  assert.equal(bin[0].label, placed.number);
+  assert.equal((await request(`/api/admin/trash/${deleted.data.trashId}/restore`, { method: "POST", admin: true })).status, 200);
+  assert.deepEqual(db().orders.map((order) => order.id), [orderId, ...ordersBefore], "back in the same place");
+
+  // A customer goes with their credit history and payments, and comes back with them.
+  const files = await import("../src/file-service.js");
+  const customer = await files.createCustomer({ name: "Bin Tester", email: "bin@example.com", phone: "+91 90000 33333", password: "customer-pass-1" });
+  files.adjustCredits(customer.id, 2, "Paid cash");
+  files.createPurchase(customer.id, "single", "upi");
+  const gone = await request(`/api/admin/customers/${customer.id}`, { method: "DELETE", admin: true });
+  assert.equal(gone.status, 200);
+  assert.ok(!db().customers.some((entry) => entry.id === customer.id));
+  assert.ok(!db().creditLedger.some((entry) => entry.customerId === customer.id));
+  assert.ok(!db().creditPurchases.some((entry) => entry.customerId === customer.id));
+  assert.equal((await request("/api/admin/trash")).data.items.find((entry) => entry.id === gone.data.trashId).count, 3);
+  // A backup made meanwhile still restores (no records point at the missing customer).
+  const backup = (await request("/api/admin/export")).data;
+  assert.equal((await request("/api/admin/import", { method: "POST", admin: true, body: backup })).status, 200);
+  // The bin isn't part of a restored backup, so delete again and restore from the bin.
+  const again = await request(`/api/admin/customers/${customer.id}`, { method: "DELETE", admin: true });
+  assert.equal(again.status, 404, "the restored backup doesn't have the customer either");
+
+  // An ECU comes off its vehicles when deleted, and goes back on when restored.
+  const ecu = db().ecus.find((entry) => db().vehicles.some((vehicle) => vehicle.ecus.includes(entry.id)));
+  const users = db().vehicles.filter((vehicle) => vehicle.ecus.includes(ecu.id)).map((vehicle) => vehicle.id);
+  const ecuGone = await request(`/api/admin/ecus/${ecu.id}`, { method: "DELETE", admin: true });
+  assert.ok(!db().vehicles.some((vehicle) => vehicle.ecus.includes(ecu.id)));
+  await request(`/api/admin/trash/${ecuGone.data.trashId}/restore`, { method: "POST", admin: true });
+  assert.deepEqual(db().vehicles.filter((vehicle) => vehicle.ecus.includes(ecu.id)).map((vehicle) => vehicle.id), users);
+
+  // A brand still in use can't be deleted.
+  const brand = db().vehicles[0].brand;
+  assert.match((await request(`/api/admin/brands/${brand}`, { method: "DELETE", admin: true })).data.error, /used by/);
+
+  // Deleting for good, and emptying.
+  const offer = await request("/api/admin/offers/coffee-with-wash", { method: "DELETE", admin: true });
+  assert.equal((await request(`/api/admin/trash/${offer.data.trashId}`, { method: "DELETE", admin: true })).status, 200);
+  assert.equal((await request(`/api/admin/trash/${offer.data.trashId}/restore`, { method: "POST", admin: true })).status, 400);
+  await request("/api/admin/offers/road-trip-check", { method: "DELETE", admin: true });
+  assert.ok((await request("/api/admin/trash", { method: "DELETE", admin: true })).data.count >= 1);
+  assert.equal((await request("/api/admin/trash")).data.items.length, 0);
+
+  // Entries older than 30 days are dropped.
+  const { expireTrash } = await import("../src/trash.js");
+  const old = { trash: [{ id: "a", deletedAt: new Date(Date.now() - 31 * 86_400_000).toISOString(), records: {} }, { id: "b", deletedAt: new Date().toISOString(), records: {} }] };
+  assert.equal(expireTrash(old), 1);
+  assert.deepEqual(old.trash.map((entry) => entry.id), ["b"]);
+});
+
+test("bulk actions: all or nothing, within each role", async (t) => {
+  const { request, login, close } = await startApp();
+  t.after(close);
+  await login();
+  const ids = [];
+  for (const name of ["Bulk One", "Bulk Two", "Bulk Three"]) ids.push((await request("/api/enquiries", { method: "POST", body: { name, phone: "+91 90000 44444" } })).data.id);
+  const bulk = (body) => request("/api/admin/bulk", { method: "POST", admin: true, body });
+  assert.equal((await bulk({ section: "enquiries", ids, action: "status", status: "booked" })).data.count, 3);
+  assert.ok(ids.every((id) => db().enquiries.find((entry) => entry.id === id).status === "booked"));
+  assert.equal((await bulk({ section: "enquiries", ids: [...ids, "missing"], action: "status", status: "closed" })).status, 400);
+  assert.ok(ids.every((id) => db().enquiries.find((entry) => entry.id === id).status === "booked"), "nothing changed when one row was missing");
+  assert.equal((await bulk({ section: "enquiries", ids, action: "status", status: "nonsense" })).status, 400);
+  assert.equal((await bulk({ section: "enquiries", ids: ids.slice(0, 2), action: "delete" })).data.count, 2);
+  assert.equal(db().enquiries.filter((entry) => ids.includes(entry.id)).length, 1);
+
+  assert.equal((await bulk({ section: "products", ids: ["cap", "hoodie"], action: "show" })).status, 200);
+  assert.ok(["cap", "hoodie"].every((id) => db().products.find((entry) => entry.id === id).active));
+  await bulk({ section: "products", ids: ["cap"], action: "hide" });
+  assert.equal(db().products.find((entry) => entry.id === "cap").active, false);
+  assert.equal((await bulk({ section: "ecus", ids: [db().ecus[0].id], action: "show" })).status, 400, "ECUs have no show / hide");
+  assert.equal((await bulk({ section: "settings", ids: ["x"], action: "delete" })).status, 400);
+
+  // Cancelling orders in bulk returns their items to stock.
+  const stock = () => db().products.find((entry) => entry.id === "panel-air-filter").stock;
+  await bulk({ section: "products", ids: ["panel-air-filter"], action: "show" });
+  const before = stock();
+  const placed = (await request("/api/orders", { method: "POST", body: order([{ id: "panel-air-filter", qty: 2 }]) })).data.order;
+  assert.equal(stock(), before - 2);
+  const orderId = db().orders.find((entry) => entry.number === placed.number).id;
+  await bulk({ section: "orders", ids: [orderId], action: "status", status: "cancelled" });
+  assert.equal(stock(), before);
+  await bulk({ section: "products", ids: ["cap"], action: "show" });
+});
+
+test("server backups, search, the dashboard to-do list and maintenance mode", async (t) => {
+  const { request, login, close } = await startApp();
+  t.after(close);
+  assert.equal((await request("/")).status, 200);
+  await login();
+
+  const made = await request("/api/admin/backups", { method: "POST", admin: true });
+  assert.match(made.data.name, /^unity-backup-\d{4}-\d{2}-\d{2}-\d{4}-manual\.json$/);
+  assert.ok((await request("/api/admin/backups")).data.items.some((backup) => backup.name === made.data.name));
+  const download = await request(`/api/admin/backups/${made.data.name}`);
+  assert.equal(download.status, 200);
+  assert.ok(download.data.settings, "the backup file itself");
+  assert.equal((await request("/api/admin/backups/..%2F..%2Fdb.json")).status, 404);
+  const restored = await request(`/api/admin/backups/${made.data.name}/restore`, { method: "POST", admin: true });
+  assert.equal(restored.status, 200);
+  assert.match(restored.data.saved, /-restore\.json$/, "the data before a restore is saved first");
+
+  const orderNumber = db().orders[0]?.number ?? (await request("/api/orders", { method: "POST", body: order([{ id: "oil-filter", qty: 1 }]) })).data.order.number;
+  const found = (await request(`/api/admin/search?q=${encodeURIComponent(orderNumber)}`)).data.results;
+  assert.ok(found.some((result) => result.section === "orders" && result.title === `Order ${orderNumber}`));
+  assert.ok((await request("/api/admin/search?q=battery%20charger")).data.results.some((result) => result.section === "products" && result.id === "battery-charger"));
+  assert.deepEqual((await request("/api/admin/search?q=a")).data.results, [], "two letters at least");
+
+  const { todo } = (await request("/api/admin/dashboard")).data;
+  assert.ok(Array.isArray(todo) && todo.every((entry) => entry.count > 0 && entry.section && entry.label));
+
+  // Maintenance mode: visitors get a notice; signed-in admins and the admin panel still work.
+  const { data } = await request("/api/admin/settings");
+  await request("/api/admin/settings", { method: "PUT", admin: true, body: { ...data.settings, maintenanceMode: true, maintenanceMessage: "Back at <5pm>." } });
+  const visitor = await startApp();
+  t.after(visitor.close);
+  const notice = await visitor.request("/");
+  assert.equal(notice.status, 503);
+  assert.match(notice.data.toString(), /Back at &lt;5pm&gt;\./);
+  assert.equal((await visitor.request("/shop")).status, 503);
+  assert.equal((await visitor.request("/admin")).status, 200);
+  assert.equal((await request("/")).status, 200, "the signed-in admin still sees the site");
+  await request("/api/admin/settings", { method: "PUT", admin: true, body: { ...data.settings, maintenanceMode: false } });
+  assert.equal((await visitor.request("/")).status, 200);
+});
+
 test("nothing tells customers the workshop has a dyno", async (t) => {
   const { request, close } = await startApp();
   t.after(close);

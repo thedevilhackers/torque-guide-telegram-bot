@@ -1,6 +1,8 @@
 import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
+import { settings } from "../db.js";
 import { UPLOAD_DIR, registerAdminRoutes } from "./admin-api.js";
+import { currentAdmin } from "./auth.js";
 import { CONTENT_TYPES, HttpError, applySecurityHeaders, clientIp, sendBuffer, sendJson, serveFile } from "./http.js";
 import { renderPage, robotsTxt, sitemapXml } from "./pages.js";
 import { CITY_PAGES } from "./seo.js";
@@ -37,8 +39,24 @@ const notFoundPage = Buffer.from(
     '<div><h1 style="font-size:48px;margin:0 0 12px">Page not found.</h1><a href="/" style="color:#2997ff">Go to the home page ›</a></div></body></html>'
 );
 
+const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
+
+// Maintenance mode: public pages show a short notice (503, so search engines come back later);
+// signed-in admins still see the site, and the admin panel always works.
+function sendMaintenance(res) {
+  const { businessName, maintenanceMessage, whatsappNumber } = settings();
+  const whatsapp = whatsappNumber ? `<p><a href="https://wa.me/${escapeHtml(whatsappNumber.replace(/\D/g, ""))}" style="color:#25d366">Message us on WhatsApp ›</a></p>` : "";
+  const html =
+    '<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex">' +
+    `<title>${escapeHtml(businessName)}</title>` +
+    '<body style="margin:0;min-height:100vh;display:grid;place-items:center;background:#000;color:#f5f5f7;font:17px -apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;text-align:center;padding:24px">' +
+    `<div style="max-width:520px"><h1 style="font-size:40px;margin:0 0 16px">${escapeHtml(businessName)}</h1><p style="color:#a1a1a6;line-height:1.5">${escapeHtml(maintenanceMessage || "We're updating the website. Please check back soon.")}</p>${whatsapp}</div></body></html>`;
+  sendBuffer(res, 503, Buffer.from(html), CONTENT_TYPES[".html"], { "Cache-Control": "no-store", "Retry-After": "3600" });
+}
+
 // Pages carry the site's address, so they're filled in per request; the ETag lets browsers reuse them.
 function sendPage(req, res, page) {
+  if (page !== "admin/index.html" && settings().maintenanceMode && !currentAdmin(req)) return sendMaintenance(res);
   const html = Buffer.from(renderPage(req, PUBLIC_DIR, page));
   const etag = `"${createHash("sha1").update(html).digest("base64url").slice(0, 16)}"`;
   if (req.headers["if-none-match"] === etag) {

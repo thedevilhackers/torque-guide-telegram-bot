@@ -470,7 +470,10 @@ export const DEFAULT_SETTINGS = {
     "One discount per car. Codes can't be used by their owner."
   ],
   // Mechanic network (/mechanics).
-  mechanicsOpen: true
+  mechanicsOpen: true,
+  // Maintenance mode: the public pages show a short notice; signed-in admins still see the site.
+  maintenanceMode: false,
+  maintenanceMessage: "We're updating the website. Please check back soon, or message us on WhatsApp."
 };
 
 // What a tuning file order can include, priced in credits (up to two decimals), following the
@@ -742,6 +745,9 @@ export function seedData(envSettings = {}) {
     referrers: [],
     referrals: [],
     mechanics: [],
+    staff: [],
+    activity: [],
+    trash: [],
     customers: [],
     creditLedger: [],
     creditPurchases: [],

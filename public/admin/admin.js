@@ -6,32 +6,22 @@ import { productArt } from "/js/icons.js";
 
 const app = document.getElementById("app");
 const toasts = document.querySelector("[data-toasts]");
-const state = { businessName: "Unity Performance", currency: "USD", badges: {} };
+const state = { businessName: "Unity Performance", currency: "USD", badges: {}, user: null, maintenance: false };
+const ROLE_RANK = { staff: 1, manager: 2, owner: 3 };
+const ROLE_LABELS = { owner: "Owner", manager: "Manager", staff: "Staff" };
+// Whether the signed-in user's role is at least this one.
+const can = (role) => (ROLE_RANK[state.user?.role] ?? 0) >= ROLE_RANK[role];
 
-const SECTIONS = [
-  ["dashboard", "Dashboard"],
-  ["orders", "Orders"],
-  ["enquiries", "Enquiries"],
-  ["franchise", "Franchise"],
-  ["referrals", "Referrals"],
-  ["referrers", "Refer & earn sign-ups"],
-  ["mechanics", "Mechanics"],
-  ["files", "File orders"],
-  ["payments", "Payments"],
-  ["customers", "Customers"],
-  ["tuneOptions", "Tune options"],
-  ["creditPacks", "Credit packs"],
-  ["franchisePackages", "Franchise packages"],
-  ["offers", "Offers"],
-  ["products", "Products"],
-  ["vehicles", "Vehicles"],
-  ["ecus", "ECUs"],
-  ["brands", "Brands"],
-  ["services", "Services"],
-  ["photos", "Photos"],
-  ["settings", "Settings"],
-  ["backup", "Backup"]
+// The menu, in groups. The third value is the least role that sees the section (staff otherwise).
+const NAV = [
+  ["", [["dashboard", "Dashboard"]]],
+  ["Sales", [["orders", "Orders"], ["enquiries", "Enquiries"], ["franchise", "Franchise"], ["referrals", "Referrals"], ["referrers", "Refer & earn sign-ups"], ["mechanics", "Mechanics"]]],
+  ["File service", [["files", "File orders"], ["payments", "Payments"], ["customers", "Customers"], ["tuneOptions", "Tune options"], ["creditPacks", "Credit packs"]]],
+  ["Website", [["offers", "Offers"], ["products", "Products"], ["vehicles", "Vehicles"], ["ecus", "ECUs"], ["brands", "Brands"], ["services", "Services"], ["photos", "Photos"], ["franchisePackages", "Franchise packages"]]],
+  ["Admin", [["settings", "Settings", "owner"], ["staff", "Staff", "owner"], ["activity", "Activity log", "manager"], ["trash", "Recycle bin", "manager"], ["backup", "Backup", "owner"]]]
 ];
+const SECTIONS = NAV.flatMap(([, items]) => items);
+const allowedSections = () => SECTIONS.filter(([, , role = "staff"]) => can(role));
 const ORDER_LABELS = { new: "New", confirmed: "Confirmed", ready: "Ready", completed: "Completed", cancelled: "Cancelled" };
 const ENQUIRY_LABELS = { new: "New", contacted: "Contacted", booked: "Booked", closed: "Closed" };
 const FRANCHISE_LABELS = { new: "New", contacted: "Contacted", meeting: "Meeting set", signed: "Signed", closed: "Closed" };
@@ -67,10 +57,128 @@ async function api(path, { method = "GET", body = method === "GET" || method ===
   return data;
 }
 
-function toast(message, type = "") {
-  const item = h("div", { class: `toast ${type}`, text: message });
+// action: { label, onClick } adds a button, e.g. Undo.
+function toast(message, type = "", action = null) {
+  const item = h("div", { class: `toast ${type}` }, h("span", { text: message }));
+  if (action) {
+    const button = h("button", { class: "toast-action", type: "button", text: action.label });
+    button.addEventListener("click", () => {
+      item.remove();
+      action.onClick();
+    });
+    item.append(button);
+  }
   toasts.append(item);
-  setTimeout(() => item.remove(), type === "error" ? 6000 : 3000);
+  setTimeout(() => item.remove(), type === "error" ? 6000 : action ? 8000 : 3000);
+}
+
+// A Delete button for a detail dialog (managers and the owner): moves the item to the recycle bin.
+function deleteButton({ path, what, warning = "", reload, dialog }) {
+  if (!can("manager")) return null;
+  const button = h("button", { class: "btn btn-danger spacer", type: "button", text: "Delete" });
+  button.addEventListener("click", async () => {
+    if (!(await confirmDialog(`Delete ${what}? ${warning}It goes to the recycle bin for 30 days.`))) return;
+    try {
+      const result = await api(path, { method: "DELETE" });
+      dialog().close();
+      afterDelete(result, what[0].toUpperCase() + what.slice(1), reload);
+      reload();
+    } catch (error) {
+      reportError(error);
+    }
+  });
+  return button;
+}
+
+// After a delete: the item is in the recycle bin, and Undo puts it back.
+function afterDelete(result, what, reload) {
+  toast(`${what} moved to the recycle bin`, "", {
+    label: "Undo",
+    onClick: async () => {
+      try {
+        await api(`/api/admin/trash/${result.trashId}/restore`, { method: "POST" });
+        toast("Restored");
+        reload();
+        refreshBadges();
+      } catch (error) {
+        reportError(error);
+      }
+    }
+  });
+  refreshBadges();
+}
+
+// ---------- CSV export ----------
+
+// Nested values become "customer.name" columns; lists are joined. Cells that a spreadsheet would run
+// as a formula are prefixed with an apostrophe.
+function flatten(value, prefix = "", out = {}) {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    for (const [key, inner] of Object.entries(value)) if (key !== "password") flatten(inner, prefix ? `${prefix}.${key}` : key, out);
+  } else if (Array.isArray(value)) {
+    out[prefix] = value.map((entry) => (entry && typeof entry === "object" ? JSON.stringify(entry) : entry)).join("; ");
+  } else out[prefix] = value ?? "";
+  return out;
+}
+
+function downloadCsv(name, items) {
+  if (!items.length) return toast("Nothing to export.");
+  const rows = items.map((item) => flatten(item));
+  const columns = [...new Set(rows.flatMap((row) => Object.keys(row)))];
+  const cell = (value) => {
+    let text = String(value ?? "");
+    if (/^[=+\-@\t\r]/.test(text)) text = `'${text}`;
+    return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+  };
+  const csv = [columns.map(cell).join(","), ...rows.map((row) => columns.map((column) => cell(row[column])).join(","))].join("\r\n");
+  const link = h("a", { href: URL.createObjectURL(new Blob(["\ufeff", csv], { type: "text/csv;charset=utf-8" })), download: `${name}-${new Date().toISOString().slice(0, 10)}.csv` });
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+}
+
+const csvButton = (name, rows) => h("button", { class: "btn", type: "button", text: "Export CSV", onclick: () => downloadCsv(name, rows()) });
+
+// ---------- Selecting rows and bulk actions ----------
+
+// A bar that appears when rows are ticked: set a status, show / hide, or delete them all at once.
+function bulkBar({ section, selected, reload, labels = null, showHide = false }) {
+  const count = h("strong");
+  const run = async (action, extra = {}) => {
+    const ids = [...selected];
+    if (action === "delete" && !(await confirmDialog(`Delete ${ids.length} selected? They go to the recycle bin for 30 days.`))) return;
+    try {
+      const { count: changed } = await api("/api/admin/bulk", { method: "POST", body: { section, ids, action, ...extra } });
+      selected.clear();
+      if (action === "delete") toast(`${changed} moved to the recycle bin`, "", { label: "Open bin", onClick: () => (location.hash = "#trash") });
+      else toast(`${changed} updated`);
+      reload();
+      refreshBadges();
+    } catch (error) {
+      reportError(error);
+    }
+  };
+  const status = labels
+    ? h("select", { class: "inline-select", "aria-label": "Set status of the selected" }, h("option", { value: "", text: "Set status…" }), ...Object.entries(labels).map(([key, label]) => h("option", { value: key, text: label })))
+    : null;
+  status?.addEventListener("change", () => status.value && run("status", { status: status.value }));
+  const element = h("div", { class: "bulk-bar", hidden: true, role: "region", "aria-label": "Selected rows" },
+    count,
+    status,
+    showHide && can("manager") ? h("button", { class: "btn btn-small", type: "button", text: "Show on website", onclick: () => run("show") }) : null,
+    showHide && can("manager") ? h("button", { class: "btn btn-small", type: "button", text: "Hide", onclick: () => run("hide") }) : null,
+    can("manager") ? h("button", { class: "btn btn-small btn-danger", type: "button", text: "Delete", onclick: () => run("delete") }) : null,
+    h("button", { class: "btn btn-small spacer-left", type: "button", text: "Clear", onclick: () => (selected.clear(), reload(true)) })
+  );
+  return {
+    element,
+    update() {
+      element.hidden = !selected.size;
+      count.textContent = `${selected.size} selected`;
+      if (status) status.value = "";
+    }
+  };
 }
 
 function reportError(error) {
@@ -86,20 +194,44 @@ function pageHead(title, subtitle, ...actions) {
   return h("header", { class: "page-head" }, h("div", {}, h("h1", { text: title }), subtitle ? h("p", { text: subtitle }) : null), h("div", { class: "toolbar" }, ...actions));
 }
 
-function dataTable(columns, rows, { onRowClick, empty = "Nothing here yet." } = {}) {
+// selection: { selected: Set of ids, onChange } adds a tick box to each row and one to tick them all.
+function dataTable(columns, rows, { onRowClick, empty = "Nothing here yet.", selection = null } = {}) {
   if (!rows.length) return h("div", { class: "table-wrap" }, h("p", { class: "empty", text: empty }));
-  return h(
+  const boxes = [];
+  const all = selection ? isolate(h("input", { type: "checkbox", "aria-label": "Select all shown" })) : null;
+  const syncAll = () => {
+    if (!all) return;
+    const ticked = rows.filter((row) => selection.selected.has(row.id)).length;
+    all.checked = ticked === rows.length;
+    all.indeterminate = ticked > 0 && ticked < rows.length;
+  };
+  all?.addEventListener("change", () => {
+    for (const row of rows) all.checked ? selection.selected.add(row.id) : selection.selected.delete(row.id);
+    for (const box of boxes) box.checked = all.checked;
+    selection.onChange();
+  });
+  const tickCell = (row) => {
+    const box = isolate(h("input", { type: "checkbox", "aria-label": "Select", checked: selection.selected.has(row.id) }));
+    box.addEventListener("change", () => {
+      box.checked ? selection.selected.add(row.id) : selection.selected.delete(row.id);
+      syncAll();
+      selection.onChange();
+    });
+    boxes.push(box);
+    return h("td", { class: "tick" }, box);
+  };
+  const table = h(
     "div",
     { class: "table-wrap" },
     h(
       "table",
       { class: "data" },
-      h("thead", {}, h("tr", {}, ...columns.map((column) => h("th", { scope: "col", class: column.class, text: column.label })))),
+      h("thead", {}, h("tr", {}, selection ? h("th", { class: "tick" }, all) : null, ...columns.map((column) => h("th", { scope: "col", class: column.class, text: column.label })))),
       h(
         "tbody",
         {},
         ...rows.map((row) => {
-          const tr = h("tr", { class: onRowClick ? "clickable" : undefined }, ...columns.map((column) => h("td", { class: column.class }, column.cell(row))));
+          const tr = h("tr", { class: onRowClick ? "clickable" : undefined }, selection ? tickCell(row) : null, ...columns.map((column) => h("td", { class: column.class }, column.cell(row))));
           if (onRowClick) {
             tr.tabIndex = 0;
             tr.addEventListener("click", () => onRowClick(row));
@@ -110,6 +242,8 @@ function dataTable(columns, rows, { onRowClick, empty = "Nothing here yet." } = 
       )
     )
   );
+  syncAll();
+  return table;
 }
 
 // Stops clicks on controls inside a clickable row from opening the row.
@@ -244,7 +378,7 @@ function buildField(field, value) {
   return { element: wrap(input, [datalist]), read: () => input.value };
 }
 
-function formModal({ title, fields, values = {}, submitLabel = "Save", onSubmit, onDelete, before, wide = true }) {
+function formModal({ title, fields, values = {}, submitLabel = "Save", onSubmit, onDelete, before, wide = true, extraFooter = [] }) {
   const built = fields.map((field) => [field.name, buildField(field, values[field.name])]);
   const error = h("p", { class: "error", role: "alert", hidden: true });
   const save = h("button", { class: "btn btn-primary", type: "submit", text: submitLabel });
@@ -263,7 +397,7 @@ function formModal({ title, fields, values = {}, submitLabel = "Save", onSubmit,
   if (onDelete) {
     const remove = h("button", { class: "btn btn-danger spacer", type: "button", text: "Delete" });
     remove.addEventListener("click", async () => {
-      if (!(await confirmDialog(`Delete “${title.replace(/^Edit /, "")}”? This can't be undone.`))) return;
+      if (!(await confirmDialog(`Delete “${title.replace(/^Edit /, "")}”? It goes to the recycle bin for 30 days.`))) return;
       try {
         await onDelete();
         dialog.close();
@@ -274,7 +408,7 @@ function formModal({ title, fields, values = {}, submitLabel = "Save", onSubmit,
     footer.push(remove);
   }
   const cancel = h("button", { class: "btn", type: "button", text: "Cancel" });
-  footer.push(cancel, save);
+  footer.push(...extraFooter, cancel, save);
   save.setAttribute("form", "modal-form");
   form.id = "modal-form";
   const dialog = modal({ title, body: form, footer, wide });
@@ -411,7 +545,15 @@ async function viewDashboard(main) {
     { onRowClick: (enquiry) => (location.hash = `#enquiries/${enquiry.id}`), empty: "No enquiries yet." }
   );
   main.replaceChildren(
-    pageHead("Dashboard", `Welcome back. Here's how ${state.businessName} is doing.`),
+    pageHead("Dashboard", `Welcome back${state.user?.role === "owner" ? "" : `, ${state.user?.name}`}. Here's how ${state.businessName} is doing.`),
+    h("section", { class: "card todo-card", style: { marginBottom: "16px" } },
+      h("div", { class: "card-head" }, h("h2", { text: "To do" }), h("p", { text: data.todo.length ? `${data.todo.reduce((sum, entry) => sum + entry.count, 0)} things waiting` : "" })),
+      data.todo.length
+        ? h("ul", { class: "todo" }, ...data.todo.filter((entry) => allowedSections().some(([key]) => key === entry.section)).map((entry) =>
+            h("li", {}, h("a", { href: `#${entry.section}` }, h("span", { class: "todo-count", text: String(entry.count) }), h("span", { text: entry.label }), entry.note ? h("span", { class: "sub", text: entry.note }) : null))
+          ))
+        : h("p", { class: "empty", text: "All caught up. Nothing is waiting for you." })
+    ),
     h("div", { class: "grid grid-4" },
       tile("Revenue, last 30 days", cash(data.revenue30), change === null ? "No sales in the 30 days before" : `${change >= 0 ? "+" : ""}${change}% vs previous 30 days`, change === null ? "" : change >= 0 ? "up" : "down"),
       tile("Orders, last 30 days", String(data.orders30), `${data.openOrders} open`),
@@ -458,17 +600,29 @@ function statusSelect(labels, value, onChange) {
   return isolate(select);
 }
 
-function listView({ main, title, subtitle, items, labels, columns, search, detail, empty }) {
+// A searchable list with status chips. With section, rows can be ticked for bulk changes
+// (bulkStatus: whether the status can be set in bulk) and reload redraws after a change.
+function listView({ main, title, subtitle, items, labels = null, columns, search, detail, empty, section = null, reload = null, bulkStatus = true, actions = [] }) {
   let status = "all";
+  const selected = new Set();
   const input = h("input", { type: "search", placeholder: "Search", "aria-label": `Search ${title.toLowerCase()}` });
   const holder = h("div");
-  const draw = () => {
+  const shown = () => {
     const query = input.value.trim().toLowerCase();
-    const rows = items.filter((item) => (status === "all" || item.status === status) && (!query || search(item).toLowerCase().includes(query)));
-    holder.replaceChildren(dataTable(columns, rows, { onRowClick: detail, empty }));
+    return items.filter((item) => (status === "all" || item.status === status) && (!query || search(item).toLowerCase().includes(query)));
+  };
+  const bar = section ? bulkBar({ section, selected, labels: bulkStatus ? labels : null, reload: (local) => (local ? draw() : reload()) }) : null;
+  const draw = () => {
+    holder.replaceChildren(dataTable(columns, shown(), { onRowClick: detail, empty, selection: bar ? { selected, onChange: () => bar.update() } : null }));
+    bar?.update();
   };
   input.addEventListener("input", draw);
-  main.replaceChildren(pageHead(title, subtitle), h("div", { class: "toolbar" }, input, statusFilter(labels, items, (key) => ((status = key), draw()))), holder);
+  main.replaceChildren(
+    pageHead(title, subtitle, ...actions, csvButton(title.toLowerCase().replace(/[^a-z0-9]+/g, "-"), shown)),
+    h("div", { class: "toolbar" }, input, labels ? statusFilter(labels, items, (key) => ((status = key), draw())) : null),
+    bar?.element ?? null,
+    holder
+  );
   draw();
 }
 
@@ -521,11 +675,11 @@ async function viewOrders(main, id) {
       }
     });
     remove.addEventListener("click", async () => {
-      if (!(await confirmDialog(`Delete order ${order.number}? Stock isn't changed; cancel the order first to return items to stock.`))) return;
+      if (!(await confirmDialog(`Delete order ${order.number}? It goes to the recycle bin for 30 days. Stock isn't changed; cancel the order first to return items to stock.`))) return;
       try {
-        await api(`/api/admin/orders/${order.id}`, { method: "DELETE" });
+        const result = await api(`/api/admin/orders/${order.id}`, { method: "DELETE" });
         dialog.close();
-        toast(`Order ${order.number} deleted`);
+        afterDelete(result, `Order ${order.number}`, () => viewOrders(main));
         viewOrders(main);
       } catch (error) {
         reportError(error);
@@ -534,6 +688,8 @@ async function viewOrders(main, id) {
   };
   listView({
     main,
+    section: "orders",
+    reload: () => viewOrders(main),
     title: "Orders",
     subtitle: "Orders placed in the website shop.",
     items,
@@ -603,9 +759,9 @@ async function viewEnquiries(main, id) {
     remove.addEventListener("click", async () => {
       if (!(await confirmDialog("Delete this enquiry?"))) return;
       try {
-        await api(`/api/admin/enquiries/${enquiry.id}`, { method: "DELETE" });
+        const result = await api(`/api/admin/enquiries/${enquiry.id}`, { method: "DELETE" });
         dialog.close();
-        toast("Enquiry deleted");
+        afterDelete(result, "Enquiry", () => viewEnquiries(main));
         viewEnquiries(main);
       } catch (error) {
         reportError(error);
@@ -614,6 +770,8 @@ async function viewEnquiries(main, id) {
   };
   listView({
     main,
+    section: "enquiries",
+    reload: () => viewEnquiries(main),
     title: "Enquiries",
     subtitle: "Stage 1 enquiries from the website and the Telegram bot.",
     items,
@@ -680,9 +838,9 @@ async function viewFranchise(main, id) {
     remove.addEventListener("click", async () => {
       if (!(await confirmDialog("Delete this application?"))) return;
       try {
-        await api(`/api/admin/franchise/${lead.id}`, { method: "DELETE" });
+        const result = await api(`/api/admin/franchise/${lead.id}`, { method: "DELETE" });
         dialog.close();
-        toast("Application deleted");
+        afterDelete(result, "Application", () => viewFranchise(main));
         viewFranchise(main);
       } catch (error) {
         reportError(error);
@@ -691,6 +849,8 @@ async function viewFranchise(main, id) {
   };
   listView({
     main,
+    section: "franchise",
+    reload: () => viewFranchise(main),
     title: "Franchise",
     subtitle: "Applications from the franchise page. Packages and the \u201cgood to know\u201d list are in Franchise packages and Settings.",
     items,
@@ -743,10 +903,9 @@ function peopleDialog({ title, rows, labels, item, path, extra = [], onSaved, ac
   remove.addEventListener("click", async () => {
     if (!(await confirmDialog("Delete this entry?"))) return;
     try {
-      await api(`/api/admin/${path}/${item.id}`, { method: "DELETE" });
-      toast("Deleted");
-      refreshBadges();
+      const result = await api(`/api/admin/${path}/${item.id}`, { method: "DELETE" });
       dialog.close();
+      afterDelete(result, "Entry", onSaved);
       onSaved();
     } catch (error) {
       reportError(error);
@@ -798,6 +957,8 @@ async function viewReferrals(main, id) {
   const owed = items.filter((entry) => entry.status === "confirmed").reduce((sum, entry) => sum + entry.reward, 0);
   listView({
     main,
+    section: "referrals",
+    reload: () => viewReferrals(main),
     title: "Referrals",
     subtitle: `Bookings made with a Refer & earn code. Set "Earned, to pay" once the tune is done; pay code owners from Refer & earn sign-ups. Owed now: ${rupees(owed)}.`,
     items,
@@ -853,6 +1014,8 @@ async function viewReferrers(main, id) {
   };
   listView({
     main,
+    section: "referrers",
+    reload: () => viewReferrers(main),
     title: "Refer & earn sign-ups",
     subtitle: "People with a referral code. Rates and terms are in Settings → Refer & earn.",
     items,
@@ -898,6 +1061,8 @@ async function viewMechanics(main, id) {
     });
   listView({
     main,
+    section: "mechanics",
+    reload: () => viewMechanics(main),
     title: "Mechanics",
     subtitle: "Sign-ups from the mechanic network page. Call each one, then set Listed to show them on the website.",
     items,
@@ -917,6 +1082,159 @@ async function viewMechanics(main, id) {
   if (open) detail(open);
 }
 
+// ---------- Staff, activity log and recycle bin ----------
+
+const ROLE_HELP = {
+  manager: "Everything except staff, settings and backups: orders, file service, catalogue, deleting.",
+  staff: "Sees everything except staff, settings and backups; updates orders, enquiries, franchise applications and file orders. Can't delete or edit the catalogue."
+};
+
+async function viewStaff(main) {
+  const { items, roles, minPassword } = await api("/api/admin/staff");
+  const roleOptions = roles.map((role) => [role, ROLE_LABELS[role]]);
+  const roleField = { name: "role", label: "Role", type: "select", options: roleOptions, help: `Manager: ${ROLE_HELP.manager} Staff: ${ROLE_HELP.staff}`, full: true };
+  const add = () =>
+    formModal({
+      title: "New staff member",
+      fields: [
+        { name: "name", label: "Name", placeholder: "Rahul" },
+        { name: "username", label: "Username", placeholder: "rahul", help: "Lowercase, for signing in." },
+        roleField,
+        { name: "password", label: "Password", type: "password", help: `At least ${minPassword} characters. Give it to them in person.`, full: true }
+      ],
+      values: { role: "staff" },
+      submitLabel: "Add",
+      onSubmit: async (values) => {
+        await api("/api/admin/staff", { method: "POST", body: values });
+        toast(`${values.name} can now sign in`);
+        viewStaff(main);
+      }
+    });
+  const edit = (member) =>
+    formModal({
+      title: `Edit ${member.name}`,
+      fields: [
+        { name: "name", label: "Name" },
+        roleField,
+        { name: "active", label: "Can sign in", type: "checkbox" },
+        { name: "password", label: "New password", type: "password", help: `Leave empty to keep their password. At least ${minPassword} characters. Signs them out everywhere.`, full: true }
+      ],
+      values: member,
+      onSubmit: async (values) => {
+        await api(`/api/admin/staff/${member.id}`, { method: "PATCH", body: values });
+        toast("Saved");
+        viewStaff(main);
+      },
+      onDelete: async () => {
+        await api(`/api/admin/staff/${member.id}`, { method: "DELETE" });
+        toast(`${member.name} removed`);
+        viewStaff(main);
+      }
+    });
+  main.replaceChildren(
+    pageHead("Staff", "Logins for your team. You (the owner) sign in with the username and password from the server.", h("button", { class: "btn btn-primary", type: "button", text: "Add staff member", onclick: add })),
+    h("div", { class: "grid grid-2", style: { marginBottom: "16px" } },
+      ...Object.entries(ROLE_HELP).map(([role, text]) => h("section", { class: "card" }, h("h2", { text: ROLE_LABELS[role] }), h("p", { class: "muted", text })))
+    ),
+    dataTable(
+      [
+        { label: "Name", cell: (member) => [member.name, h("span", { class: "sub", text: member.username })] },
+        { label: "Role", cell: (member) => ROLE_LABELS[member.role] },
+        { label: "Last sign-in", cell: (member) => (member.lastSignIn ? dateTime(member.lastSignIn) : "Never") },
+        { label: "Status", cell: (member) => pill(member.active ? "active" : "hidden", member.active ? "Can sign in" : "Turned off") }
+      ],
+      items,
+      { onRowClick: edit, empty: "No staff yet. Add your partners and team so each has their own login." }
+    )
+  );
+}
+
+async function viewActivity(main) {
+  const { items } = await api("/api/admin/activity");
+  const people = [...new Set(items.map((entry) => entry.user).filter(Boolean))];
+  const who = h("select", { class: "inline-select", "aria-label": "Person" }, h("option", { value: "", text: "Everyone" }), ...people.map((name) => h("option", { value: name, text: name })));
+  const input = h("input", { type: "search", placeholder: "Search", "aria-label": "Search activity" });
+  const holder = h("div");
+  const shown = () => {
+    const query = input.value.trim().toLowerCase();
+    return items.filter((entry) => (!who.value || entry.user === who.value) && (!query || `${entry.action} ${entry.user}`.toLowerCase().includes(query)));
+  };
+  const draw = () =>
+    holder.replaceChildren(
+      dataTable(
+        [
+          { label: "When", cell: (entry) => dateTime(entry.at) },
+          { label: "Who", cell: (entry) => [entry.user || "Unknown", h("span", { class: "sub", text: ROLE_LABELS[entry.role] ?? "" })] },
+          { label: "What", cell: (entry) => (entry.link ? h("a", { href: entry.link, text: entry.action }) : entry.action) },
+          { label: "IP address", cell: (entry) => entry.ip || "—" }
+        ],
+        shown().slice(0, 500),
+        { empty: "Nothing yet. Changes made in the admin panel appear here." }
+      )
+    );
+  input.addEventListener("input", draw);
+  who.addEventListener("change", draw);
+  main.replaceChildren(pageHead("Activity log", "Who changed what, and when: the last 3,000 changes and sign-ins.", csvButton("activity", shown)), h("div", { class: "toolbar" }, input, who), holder);
+  draw();
+}
+
+async function viewTrash(main) {
+  const { items } = await api("/api/admin/trash");
+  const daysLeft = (entry) => Math.max(0, 30 - Math.floor((Date.now() - Date.parse(entry.deletedAt)) / 86_400_000));
+  const restore = async (entry) => {
+    try {
+      const result = await api(`/api/admin/trash/${entry.id}/restore`, { method: "POST" });
+      toast(`${entry.label} restored`, "", result.section && result.id ? { label: "Open", onClick: () => (location.hash = `#${result.section}/${result.id}`) } : null);
+      viewTrash(main);
+      refreshBadges();
+    } catch (error) {
+      reportError(error);
+    }
+  };
+  const purge = async (entry) => {
+    if (!(await confirmDialog(`Delete ${entry.noun} ${entry.label} for good? This can't be undone.`, { confirmLabel: "Delete for good" }))) return;
+    try {
+      await api(`/api/admin/trash/${entry.id}`, { method: "DELETE" });
+      toast("Deleted for good");
+      viewTrash(main);
+    } catch (error) {
+      reportError(error);
+    }
+  };
+  const empty = can("owner") && items.length
+    ? h("button", { class: "btn btn-danger", type: "button", text: "Empty the bin", onclick: async () => {
+        if (!(await confirmDialog(`Delete all ${items.length} items in the recycle bin for good? This can't be undone.`, { confirmLabel: "Empty the bin" }))) return;
+        try {
+          await api("/api/admin/trash", { method: "DELETE" });
+          toast("Recycle bin emptied");
+          viewTrash(main);
+        } catch (error) {
+          reportError(error);
+        }
+      } })
+    : null;
+  main.replaceChildren(
+    pageHead("Recycle bin", "Everything deleted in the last 30 days. Restore puts it back exactly as it was.", empty),
+    dataTable(
+      [
+        { label: "Deleted", cell: (entry) => [dateTime(entry.deletedAt), h("span", { class: "sub", text: entry.deletedBy ? `by ${entry.deletedBy}` : "" })] },
+        { label: "What", cell: (entry) => [entry.label || "—", h("span", { class: "sub", text: `${entry.noun[0].toUpperCase()}${entry.noun.slice(1)}${entry.count > 1 ? ` + ${entry.count - 1} linked record${entry.count === 2 ? "" : "s"}` : ""}` })] },
+        { label: "Kept for", cell: (entry) => `${daysLeft(entry)} more day${daysLeft(entry) === 1 ? "" : "s"}` },
+        {
+          label: "",
+          class: "num",
+          cell: (entry) => isolate(h("span", { class: "row-actions" },
+            h("button", { class: "btn btn-small", type: "button", text: "Restore", onclick: () => restore(entry) }),
+            can("owner") ? h("button", { class: "btn btn-small btn-danger", type: "button", text: "Delete for good", onclick: () => purge(entry) }) : null
+          ))
+        }
+      ],
+      items,
+      { empty: "The recycle bin is empty." }
+    )
+  );
+}
+
 // Products, vehicles, ECUs, brands, services and photos share one list-and-form screen.
 async function collectionView(main, id, config) {
   const { items } = await api(`/api/admin/${config.name}`);
@@ -933,31 +1251,47 @@ async function collectionView(main, id, config) {
         toast(item ? "Saved" : `${config.singular[0].toUpperCase()}${config.singular.slice(1)} added`);
         collectionView(main, null, config);
       },
-      onDelete: item
+      onDelete: item && can("manager")
         ? async () => {
-            await api(`/api/admin/${config.name}/${item.id}`, { method: "DELETE" });
-            toast("Deleted");
+            const result = await api(`/api/admin/${config.name}/${item.id}`, { method: "DELETE" });
+            afterDelete(result, config.label(item) || "Item", () => collectionView(main, null, config));
             collectionView(main, null, config);
           }
-        : null
+        : null,
+      // Duplicate opens a new form with this item's saved values.
+      extraFooter: item && can("manager")
+        ? [h("button", { class: "btn", type: "button", text: "Duplicate", onclick: (event) => {
+            event.target.closest("dialog")?.close();
+            const values = structuredClone(config.toForm?.(item) ?? item);
+            for (const key of ["name", "title", "caption"]) if (typeof values[key] === "string" && values[key]) values[key] = `${values[key]} (copy)`;
+            edit(null, values, `New ${config.singular} (copy)`);
+          } })]
+        : []
     });
   const input = h("input", { type: "search", placeholder: "Search", "aria-label": `Search ${config.title.toLowerCase()}` });
   const holder = h("div");
-  const draw = () => {
+  const selected = new Set();
+  const shown = () => {
     const query = input.value.trim().toLowerCase();
-    const rows = items.filter((item) => !query || config.search(item, context).toLowerCase().includes(query));
-    holder.replaceChildren(dataTable(config.columns(context, items), rows, { onRowClick: (item) => edit(item), empty: `No ${config.title.toLowerCase()} yet.` }));
+    return items.filter((item) => !query || config.search(item, context).toLowerCase().includes(query));
+  };
+  const bar = can("manager") ? bulkBar({ section: config.name, selected, showHide: items.some((item) => typeof item.active === "boolean"), reload: (local) => (local ? draw() : collectionView(main, null, config)) }) : null;
+  const draw = () => {
+    holder.replaceChildren(dataTable(config.columns(context, items), shown(), { onRowClick: (item) => edit(item), empty: `No ${config.title.toLowerCase()} yet.`, selection: bar ? { selected, onChange: () => bar.update() } : null }));
+    bar?.update();
   };
   input.addEventListener("input", draw);
   main.replaceChildren(
     pageHead(
       config.title,
       config.subtitle,
-      ...(config.newButtons ?? [[`New ${config.singular}`, config.defaults]]).map(([label, defaults], index) =>
+      ...(can("manager") ? config.newButtons ?? [[`New ${config.singular}`, config.defaults]] : []).map(([label, defaults], index) =>
         h("button", { class: `btn${index === 0 ? " btn-primary" : ""}`, type: "button", text: label, onclick: () => edit(null, defaults, label) })
-      )
+      ),
+      csvButton(config.name, shown)
     ),
     h("div", { class: "toolbar" }, input),
+    bar?.element ?? null,
     holder
   );
   draw();
@@ -1312,6 +1646,10 @@ const SETTINGS_SECTIONS = [
   ["Mechanic network", [
     { name: "mechanicsOpen", label: "Take new mechanic sign-ups", type: "checkbox", full: true }
   ]],
+  ["Maintenance mode", [
+    { name: "maintenanceMode", label: "Show visitors a maintenance notice instead of the website", type: "checkbox", full: true, help: "You still see the website while signed in here. The admin panel keeps working." },
+    { name: "maintenanceMessage", label: "Notice", type: "textarea", full: true }
+  ]],
   ["Stage 2 & 3 descriptions", [
     { name: "stage2Note", label: "Stage 2: what's included", type: "textarea", full: true, help: "Shown with Stage 2 graphs on the website and in the bot." },
     { name: "stage3Note", label: "Stage 3: what's included", type: "textarea", full: true }
@@ -1426,6 +1764,7 @@ async function viewSettings(main) {
       const { settings: saved } = await api("/api/admin/settings", { method: "PUT", body: Object.fromEntries(built.map(([name, item]) => [name, item.read()])) });
       state.businessName = saved.businessName;
       state.currency = saved.currency;
+      state.maintenance = saved.maintenanceMode;
       toast("Settings saved");
       renderShell();
     } catch (failure) {
@@ -1457,11 +1796,54 @@ function viewBackup(main) {
       reportError(error instanceof SyntaxError ? new Error("That file isn't valid JSON.") : error);
     }
   });
+  const serverCard = h("section", { class: "card", style: { marginTop: "16px" } });
+  const drawServer = async () => {
+    try {
+      const { items } = await api("/api/admin/backups");
+      const make = h("button", { class: "btn", type: "button", text: "Make a backup now", onclick: async () => {
+        try {
+          const { name } = await api("/api/admin/backups", { method: "POST" });
+          toast(`Saved ${name}`);
+          drawServer();
+        } catch (error) {
+          reportError(error);
+        }
+      } });
+      const restoreFrom = async (backup) => {
+        if (!(await confirmDialog(`Replace ALL current data with the backup from ${dateTime(backup.createdAt)}? The current data is saved as a backup first, so this can be undone.`, { confirmLabel: "Restore this backup" }))) return;
+        try {
+          await api(`/api/admin/backups/${encodeURIComponent(backup.name)}/restore`, { method: "POST" });
+          toast("Backup restored");
+          await loadState();
+          renderShell();
+        } catch (error) {
+          reportError(error);
+        }
+      };
+      serverCard.replaceChildren(
+        h("div", { class: "card-head" }, h("h2", { text: "Automatic backups on the server" }), make),
+        h("p", { class: "muted", style: { margin: "0 0 12px" }, text: "One is saved every day, and one before any restore. The newest 14 are kept on the server." }),
+        dataTable(
+          [
+            { label: "Saved", cell: (backup) => [dateTime(backup.createdAt), h("span", { class: "sub", text: { daily: "Daily", manual: "Made by hand", restore: "Before a restore" }[backup.kind] ?? backup.kind })] },
+            { label: "Size", class: "num", cell: (backup) => fileSize(backup.size) },
+            { label: "", class: "num", cell: (backup) => isolate(h("span", { class: "row-actions" }, h("a", { class: "btn btn-small", href: `/api/admin/backups/${encodeURIComponent(backup.name)}`, download: "", text: "Download" }), h("button", { class: "btn btn-small", type: "button", text: "Restore", onclick: () => restoreFrom(backup) }))) }
+          ],
+          items,
+          { empty: "No backups on the server yet. The first is made when the website starts." }
+        )
+      );
+    } catch (error) {
+      serverCard.replaceChildren(h("p", { class: "error", text: error.message }));
+    }
+  };
+  drawServer();
   main.replaceChildren(
-    pageHead("Backup", "Download everything, or restore a previous download."),
-    h("div", { class: "grid grid-2" },
+    pageHead("Backup", "Automatic daily backups on the server, plus download and restore."),
+    serverCard,
+    h("div", { class: "grid grid-2", style: { marginTop: "16px" } },
       h("section", { class: "card" }, h("h2", { text: "Download a backup" }), h("p", { style: { margin: "8px 0 16px", color: "var(--muted)" }, text: "Saves orders, enquiries, file service accounts (with their password hashes, so keep it private), credits, payments, file orders, products, vehicles, ECUs, brands, services, the photo list and settings as one JSON file. Uploaded images and ECU files themselves are not included." }), h("a", { class: "btn btn-primary", href: "/api/admin/export", download: "", text: "Download backup" })),
-      h("section", { class: "card" }, h("h2", { text: "Restore" }), h("p", { style: { margin: "8px 0 16px", color: "var(--muted)" }, text: "Replaces all current data with a backup file from this panel. Download a fresh backup first." }), restore, file)
+      h("section", { class: "card" }, h("h2", { text: "Restore from a file" }), h("p", { style: { margin: "8px 0 16px", color: "var(--muted)" }, text: "Replaces all current data with a backup file from this panel. The current data is saved on the server first." }), restore, file)
     )
   );
 }
@@ -1576,7 +1958,9 @@ async function viewFileOrders(main, id) {
       tell.textContent = "Tell the customer on WhatsApp";
     }
     const save = h("button", { class: "btn btn-primary", type: "button", text: "Save" });
-    const dialog = modal({ title: `File ${order.number}`, body, footer: [tell, save].filter(Boolean), wide: true });
+    const remove = deleteButton({ path: `/api/admin/file-orders/${order.id}`, what: `file order ${order.number}`, warning: "Credits aren't refunded by deleting; reject or cancel it first to refund them. ", reload: () => viewFileOrders(main), dialog: () => dialog });
+    if (remove && tell) tell.className = "btn";
+    const dialog = modal({ title: `File ${order.number}`, body, footer: [remove, tell, save].filter(Boolean), wide: true });
     save.addEventListener("click", async () => {
       const changes = { message: message.value, adminNotes: notes.value, providerReference: reference.value };
       if (!closed && status.value !== order.status) {
@@ -1596,6 +1980,9 @@ async function viewFileOrders(main, id) {
   };
   listView({
     main,
+    section: "files",
+    reload: () => viewFileOrders(main),
+    bulkStatus: false,
     title: "File orders",
     subtitle: "Tuning files ordered with credits on the file service (/files).",
     items,
@@ -1694,7 +2081,8 @@ async function viewCustomers(main, id) {
       ledgerTable
     );
     const save = h("button", { class: "btn btn-primary", type: "button", text: "Save" });
-    const dialog = modal({ title: customer.name, body, footer: [save], wide: true });
+    const remove = deleteButton({ path: `/api/admin/customers/${customer.id}`, what: `${customer.name}'s account`, warning: "Their credit history, payments and file orders go with it. ", reload: () => viewCustomers(main), dialog: () => dialog });
+    const dialog = modal({ title: customer.name, body, footer: [remove, save].filter(Boolean), wide: true });
     save.addEventListener("click", async () => {
       try {
         await api(`/api/admin/customers/${customer.id}`, { method: "PATCH", body: { name: name.value, phone: phone.value, company: company.value, active: active.checked } });
@@ -1706,28 +2094,24 @@ async function viewCustomers(main, id) {
       }
     });
   };
-  const input = h("input", { type: "search", placeholder: "Search", "aria-label": "Search customers" });
-  const holder = h("div");
-  const draw = () => {
-    const query = input.value.trim().toLowerCase();
-    const rows = items.filter((customer) => !query || `${customer.name} ${customer.email} ${customer.phone} ${customer.company}`.toLowerCase().includes(query));
-    holder.replaceChildren(
-      dataTable(
-        [
-          { label: "Customer", cell: (customer) => [customer.name, h("span", { class: "sub", text: customer.company || customer.email })] },
-          { label: "Contact", cell: (customer) => [customer.email, h("span", { class: "sub", text: customer.phone })] },
-          { label: "Credits", class: "num", cell: (customer) => creditNumber(customer.credits) },
-          { label: "Files", class: "num", cell: (customer) => String(customer.orders) },
-          { label: "Account", cell: (customer) => pill(customer.active ? "active" : "cancelled", customer.active ? "On" : "Off") }
-        ],
-        rows,
-        { onRowClick: detail, empty: "No customers yet. Tuners create accounts on /files." }
-      )
-    );
-  };
-  input.addEventListener("input", draw);
-  main.replaceChildren(pageHead("Customers", "File service accounts, their credits and history."), h("div", { class: "toolbar" }, input), holder);
-  draw();
+  listView({
+    main,
+    section: "customers",
+    reload: () => viewCustomers(main),
+    title: "Customers",
+    subtitle: "File service accounts, their credits and history.",
+    items,
+    empty: "No customers yet. Tuners create accounts on /files.",
+    search: (customer) => `${customer.name} ${customer.email} ${customer.phone} ${customer.company}`,
+    detail,
+    columns: [
+      { label: "Customer", cell: (customer) => [customer.name, h("span", { class: "sub", text: customer.company || customer.email })] },
+      { label: "Contact", cell: (customer) => [customer.email, h("span", { class: "sub", text: customer.phone })] },
+      { label: "Credits", class: "num", cell: (customer) => creditNumber(customer.credits) },
+      { label: "Files", class: "num", cell: (customer) => String(customer.orders) },
+      { label: "Account", cell: (customer) => pill(customer.active ? "active" : "cancelled", customer.active ? "On" : "Off") }
+    ]
+  });
   const open = items.find((customer) => customer.id === id);
   if (open) detail(open);
 }
@@ -1765,6 +2149,11 @@ async function viewPayments(main, id) {
       });
       footer.push(confirm);
     }
+    const remove = deleteButton({ path: `/api/admin/purchases/${purchase.id}`, what: `payment ${purchase.number}`, warning: purchase.status === "paid" ? "Credits already added stay with the customer. " : "", reload: () => viewPayments(main), dialog: () => dialog });
+    if (remove) {
+      for (const button of footer) button.classList.remove("spacer");
+      footer.unshift(remove);
+    }
     const dialog = modal({
       title: `Payment ${purchase.number}`,
       wide: true,
@@ -1781,6 +2170,9 @@ async function viewPayments(main, id) {
   };
   listView({
     main,
+    section: "payments",
+    reload: () => viewPayments(main),
+    bulkStatus: false,
     title: "Payments",
     subtitle: service.upi || service.razorpay
       ? `Credit pack purchases. UPI payments need you to check the money arrived, then confirm.${service.razorpay ? " Razorpay payments confirm themselves." : ""}`
@@ -1825,11 +2217,99 @@ async function refreshBadges() {
 }
 
 async function loadState() {
-  const { businessName } = await api("/api/admin/me");
+  const { businessName, user, maintenanceMode } = await api("/api/admin/me");
   const { settings } = await api("/api/admin/settings");
   state.businessName = businessName;
   state.currency = settings.currency;
+  state.user = user;
+  state.maintenance = maintenanceMode;
 }
+
+// Staff change their own password; the owner's is set on the server.
+function changePassword() {
+  formModal({
+    title: "Change your password",
+    fields: [
+      { name: "current", label: "Current password", type: "password", full: true },
+      { name: "next", label: "New password", type: "password", full: true, help: "At least 10 characters." }
+    ],
+    submitLabel: "Change password",
+    onSubmit: async (values) => {
+      await api("/api/admin/me/password", { method: "POST", body: values });
+      toast("Password changed");
+    }
+  });
+}
+
+// ---------- Search everything (Ctrl+K) ----------
+
+const SECTION_NAMES = Object.fromEntries(SECTIONS.map(([key, label]) => [key, label]));
+
+function openSearch() {
+  if (document.querySelector("dialog.palette")) return;
+  const input = h("input", { type: "search", placeholder: "Search orders, customers, files, products…", "aria-label": "Search everything", autocomplete: "off" });
+  const list = h("ul", { class: "palette-results", role: "listbox" });
+  let results = [];
+  let active = 0;
+  let timer;
+  const go = (result) => {
+    dialog.close();
+    location.hash = `#${result.section}/${result.id}`;
+  };
+  const draw = () => {
+    list.replaceChildren(
+      ...(results.length
+        ? results.map((result, index) =>
+            h("li", { role: "option", "aria-selected": String(index === active), class: index === active ? "active" : "", onclick: () => go(result) },
+              h("span", { class: "palette-title", text: result.title }),
+              h("span", { class: "sub", text: [SECTION_NAMES[result.section], result.sub].filter(Boolean).join(" · ") })
+            )
+          )
+        : [h("li", { class: "palette-empty", text: input.value.trim().length >= 2 ? "Nothing found." : "Type at least two letters. Tip: press Ctrl+K (⌘K on a Mac) anywhere." })])
+    );
+    list.querySelector(".active")?.scrollIntoView({ block: "nearest" });
+  };
+  input.addEventListener("input", () => {
+    clearTimeout(timer);
+    timer = setTimeout(async () => {
+      try {
+        ({ results } = await api(`/api/admin/search?q=${encodeURIComponent(input.value)}`));
+        results = results.filter((result) => allowedSections().some(([key]) => key === result.section));
+        active = 0;
+        draw();
+      } catch (error) {
+        reportError(error);
+      }
+    }, 150);
+  });
+  input.addEventListener("keydown", (event) => {
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      if (!results.length) return;
+      active = (active + (event.key === "ArrowDown" ? 1 : results.length - 1)) % results.length;
+      draw();
+    } else if (event.key === "Enter" && results[active]) {
+      event.preventDefault();
+      go(results[active]);
+    }
+  });
+  const dialog = h("dialog", { class: "modal palette", "aria-label": "Search everything" }, input, list);
+  dialog.addEventListener("close", () => dialog.remove());
+  dialog.addEventListener("click", (event) => event.target === dialog && dialog.close());
+  document.body.append(dialog);
+  dialog.showModal();
+  draw();
+  input.focus();
+}
+
+addEventListener("keydown", (event) => {
+  if (!state.user || !document.querySelector(".shell")) return;
+  const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName ?? "");
+  if ((event.key === "k" && (event.ctrlKey || event.metaKey)) || (event.key === "/" && !typing)) {
+    event.preventDefault();
+    openSearch();
+  }
+});
 
 function renderShell() {
   document.title = `Admin · ${state.businessName}`;
@@ -1839,16 +2319,27 @@ function renderShell() {
     showLogin();
   });
   const main = h("main", { class: "main", id: "main", tabindex: "-1" });
+  const link = ([id, label]) => h("a", { href: `#${id}`, dataset: { section: id } }, label, BADGES.includes(id) ? h("span", { class: "count", dataset: { badge: id }, hidden: true }) : null);
+  const groups = NAV.map(([title, items]) => [title, items.filter(([, , role = "staff"]) => can(role))]).filter(([, items]) => items.length);
+  const banner = state.maintenance
+    ? h("div", { class: "maintenance-banner", role: "status" }, "Maintenance mode is on: visitors see a notice instead of the website. ", can("owner") ? h("a", { href: "#settings", text: "Turn it off in Settings" }) : null)
+    : null;
   app.replaceChildren(
     h("div", { class: "shell" },
       h("aside", { class: "sidebar" },
         h("div", { class: "brand", text: state.businessName }),
+        h("button", { class: "search-button", type: "button", onclick: openSearch }, h("span", { text: "Search" }), h("kbd", { text: /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘K" : "Ctrl K" })),
         h("nav", { class: "side-nav", "aria-label": "Admin sections" },
-          ...SECTIONS.map(([id, label]) => h("a", { href: `#${id}`, dataset: { section: id } }, label, BADGES.includes(id) ? h("span", { class: "count", dataset: { badge: id }, hidden: true }) : null))
+          ...groups.flatMap(([title, items]) => [title ? h("p", { class: "nav-group", text: title }) : null, ...items.map(link)])
         ),
-        h("div", { class: "sidebar-foot" }, h("a", { href: "/", target: "_blank", rel: "noopener", text: "View website ↗" }), signOut)
+        h("div", { class: "sidebar-foot" },
+          h("p", { class: "signed-in" }, h("strong", { text: (state.user?.role === "owner" ? state.user.username : state.user?.name) ?? "" }), h("span", { text: ROLE_LABELS[state.user?.role] ?? "" })),
+          h("a", { href: "/", target: "_blank", rel: "noopener", text: "View website ↗" }),
+          state.user?.role !== "owner" ? h("button", { class: "btn-link", type: "button", text: "Change password", onclick: changePassword, style: { border: "0", background: "none", color: "var(--link)", cursor: "pointer", padding: "0", textAlign: "left" } }) : null,
+          signOut
+        )
       ),
-      main
+      h("div", { class: "main-wrap" }, banner, main)
     )
   );
   route();
@@ -1861,7 +2352,7 @@ async function route() {
   // Navigating (e.g. with the Back button) closes any open editor instead of leaving it on top.
   for (const open of document.querySelectorAll("dialog[open]")) open.close();
   const [section = "dashboard", id] = location.hash.slice(1).split("/");
-  const known = SECTIONS.some(([key]) => key === section) ? section : "dashboard";
+  const known = allowedSections().some(([key]) => key === section) ? section : "dashboard";
   for (const link of document.querySelectorAll("[data-section]")) {
     if (link.dataset.section === known) link.setAttribute("aria-current", "page");
     else link.removeAttribute("aria-current");
@@ -1879,6 +2370,9 @@ async function route() {
     else if (known === "customers") await viewCustomers(main, id);
     else if (known === "payments") await viewPayments(main, id);
     else if (known === "settings") await viewSettings(main);
+    else if (known === "staff") await viewStaff(main);
+    else if (known === "activity") await viewActivity(main);
+    else if (known === "trash") await viewTrash(main);
     else if (known === "backup") viewBackup(main);
     else await collectionView(main, id, COLLECTION_VIEWS[known]);
   } catch (error) {

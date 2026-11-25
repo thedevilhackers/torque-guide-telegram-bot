@@ -1,15 +1,19 @@
 import { randomBytes } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { logActivity } from "../activity.js";
 import { alertChats, broadcast, createLinkCode, unlinkChat } from "../alerts.js";
+import { listBackups, readBackup, writeBackup } from "../backups.js";
 import { DATA_DIR, db, replaceData, settings, transact } from "../db.js";
 import { FRANCHISE_STATUSES } from "../franchise.js";
+import { MIN_STAFF_PASSWORD, STAFF_ROLES, changeOwnPassword, createStaff, isRole, noteSignIn, removeStaff, staffView, updateStaff } from "../staff.js";
+import { REMOVABLE, expireTrash, purgeTrash, restoreTrash, trashItem } from "../trash.js";
 import { MECHANIC_STATUSES } from "../mechanics.js";
 import { REFERRAL_STATUSES, REFERRER_STATUSES, referrerSummary } from "../referrals.js";
 import { DEFAULT_SETTINGS } from "../seed-data.js";
 import { ENQUIRY_STATUSES, InputError, ORDER_STATUSES } from "../records.js";
 import { slugify, validateBrand, validateCreditPack, validateEcu, validateFranchisePackage, validateOffer, validatePhoto, validateProduct, validateService, validateSettings, validateTuneOption, validateVehicle, vehicleFormValues } from "../validation.js";
-import { adminEnabled, checkCredentials, currentAdmin, endSession, startSession } from "./auth.js";
+import { adminEnabled, checkCredentials, currentAdmin, endSession, endSessionsFor, startSession } from "./auth.js";
 import { registerFileAdminRoutes } from "./file-admin-api.js";
 import { HttpError, rateLimiter, readJson, sameOrigin, sendJson } from "./http.js";
 
@@ -57,6 +61,14 @@ function findIndex(list, id, label) {
 }
 
 // Moves stock back into (direction 1) or out of (direction -1) the shop for an order's items.
+// Cancelling returns items to stock; reopening takes them out again.
+function setOrderStatus(data, order, status) {
+  if (!ORDER_STATUSES.includes(status)) throw new InputError("Unknown order status.");
+  if (isOpen(order.status) && !isOpen(status)) adjustStock(data, order, 1);
+  if (!isOpen(order.status) && isOpen(status)) adjustStock(data, order, -1);
+  order.status = status;
+}
+
 function adjustStock(data, order, direction) {
   for (const item of order.items) {
     const product = data.products.find((candidate) => candidate.id === item.productId);
@@ -94,6 +106,7 @@ function dashboard(data) {
     paymentsToCheck: data.creditPurchases.filter((purchase) => purchase.status === "submitted").length,
     newFranchiseLeads: data.franchiseLeads.filter((lead) => lead.status === "new").length,
     newReferrals: data.referrals.filter((entry) => entry.status === "pending").length,
+    todo: todoList(data),
     newMechanics: data.mechanics.filter((entry) => entry.status === "pending").length,
     enquiries30: data.enquiries.filter((enquiry) => Date.parse(enquiry.createdAt) >= now - 30 * day).length,
     lowStock: data.products.filter((product) => product.active && product.stock !== null && product.stock <= 3).map(({ id, name, stock }) => ({ id, name, stock })),
@@ -104,9 +117,25 @@ function dashboard(data) {
   };
 }
 
+// What needs doing, for the dashboard: only the lines with something waiting.
+function todoList(data) {
+  const owed = data.referrals.filter((entry) => entry.status === "confirmed");
+  const lowStock = data.products.filter((product) => product.active && product.stock !== null && product.stock <= 3).length;
+  return [
+    { section: "orders", label: "New shop orders to confirm", count: data.orders.filter((order) => order.status === "new").length },
+    { section: "enquiries", label: "New enquiries to answer", count: data.enquiries.filter((enquiry) => enquiry.status === "new").length },
+    { section: "files", label: "File orders waiting", count: data.fileOrders.filter((order) => order.status === "submitted").length },
+    { section: "payments", label: "UPI payments to check", count: data.creditPurchases.filter((purchase) => purchase.status === "submitted").length },
+    { section: "franchise", label: "New franchise applications", count: data.franchiseLeads.filter((lead) => lead.status === "new").length },
+    { section: "mechanics", label: "Mechanics to call and check", count: data.mechanics.filter((entry) => entry.status === "pending").length },
+    { section: "referrals", label: "Referral rewards to pay", count: owed.length, note: owed.length ? `₹${owed.reduce((sum, entry) => sum + entry.reward, 0).toLocaleString("en-IN")} owed` : "" },
+    { section: "products", label: "Products low on stock", count: lowStock }
+  ].filter((entry) => entry.count > 0);
+}
+
 const ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,59}$/;
 // Lists that older backups may not have.
-const LATER_LISTS = new Set(["photos", "tuneOptions", "creditPacks", "franchisePackages", "franchiseLeads", "offers", "referrers", "referrals", "mechanics", "customers", "creditLedger", "creditPurchases", "fileOrders"]);
+const LATER_LISTS = new Set(["photos", "tuneOptions", "creditPacks", "franchisePackages", "franchiseLeads", "offers", "referrers", "referrals", "mechanics", "staff", "customers", "creditLedger", "creditPurchases", "fileOrders"]);
 const FILE_SERVICE_LISTS = ["customers", "creditLedger", "creditPurchases", "fileOrders"];
 const isDate = (value) => typeof value === "string" && !Number.isNaN(Date.parse(value));
 const isText = (value) => typeof value === "string";
@@ -129,7 +158,8 @@ function validFranchiseLead(lead) {
 const PEOPLE_CHECKS = {
   referrers: ["Refer & earn sign-up", (entry) => isText(entry.code) && /^[A-Z0-9]{2,12}$/.test(entry.code) && isText(entry.name) && isText(entry.phone) && REFERRER_STATUSES.includes(entry.status)],
   referrals: ["Referral", (entry) => isDate(entry.createdAt) && isText(entry.code) && REFERRAL_STATUSES.includes(entry.status) && Number.isFinite(entry.reward) && isText(entry.customer?.name)],
-  mechanics: ["Mechanic", (entry) => isDate(entry.createdAt) && isText(entry.name) && isText(entry.phone) && MECHANIC_STATUSES.includes(entry.status) && Array.isArray(entry.skills) && Number.isFinite(entry.rate)]
+  mechanics: ["Mechanic", (entry) => isDate(entry.createdAt) && isText(entry.name) && isText(entry.phone) && MECHANIC_STATUSES.includes(entry.status) && Array.isArray(entry.skills) && Number.isFinite(entry.rate)],
+  staff: ["Staff member", (entry) => isText(entry.username) && isText(entry.name) && STAFF_ROLES.includes(entry.role) && /^[a-f0-9]{32}$/.test(entry.password?.salt) && /^[a-f0-9]{64}$/.test(entry.password?.hash)]
 };
 
 function validEnquiry(enquiry) {
@@ -201,6 +231,9 @@ function cleanBackup(backup) {
     ...(present("franchiseLeads") && { franchiseLeads: backup.franchiseLeads }),
     ...(present("offers") && { offers: each("offers", "Offer", validateOffer) }),
     ...Object.fromEntries(Object.keys(PEOPLE_CHECKS).filter(present).map((name) => [name, backup[name]])),
+    // The activity log comes back if it's readable; the recycle bin isn't restored from a backup.
+    activity: Array.isArray(backup.activity) ? backup.activity.filter((entry) => entry && isDate(entry.at) && isText(entry.action)).slice(0, 3000) : [],
+    trash: [],
     ...fileService,
     orders: backup.orders,
     enquiries: backup.enquiries,
@@ -235,20 +268,41 @@ export function registerAdminRoutes(route, { botUsername = () => "", sendAlert =
   const loginFailures = rateLimiter({ windowMs: 15 * 60_000, max: 5 });
 
   // Every admin request needs a session; changes also need the admin panel's header and origin,
-  // which a page on another site can't send.
+  // which a page on another site can't send. role is the least role allowed: reading is open to every
+  // signed-in user, changes to managers, unless a route says otherwise. Every change is written to the
+  // activity log (a handler can name it with _log).
   // raw leaves the body unread, for file uploads.
-  const admin = (method, path, handler, { bodyLimit, raw = false } = {}) =>
+  const admin = (method, path, handler, { bodyLimit, raw = false, role = method === "GET" ? "staff" : "manager" } = {}) =>
     route(method, path, async (context) => {
-      if (!currentAdmin(context.req)) throw new HttpError(401, "Please sign in.");
+      const user = currentAdmin(context.req);
+      if (!user) throw new HttpError(401, "Please sign in.");
       if (method !== "GET" && (context.req.headers["x-requested-with"] !== "unity-admin" || !sameOrigin(context.req))) throw new HttpError(403, "Request blocked.");
+      if (!isRole(user, role)) throw new HttpError(403, role === "owner" ? "Only the owner can do this." : "Your role can't do this. Ask the owner or a manager.");
+      context.user = user;
       if (!raw && (method === "POST" || method === "PUT" || method === "PATCH")) context.body = await readJson(context.req, bodyLimit);
-      return handler(context);
+      const result = await handler(context);
+      if (method !== "GET" && result && typeof result === "object") {
+        const action = result._log ?? describeChange(method, path, context.body, result);
+        delete result._log;
+        if (action) logActivity(user, action, { link: linkFor(path, context.params, result), ip: context.ip });
+      }
+      return result;
     });
+
+  // Deleting moves the item (and what belongs to it) to the recycle bin; the reply carries the bin
+  // entry's id, for Undo.
+  const removeRoute = (section, path) =>
+    admin("DELETE", path, ({ params, user }) =>
+      transact((data) => {
+        const entry = trashItem(data, section, params.id, user);
+        return { ok: true, trashId: entry.id, _log: `Deleted ${entry.noun} ${entry.label}` };
+      })
+    );
 
   route("GET", "/api/admin/me", ({ req }) => {
     const user = currentAdmin(req);
     if (!user) throw new HttpError(401, adminEnabled() ? "Please sign in." : "The admin panel is locked. Set ADMIN_PASSWORD (at least 10 characters) on the server.");
-    return { user, businessName: settings().businessName };
+    return { user, businessName: settings().businessName, maintenanceMode: settings().maintenanceMode };
   });
 
   route("POST", "/api/admin/login", async ({ req, res, ip }) => {
@@ -257,11 +311,15 @@ export function registerAdminRoutes(route, { botUsername = () => "", sendAlert =
     const { username, password } = await readJson(req, 10_000);
     // Checked before the password, so a blocked address can't keep guessing.
     if (loginFailures.blocked(ip)) throw new HttpError(429, "Too many failed sign-ins. Please wait 15 minutes.");
-    if (!checkCredentials(username, password)) {
+    const user = checkCredentials(username, password);
+    if (!user) {
       loginFailures.hit(ip);
+      logActivity(null, `Failed sign-in as “${String(username ?? "").slice(0, 40)}”`, { ip });
       throw new HttpError(401, "Wrong username or password.");
     }
-    startSession(req, res);
+    startSession(req, res, user);
+    if (user.role !== "owner") noteSignIn(user.id);
+    logActivity(user, "Signed in", { ip });
     return { ok: true };
   });
 
@@ -273,6 +331,9 @@ export function registerAdminRoutes(route, { botUsername = () => "", sendAlert =
   admin("GET", "/api/admin/dashboard", () => dashboard(db()));
 
   registerFileAdminRoutes(admin, { fetchImpl });
+  removeRoute("files", "/api/admin/file-orders/:id");
+  removeRoute("payments", "/api/admin/purchases/:id");
+  removeRoute("customers", "/api/admin/customers/:id");
 
   for (const [name, collection] of Object.entries(COLLECTIONS)) {
     const label = name.replace(/s$/, "");
@@ -302,88 +363,68 @@ export function registerAdminRoutes(route, { botUsername = () => "", sendAlert =
       })
     );
 
-    admin("DELETE", `/api/admin/${name}/:id`, ({ params }) =>
-      transact((data) => {
-        const index = findIndex(data[name], params.id, label);
-        if (name === "brands") {
-          const used = data.vehicles.filter((vehicle) => vehicle.brand === params.id).length;
-          if (used) throw new InputError(`This brand is used by ${used} vehicle${used === 1 ? "" : "s"}. Delete or move those first.`);
-        }
-        if (name === "ecus") for (const vehicle of data.vehicles) vehicle.ecus = vehicle.ecus.filter((ecu) => ecu !== params.id);
-        data[name].splice(index, 1);
-        return { ok: true };
-      })
-    );
+    removeRoute(name, `/api/admin/${name}/:id`);
   }
 
   admin("GET", "/api/admin/orders", () => ({ items: db().orders, statuses: ORDER_STATUSES }));
 
-  admin("PATCH", "/api/admin/orders/:id", ({ body, params }) =>
-    transact((data) => {
-      const order = data.orders[findIndex(data.orders, params.id, "Order")];
-      if (body.status !== undefined) {
-        if (!ORDER_STATUSES.includes(body.status)) throw new InputError("Unknown order status.");
-        // Cancelling returns items to stock; reopening takes them out again.
-        if (isOpen(order.status) && !isOpen(body.status)) adjustStock(data, order, 1);
-        if (!isOpen(order.status) && isOpen(body.status)) adjustStock(data, order, -1);
-        order.status = body.status;
-      }
-      if (body.adminNotes !== undefined) order.adminNotes = String(body.adminNotes).slice(0, 1000);
-      order.updatedAt = new Date().toISOString();
-      return { item: order };
-    })
+  admin(
+    "PATCH",
+    "/api/admin/orders/:id",
+    ({ body, params }) =>
+      transact((data) => {
+        const order = data.orders[findIndex(data.orders, params.id, "Order")];
+        if (body.status !== undefined) setOrderStatus(data, order, body.status);
+        if (body.adminNotes !== undefined) order.adminNotes = String(body.adminNotes).slice(0, 1000);
+        order.updatedAt = new Date().toISOString();
+        return { item: order };
+      }),
+    { role: "staff" }
   );
 
-  admin("DELETE", "/api/admin/orders/:id", ({ params }) =>
-    transact((data) => {
-      data.orders.splice(findIndex(data.orders, params.id, "Order"), 1);
-      return { ok: true };
-    })
-  );
+  removeRoute("orders", "/api/admin/orders/:id");
 
   admin("GET", "/api/admin/enquiries", () => ({ items: db().enquiries, statuses: ENQUIRY_STATUSES }));
 
-  admin("PATCH", "/api/admin/enquiries/:id", ({ body, params }) =>
-    transact((data) => {
-      const enquiry = data.enquiries[findIndex(data.enquiries, params.id, "Enquiry")];
-      if (body.status !== undefined) {
-        if (!ENQUIRY_STATUSES.includes(body.status)) throw new InputError("Unknown enquiry status.");
-        enquiry.status = body.status;
-      }
-      if (body.notes !== undefined) enquiry.notes = String(body.notes).slice(0, 1000);
-      enquiry.updatedAt = new Date().toISOString();
-      return { item: enquiry };
-    })
+  admin(
+    "PATCH",
+    "/api/admin/enquiries/:id",
+    ({ body, params }) =>
+      transact((data) => {
+        const enquiry = data.enquiries[findIndex(data.enquiries, params.id, "Enquiry")];
+        if (body.status !== undefined) {
+          if (!ENQUIRY_STATUSES.includes(body.status)) throw new InputError("Unknown enquiry status.");
+          enquiry.status = body.status;
+        }
+        if (body.notes !== undefined) enquiry.notes = String(body.notes).slice(0, 1000);
+        enquiry.updatedAt = new Date().toISOString();
+        return { item: enquiry };
+      }),
+    { role: "staff" }
   );
 
-  admin("DELETE", "/api/admin/enquiries/:id", ({ params }) =>
-    transact((data) => {
-      data.enquiries.splice(findIndex(data.enquiries, params.id, "Enquiry"), 1);
-      return { ok: true };
-    })
-  );
+  removeRoute("enquiries", "/api/admin/enquiries/:id");
 
   admin("GET", "/api/admin/franchise", () => ({ items: db().franchiseLeads, statuses: FRANCHISE_STATUSES }));
 
-  admin("PATCH", "/api/admin/franchise/:id", ({ body, params }) =>
-    transact((data) => {
-      const lead = data.franchiseLeads[findIndex(data.franchiseLeads, params.id, "Application")];
-      if (body.status !== undefined) {
-        if (!FRANCHISE_STATUSES.includes(body.status)) throw new InputError("Unknown application status.");
-        lead.status = body.status;
-      }
-      if (body.notes !== undefined) lead.notes = String(body.notes).slice(0, 2000);
-      lead.updatedAt = new Date().toISOString();
-      return { item: lead };
-    })
+  admin(
+    "PATCH",
+    "/api/admin/franchise/:id",
+    ({ body, params }) =>
+      transact((data) => {
+        const lead = data.franchiseLeads[findIndex(data.franchiseLeads, params.id, "Application")];
+        if (body.status !== undefined) {
+          if (!FRANCHISE_STATUSES.includes(body.status)) throw new InputError("Unknown application status.");
+          lead.status = body.status;
+        }
+        if (body.notes !== undefined) lead.notes = String(body.notes).slice(0, 2000);
+        lead.updatedAt = new Date().toISOString();
+        return { item: lead };
+      }),
+    { role: "staff" }
   );
 
-  admin("DELETE", "/api/admin/franchise/:id", ({ params }) =>
-    transact((data) => {
-      data.franchiseLeads.splice(findIndex(data.franchiseLeads, params.id, "Application"), 1);
-      return { ok: true };
-    })
-  );
+  removeRoute("franchise", "/api/admin/franchise/:id");
 
   // Lists people send from the website (sign-ups, referrals): a status, private notes, delete.
   const statusList = (path, list, label, statuses, patch) => {
@@ -400,12 +441,7 @@ export function registerAdminRoutes(route, { botUsername = () => "", sendAlert =
         return { item };
       })
     );
-    admin("DELETE", `/api/admin/${path}/:id`, ({ params }) =>
-      transact((data) => {
-        data[list].splice(findIndex(data[list], params.id, label), 1);
-        return { ok: true };
-      })
-    );
+    removeRoute(path, `/api/admin/${path}/:id`);
   };
 
   admin("GET", "/api/admin/referrals", () => ({ items: db().referrals, statuses: REFERRAL_STATUSES }));
@@ -454,29 +490,46 @@ export function registerAdminRoutes(route, { botUsername = () => "", sendAlert =
   // Telegram alerts: linked chats, one-time link codes and a test message.
   admin("GET", "/api/admin/alerts", () => ({ chats: alertChats(), botUsername: botUsername(), botRunning: Boolean(sendAlert && botUsername()) }));
 
-  admin("POST", "/api/admin/alerts/link", () => {
-    if (!sendAlert || !botUsername()) throw new InputError("The Telegram bot isn't running. Set TELEGRAM_BOT_TOKEN on the server and restart it.");
-    const { code, expiresAt } = createLinkCode();
-    return { code, expiresAt, url: `https://t.me/${botUsername()}?start=alerts_${code}` };
-  });
+  admin(
+    "POST",
+    "/api/admin/alerts/link",
+    () => {
+      if (!sendAlert || !botUsername()) throw new InputError("The Telegram bot isn't running. Set TELEGRAM_BOT_TOKEN on the server and restart it.");
+      const { code, expiresAt } = createLinkCode();
+      return { code, expiresAt, url: `https://t.me/${botUsername()}?start=alerts_${code}`, _log: "Made a Telegram alert link code" };
+    },
+    { role: "owner" }
+  );
 
-  admin("DELETE", "/api/admin/alerts/:chatId", ({ params }) => {
-    if (!unlinkChat(params.chatId)) throw new HttpError(404, "That chat isn't linked.");
-    return { ok: true };
-  });
+  admin(
+    "DELETE",
+    "/api/admin/alerts/:chatId",
+    ({ params }) => {
+      if (!unlinkChat(params.chatId)) throw new HttpError(404, "That chat isn't linked.");
+      return { ok: true, _log: "Removed a Telegram alert chat" };
+    },
+    { role: "owner" }
+  );
 
   admin("POST", "/api/admin/alerts/test", async () => {
     if (!sendAlert) throw new InputError("The Telegram bot isn't running. Set TELEGRAM_BOT_TOKEN on the server and restart it.");
     if (!alertChats().length) throw new InputError("Link a Telegram chat first.");
     const sent = await broadcast({ text: `✅ Test alert from the ${settings().businessName} admin panel. New orders and enquiries will arrive here.` }, sendAlert);
-    return { sent };
+    return { sent, _log: "Sent a test Telegram alert" };
   });
 
-  admin("PUT", "/api/admin/settings", ({ body }) =>
-    transact((data) => {
-      data.settings = { ...data.settings, ...validateSettings(body) };
-      return { settings: data.settings };
-    })
+  // Settings hold the UPI ID payments go to, so only the owner changes them.
+  admin(
+    "PUT",
+    "/api/admin/settings",
+    ({ body }) =>
+      transact((data) => {
+        const before = data.settings;
+        data.settings = { ...data.settings, ...validateSettings(body) };
+        const changed = Object.keys(data.settings).filter((key) => JSON.stringify(before[key]) !== JSON.stringify(data.settings[key]));
+        return { settings: data.settings, _log: changed.length ? `Changed settings: ${changed.join(", ")}` : "" };
+      }),
+    { role: "owner" }
   );
 
   // Images arrive as data URLs; only real PNG, JPEG and WebP files are kept, under random names.
@@ -493,23 +546,257 @@ export function registerAdminRoutes(route, { botUsername = () => "", sendAlert =
       const name = `${randomBytes(16).toString("hex")}.${type.ext}`;
       mkdirSync(UPLOAD_DIR, { recursive: true });
       writeFileSync(join(UPLOAD_DIR, name), bytes);
-      return { url: `/uploads/${name}` };
+      return { url: `/uploads/${name}`, _log: "" };
     },
     { bodyLimit: 8_000_000 }
   );
 
-  admin("GET", "/api/admin/export", ({ res }) => {
-    const date = new Date().toISOString().slice(0, 10);
-    sendJson(res, 200, db(), { "Content-Disposition": `attachment; filename="unity-performance-backup-${date}.json"` });
-  });
+  admin(
+    "GET",
+    "/api/admin/export",
+    ({ res, user, ip }) => {
+      const date = new Date().toISOString().slice(0, 10);
+      logActivity(user, "Downloaded a backup", { ip });
+      sendJson(res, 200, db(), { "Content-Disposition": `attachment; filename="unity-performance-backup-${date}.json"` });
+    },
+    { role: "owner" }
+  );
 
+  // A restore first saves the current data as a backup on the server, so it can be undone.
   admin(
     "POST",
     "/api/admin/import",
     ({ body }) => {
-      replaceData(cleanBackup(body));
-      return { ok: true };
+      const cleaned = cleanBackup(body);
+      const saved = writeBackup("restore");
+      replaceData(cleaned);
+      return { ok: true, saved, _log: `Restored a backup file (the data before it was saved as ${saved})` };
     },
-    { bodyLimit: 25_000_000 }
+    { bodyLimit: 25_000_000, role: "owner" }
   );
+
+  // ---------- Automatic backups on the server ----------
+
+  admin("GET", "/api/admin/backups", () => ({ items: listBackups() }), { role: "owner" });
+
+  admin("POST", "/api/admin/backups", () => {
+    const name = writeBackup("manual");
+    return { name, items: listBackups(), _log: `Made a backup on the server (${name})` };
+  }, { role: "owner" });
+
+  admin(
+    "GET",
+    "/api/admin/backups/:name",
+    ({ res, params, user, ip }) => {
+      let bytes;
+      try {
+        bytes = readBackup(params.name);
+      } catch {
+        throw new HttpError(404, "That backup doesn't exist.");
+      }
+      logActivity(user, `Downloaded the server backup ${params.name}`, { ip });
+      res.writeHead(200, { "Content-Type": "application/json", "Content-Disposition": `attachment; filename="${params.name}"`, "Cache-Control": "no-store" });
+      res.end(bytes);
+    },
+    { role: "owner" }
+  );
+
+  admin(
+    "POST",
+    "/api/admin/backups/:name/restore",
+    ({ params }) => {
+      let backup;
+      try {
+        backup = JSON.parse(readBackup(params.name));
+      } catch {
+        throw new HttpError(404, "That backup doesn't exist or can't be read.");
+      }
+      const cleaned = cleanBackup(backup);
+      const saved = writeBackup("restore");
+      replaceData(cleaned);
+      return { ok: true, saved, _log: `Restored the server backup ${params.name} (the data before it was saved as ${saved})` };
+    },
+    { role: "owner" }
+  );
+
+  // ---------- Staff accounts (owner only) ----------
+
+  admin("GET", "/api/admin/staff", () => ({ items: db().staff.map(staffView), roles: STAFF_ROLES, minPassword: MIN_STAFF_PASSWORD }), { role: "owner" });
+
+  admin("POST", "/api/admin/staff", ({ body }) => {
+    const item = createStaff(body);
+    return { item, _log: `Added staff member ${item.name} (${item.username}, ${item.role})` };
+  }, { role: "owner" });
+
+  admin("PATCH", "/api/admin/staff/:id", ({ body, params }) => {
+    const item = updateStaff(params.id, body);
+    if (body.password || item.active === false) endSessionsFor(item.id);
+    const what = [body.role !== undefined && `role ${item.role}`, body.active !== undefined && (item.active ? "turned on" : "turned off"), body.password && "new password", body.name !== undefined && "name"].filter(Boolean);
+    return { item, _log: `Changed staff member ${item.name}: ${what.join(", ") || "no changes"}` };
+  }, { role: "owner" });
+
+  admin("DELETE", "/api/admin/staff/:id", ({ params }) => {
+    const item = removeStaff(params.id);
+    endSessionsFor(item.id);
+    return { ok: true, _log: `Removed staff member ${item.name} (${item.username})` };
+  }, { role: "owner" });
+
+  // Staff change their own password; the owner's is ADMIN_PASSWORD on the server.
+  admin("POST", "/api/admin/me/password", ({ body, user }) => {
+    if (user.role === "owner") throw new InputError("The owner's password is ADMIN_PASSWORD in the server's settings file. Change it there and restart the website.");
+    changeOwnPassword(user.id, body.current, body.next);
+    return { ok: true, _log: "Changed their password" };
+  }, { role: "staff" });
+
+  // ---------- Activity log ----------
+
+  admin("GET", "/api/admin/activity", () => ({ items: db().activity }), { role: "manager" });
+
+  // ---------- Recycle bin ----------
+
+  admin("GET", "/api/admin/trash", () => {
+    if (db().trash.some((entry) => Date.now() - Date.parse(entry.deletedAt) >= 30 * 24 * 60 * 60_000)) transact((data) => expireTrash(data));
+    return { items: db().trash.map(({ records, ...entry }) => ({ ...entry, count: Object.values(records).reduce((sum, list) => sum + list.length, 0) })) };
+  }, { role: "manager" });
+
+  admin("POST", "/api/admin/trash/:id/restore", ({ params }) =>
+    transact((data) => {
+      const entry = restoreTrash(data, params.id);
+      const first = Object.values(entry.records)[0]?.[0];
+      return { ok: true, section: entry.section, id: first?.id ?? "", _log: `Restored ${entry.noun} ${entry.label} from the recycle bin` };
+    })
+  );
+
+  admin("DELETE", "/api/admin/trash/:id", ({ params }) =>
+    transact((data) => {
+      const entry = purgeTrash(data, params.id);
+      return { ok: true, _log: `Deleted ${entry.noun} ${entry.label} for good` };
+    }), { role: "owner" });
+
+  admin("DELETE", "/api/admin/trash", () =>
+    transact((data) => {
+      const count = data.trash.length;
+      data.trash = [];
+      return { ok: true, count, _log: `Emptied the recycle bin (${count} item${count === 1 ? "" : "s"})` };
+    }), { role: "owner" });
+
+  // ---------- Bulk actions ----------
+
+  // Several rows at once: delete (to the recycle bin), set a status, or show / hide on the website.
+  // All or nothing: if one row can't be changed, none are.
+  admin(
+    "POST",
+    "/api/admin/bulk",
+    ({ body, user }) => {
+      const section = String(body?.section ?? "");
+      const ids = [...new Set(Array.isArray(body?.ids) ? body.ids.map(String) : [])].slice(0, 2000);
+      if (!ids.length) throw new InputError("Choose at least one row.");
+      const kind = REMOVABLE[section];
+      if (!kind) throw new InputError("Bulk changes aren't available here.");
+      const action = String(body?.action ?? "");
+      const staffCan = action === "status" && STAFF_BULK.has(section);
+      if (!staffCan && !isRole(user, "manager")) throw new HttpError(403, "Your role can't do this. Ask the owner or a manager.");
+      return transact((data) => {
+        const items = ids.map((id) => {
+          const item = data[kind.list].find((entry) => entry.id === id);
+          if (!item) throw new InputError(`One of the chosen ${kind.noun}s no longer exists. Reload and try again.`);
+          return item;
+        });
+        const many = `${ids.length} ${kind.noun}${ids.length === 1 ? "" : "s"}`;
+        if (action === "delete") {
+          for (const id of ids) trashItem(data, section, id, user);
+          return { ok: true, count: ids.length, _log: `Deleted ${many}` };
+        }
+        if (action === "status") {
+          const statuses = BULK_STATUSES[section];
+          if (!statuses?.includes(body.status)) throw new InputError("Choose a status.");
+          const now = new Date().toISOString();
+          for (const item of items) {
+            if (section === "orders") setOrderStatus(data, item, body.status);
+            else item.status = body.status;
+            item.updatedAt = now;
+          }
+          return { ok: true, count: ids.length, _log: `Set ${many} to “${body.status}”` };
+        }
+        if (action === "show" || action === "hide") {
+          if (!items.every((item) => typeof item.active === "boolean")) throw new InputError(`${kind.noun[0].toUpperCase()}${kind.noun.slice(1)}s can't be shown or hidden.`);
+          for (const item of items) item.active = action === "show";
+          return { ok: true, count: ids.length, _log: `${action === "show" ? "Showed" : "Hid"} ${many} on the website` };
+        }
+        throw new InputError("Unknown bulk action.");
+      });
+    },
+    { role: "staff" }
+  );
+
+  // ---------- Search everything ----------
+
+  admin("GET", "/api/admin/search", ({ url }) => ({ results: searchAll(db(), url.searchParams.get("q") ?? "") }));
+}
+
+// Statuses a bulk change can set, per section. Staff may bulk-change only the first three.
+const BULK_STATUSES = { orders: ORDER_STATUSES, enquiries: ENQUIRY_STATUSES, franchise: FRANCHISE_STATUSES, referrals: REFERRAL_STATUSES, referrers: REFERRER_STATUSES, mechanics: MECHANIC_STATUSES };
+const STAFF_BULK = new Set(["orders", "enquiries", "franchise"]);
+
+// The search box (Ctrl+K): orders, enquiries, customers, file orders, payments, leads and the
+// catalogue, newest first, up to 8 per kind.
+const SEARCHABLE = [
+  ["orders", "orders", (item) => [item.number, item.customer?.name, item.customer?.phone], (item) => `Order ${item.number}`, (item) => `${item.customer?.name ?? ""} · ${item.status}`],
+  ["enquiries", "enquiries", (item) => [item.customer?.name, item.customer?.phone, item.customer?.username, item.vehicle?.name, item.referralCode], (item) => `Enquiry from ${item.customer?.name || item.customer?.username || "Telegram customer"}`, (item) => item.vehicle?.name ?? ""],
+  ["customers", "customers", (item) => [item.name, item.email, item.phone, item.workshop], (item) => item.name, (item) => item.email],
+  ["files", "fileOrders", (item) => [item.number, item.vehicle?.make, item.vehicle?.model, item.vehicle?.engine, item.ecu], (item) => `File order ${item.number}`, (item) => [item.vehicle?.make, item.vehicle?.model, item.vehicle?.engine].filter(Boolean).join(" ")],
+  ["payments", "creditPurchases", (item) => [item.number, item.utr], (item) => `Payment ${item.number}`, (item) => item.status],
+  ["franchise", "franchiseLeads", (item) => [item.name, item.phone, item.city], (item) => `Franchise: ${item.name}`, (item) => item.city],
+  ["referrers", "referrers", (item) => [item.name, item.phone, item.code], (item) => `${item.name} · ${item.code}`, (item) => "Refer & earn"],
+  ["mechanics", "mechanics", (item) => [item.name, item.phone, item.area, item.city], (item) => `Mechanic: ${item.name}`, (item) => `${item.area}, ${item.city}`],
+  ["products", "products", (item) => [item.name, item.category], (item) => item.name, (item) => `Product · ${item.category}`],
+  ["vehicles", "vehicles", (item) => [item.brand, item.model, item.generation, item.engine], (item) => [item.brand, item.model, item.generation, item.engine].filter(Boolean).join(" "), () => "Vehicle"],
+  ["ecus", "ecus", (item) => [item.title, item.id], (item) => item.title, () => "ECU"],
+  ["offers", "offers", (item) => [item.title, item.badge], (item) => item.title, () => "Offer"]
+];
+
+function searchAll(data, query) {
+  const words = String(query).toLowerCase().trim().split(/\s+/).filter(Boolean).slice(0, 6);
+  if (!words.length || words.join("").length < 2) return [];
+  const results = [];
+  for (const [section, list, fields, title, sub] of SEARCHABLE) {
+    let found = 0;
+    for (const item of data[list]) {
+      const text = fields(item).filter(Boolean).join(" ").toLowerCase();
+      if (!words.every((word) => text.includes(word))) continue;
+      results.push({ section, id: item.id, title: String(title(item) ?? ""), sub: String(sub(item) ?? "") });
+      if (++found === 8) break;
+    }
+  }
+  return results.slice(0, 60);
+}
+
+// The activity log's wording for a change no handler named.
+const NOUNS = { ...Object.fromEntries(Object.entries(REMOVABLE).map(([section, kind]) => [section, kind.noun])), "file-orders": "file order", purchases: "payment", staff: "staff member" };
+const ACTION_WORDS = { tuned: "Uploaded the tuned file for", credits: "Changed credits for", "reset-link": "Made a password reset link for", confirm: "Confirmed", cancel: "Cancelled", check: "Checked", paid: "Marked as paid:" };
+
+function describeChange(method, path, body, result) {
+  const [segment, , action] = path.split("/").slice(3);
+  const noun = NOUNS[segment] ?? segment;
+  const item = result?.item;
+  const label = item ? item.number ?? item.name ?? item.title ?? item.code ?? item.customer?.name ?? "" : "";
+  const named = label ? ` ${label}` : "";
+  if (action) return `${ACTION_WORDS[action] ?? action} ${noun}${named}`;
+  if (method === "POST") return `Added ${noun}${named}`;
+  if (method === "PUT") return `Edited ${noun}${named}`;
+  if (method === "PATCH") {
+    const parts = [body?.status !== undefined && `status “${body.status}”`, (body?.notes !== undefined || body?.adminNotes !== undefined) && "notes", body?.reward !== undefined && `reward ₹${body.reward}`, body?.rate !== undefined && `price ₹${body.rate}`].filter(Boolean);
+    return `Updated ${noun}${named}${parts.length ? `: ${parts.join(", ")}` : ""}`;
+  }
+  return `${method} ${path}`;
+}
+
+// The admin panel address of what changed, for the activity log.
+const LINK_SECTIONS = { "file-orders": "files", purchases: "payments" };
+function linkFor(path, params, result) {
+  const segment = path.split("/")[3];
+  const section = LINK_SECTIONS[segment] ?? segment;
+  const id = result?.item?.id ?? params?.id ?? "";
+  if (!REMOVABLE[section] || path.endsWith("/:id") && !result?.item) return "";
+  return id ? `#${section}/${id}` : "";
 }

@@ -299,6 +299,8 @@ export function validateSettings(input) {
     referralDiscount: Math.round(number(input.referralDiscount, "Discount for the customer", { min: 0, max: 100_000 })),
     referralTerms: list(input.referralTerms, "Refer & earn terms", { max: 10, itemMax: 200 }),
     mechanicsOpen: bool(input.mechanicsOpen),
+    maintenanceMode: bool(input.maintenanceMode),
+    maintenanceMessage: text(input.maintenanceMessage, "Maintenance message", { max: 300 }),
     siteUrl: httpsUrl(input.siteUrl, "Website address").replace(/\/+$/, ""),
     announcement: text(input.announcement, "Announcement bar", { max: 140 }),
     currency,

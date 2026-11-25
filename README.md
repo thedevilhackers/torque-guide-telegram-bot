@@ -112,6 +112,23 @@ Open http://localhost:3000 for the site and http://localhost:3000/admin for the 
 
 **The included vehicles, Stage 1, 2 and 3 figures, ECU statuses and products are sample data.** Replace them with your own figures, ECU statuses, prices and photos before launch.
 
+### Admin panel power features
+
+- **Grouped menu** (Sales, File service, Website, Admin) with counts of new items, and a **To do** card on the dashboard listing everything waiting: new orders and enquiries, file orders, UPI payments to check, franchise applications, mechanics to call, referral rewards to pay, low stock.
+- **Search everything**: press **Ctrl+K** (⌘K on a Mac) or **/** to find orders, enquiries, customers, file orders, payments, franchise applications, Refer & earn sign-ups, mechanics, products, vehicles, ECUs and offers, and jump straight to one.
+- **Delete anything, safely**: every list can delete, including file orders, payments and customers. Deleted items go to the **Recycle bin** for 30 days, with **Undo** on the message after each delete. A customer goes with their credit history, payments and file orders, and comes back with them. Restoring puts records back in the same place; an ECU goes back on its vehicles.
+- **Bulk actions**: tick rows (or tick all) to set a status, show or hide on the website, or delete many at once. A bulk change is all or nothing.
+- **Export CSV** on every list, for Excel or Google Sheets.
+- **Duplicate** any product, offer, package, vehicle or other catalogue item from its editor.
+- **Staff logins** (Admin → Staff, owner only). The owner signs in with `ADMIN_USERNAME` / `ADMIN_PASSWORD`. Each partner or employee gets their own login with a role:
+  - **Manager**: everything except staff, settings and backups.
+  - **Staff**: sees everything except those, and updates orders, enquiries, franchise applications and file orders; can't delete or edit the catalogue.
+
+  Turning an account off or setting a new password signs that person out at once. Staff change their own password from the menu.
+- **Activity log** (managers and the owner): every change and sign-in, with who, when and from which address, including failed sign-ins. The newest 3,000 are kept.
+- **Automatic backups**: one a day on the server (and one before any restore), the newest 14 kept in `DATA_DIR/backups`. Download or restore them from Admin → Backup, or make one now.
+- **Maintenance mode** (Settings → Maintenance mode): visitors see a short notice (HTTP 503, so search engines come back later); signed-in admins still see the site, and the panel shows a reminder banner.
+
 ## Security
 
 - The admin session is an HttpOnly, SameSite=Strict cookie. Every change must come from the admin panel itself (custom header plus same-origin check), and failed sign-ins are limited to 5 per 15 minutes per address.

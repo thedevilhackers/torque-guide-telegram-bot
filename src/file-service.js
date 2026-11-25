@@ -2,6 +2,7 @@ import { createHash, randomBytes, scrypt as scryptCallback, timingSafeEqual } fr
 import { readdirSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { promisify } from "node:util";
+import { trashedFiles } from "./trash.js";
 import { DATA_DIR, db, settings, transact } from "./db.js";
 import { events } from "./events.js";
 import { InputError } from "./records.js";
@@ -283,7 +284,7 @@ export function addPendingUpload(customerId, upload) {
 
 // Removes files that no order uses: uploads never ordered with, after a day.
 export function cleanEcuFiles() {
-  const used = new Set(db().fileOrders.flatMap((order) => [order.original?.file, order.tuned?.file, ...(order.extras ?? []).map((extra) => extra.file)]).filter(Boolean));
+  const used = new Set([...db().fileOrders.flatMap((order) => [order.original?.file, order.tuned?.file, ...(order.extras ?? []).map((extra) => extra.file)]), ...trashedFiles(db())].filter(Boolean));
   for (const entry of pendingUploads.values()) {
     if (Date.now() - entry.createdAt > UPLOAD_TTL_MS) pendingUploads.delete(entry.id);
     else used.add(entry.file);

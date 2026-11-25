@@ -42,7 +42,7 @@ export function registerFileAdminRoutes(admin, { fetchImpl } = {}) {
 
   admin("GET", "/api/admin/file-orders", () => ({ items: db().fileOrders.map(withCustomer) }));
 
-  admin("PATCH", "/api/admin/file-orders/:id", ({ body, params }) => ({ item: withCustomer(files.updateFileOrder(params.id, body)) }));
+  admin("PATCH", "/api/admin/file-orders/:id", ({ body, params }) => ({ item: withCustomer(files.updateFileOrder(params.id, body)) }), { role: "staff" });
 
   admin("GET", "/api/admin/file-orders/:id/download", ({ req, res, url, params }) => {
     const order = db().fileOrders.find((entry) => entry.id === params.id);
@@ -73,7 +73,7 @@ export function registerFileAdminRoutes(admin, { fetchImpl } = {}) {
       if (result.replaced) rmSync(files.ecuFilePath(result.replaced), { force: true });
       return { item: withCustomer(result.order) };
     },
-    { raw: true }
+    { raw: true, role: "staff" }
   );
 
   admin("GET", "/api/admin/customers", () => ({ items: db().customers.map(customerSummary) }));

@@ -157,6 +157,16 @@ The exit fee and blacklisting terms are not on the website; put them in the sign
 
 **Shop parts**: engine oils, filters, brake pads, a scanner, a battery charger and accessories are in Admin → **Products** at typical prices. Check each price and add your brands. The old sample products with dollar prices (₹350 voucher, ₹25 cap) are hidden; to sell one, set a rupee price and tick **Show in shop**.
 
+## Part 8: The admin panel's power features
+
+- **Give each partner their own login**: Admin → **Staff** → **Add staff member**. Choose **Manager** (can do almost everything, including deleting) or **Staff** (handles orders, enquiries, franchise applications and file orders). Only you, the owner, can see Staff, Settings and Backup. **Activity log** shows who did what.
+- **Find anything fast**: press **Ctrl+K** (⌘K on a Mac) and type a name, phone number, order number or car.
+- **Delete safely**: deleted things go to the **Recycle bin** for 30 days. Press **Undo** on the message straight after, or **Restore** in the Recycle bin.
+- **Change many at once**: tick the boxes on the left of a list, then set a status, show or hide, or delete.
+- **Export to Excel**: **Export CSV** on any list.
+- **Backups happen by themselves** every day on the server. Admin → **Backup** lists them, with Download and Restore.
+- **Working on the site?** Settings → **Maintenance mode** shows visitors a short notice while you're signed in and can still see everything.
+
 ## Everyday commands (on the server)
 
 | What | Command |
