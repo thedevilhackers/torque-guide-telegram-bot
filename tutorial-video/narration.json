@@ -1,0 +1,54 @@
+{
+  "voice": "af_heart",
+  "speed": 1.0,
+  "lead": 0.5,
+  "tail": 0.9,
+  "gap": 0.28,
+  "scenes": [
+    {"id": "intro", "lines": [
+      ["Welcome to Unity Carrier.", "Welcome to UNITY CARRIER."],
+      ["Let's get you calling in under three minutes.", "Let's get you calling in under three minutes."]]},
+    {"id": "overview", "lines": [
+      ["It takes three simple steps.", "It takes three simple steps."],
+      ["Create your account, top up with crypto, then call from a SIP app, or straight from your browser.", "Create your account, top up with crypto, then call from a SIP app or straight from your browser."]]},
+    {"id": "signup", "lines": [
+      ["First, create your account.", "First, create your account."],
+      ["Open unity carrier dot com, slash panel, and tap, Create an account.", "Open www.unitycarrier.com/panel and tap \"Create an account\"."],
+      ["Choose a username and a password, and fill in your details.", "Choose a username and a password, and fill in your details."],
+      ["Then accept the terms, and tap Signup.", "Then accept the terms and tap Signup."],
+      ["Prefer some help? Message us on Telegram, and we'll set it up for you.", "Prefer some help? Message us on Telegram and we'll set it up for you."]]},
+    {"id": "login", "lines": [
+      ["Now, log in with your username and password.", "Now log in with your username and password."],
+      ["Your desktop has everything you need: Top up, SIP Users, and your call history.", "Your desktop has everything you need: Top up, SIP Users and your call history."]]},
+    {"id": "ptopup", "lines": [
+      ["To add credit, open Top up, pick an amount, and tap, Pay with crypto.", "To add credit, open Top up, pick an amount and tap \"Pay with crypto\"."],
+      ["On the checkout, choose a coin, and send the exact amount shown.", "On the checkout, choose a coin and send the exact amount shown."],
+      ["As soon as the payment confirms, your balance updates automatically.", "As soon as the payment confirms, your balance updates automatically."]]},
+    {"id": "web", "lines": [
+      ["You can also top up without logging in.", "You can also top up without logging in."],
+      ["On pay dot unity carrier dot com, slash pay, type your username, choose an amount, and continue to the secure checkout.", "On pay.unitycarrier.com/pay, type your username, choose an amount and continue to the secure checkout."]]},
+    {"id": "tg", "lines": [
+      ["Or, use Telegram.", "Or use Telegram."],
+      ["Open our bot, send, slash top up, type your username, tap an amount, then Pay.", "Open our bot, send /topup, type your username, tap an amount, then Pay."],
+      ["The bot tells you the moment your credit arrives.", "The bot tells you the moment your credit arrives."]]},
+    {"id": "sipdetails", "lines": [
+      ["To make calls, you need your SIP login.", "To make calls, you need your SIP login."],
+      ["Open SIP Users. Your SIP username and password are right here.", "Open SIP Users. Your SIP username and password are right here."],
+      ["Our server is, w w w dot unity carrier dot com. Port, fifty sixty. U D P.", "Our server is www.unitycarrier.com, port 5060, UDP."]]},
+    {"id": "sipapp", "lines": [
+      ["Install any SIP app, such as Zoiper, Linphone, or Micro SIP.", "Install any SIP app, such as Zoiper, Linphone or MicroSIP."],
+      ["Add a SIP account, with your SIP username, your password, and our server.", "Add a SIP account with your SIP username, your password and our server."],
+      ["When it shows Registered, dial the country code and the number, and you're through.", "When it shows Registered, dial the country code and the number, and you're through."]]},
+    {"id": "webrtc", "lines": [
+      ["No app? Call right from your browser.", "No app? Call right from your browser."],
+      ["In SIP Users, select your line, and tap Webphone.", "In SIP Users, select your line and tap Webphone."],
+      ["Allow the microphone, dial the number, and tap Call.", "Allow the microphone, dial the number and tap Call."]]},
+    {"id": "extras", "lines": [
+      ["Finally, open Telegram and security.", "Finally, open Telegram & security."],
+      ["Connect Telegram for payment messages and low balance alerts, and turn on two step login, to protect your account.", "Connect Telegram for payment messages and low-balance alerts, and turn on two-step login to protect your account."],
+      ["Share your invite link, and you and your friend both get bonus credit.", "Share your invite link, and you and your friend both get bonus credit."]]},
+    {"id": "outro", "lines": [
+      ["That's it. Happy calling!", "That's it. Happy calling!"],
+      ["Questions? Just message us on Telegram.", "Questions? Just message us on Telegram."]]}
+  ]
+}

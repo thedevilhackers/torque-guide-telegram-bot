@@ -1,0 +1,132 @@
+1
+00:00:00,500 --> 00:00:02,351
+Welcome to UNITY CARRIER.
+
+2
+00:00:02,401 --> 00:00:04,892
+Let's get you calling in under three minutes.
+
+3
+00:00:07,000 --> 00:00:08,937
+It takes three simple steps.
+
+4
+00:00:08,987 --> 00:00:14,998
+Create your account, top up with crypto, then call from a SIP app or straight from your browser.
+
+5
+00:00:15,997 --> 00:00:17,784
+First, create your account.
+
+6
+00:00:17,834 --> 00:00:22,438
+Open www.unitycarrier.com/panel and tap "Create an account".
+
+7
+00:00:22,488 --> 00:00:26,046
+Choose a username and a password, and fill in your details.
+
+8
+00:00:26,096 --> 00:00:28,480
+Then accept the terms and tap Signup.
+
+9
+00:00:28,530 --> 00:00:32,791
+Prefer some help? Message us on Telegram and we'll set it up for you.
+
+10
+00:00:36,997 --> 00:00:39,766
+Now log in with your username and password.
+
+11
+00:00:39,816 --> 00:00:45,165
+Your desktop has everything you need: Top up, SIP Users and your call history.
+
+12
+00:00:47,997 --> 00:00:52,344
+To add credit, open Top up, pick an amount and tap "Pay with crypto".
+
+13
+00:00:52,394 --> 00:00:56,187
+On the checkout, choose a coin and send the exact amount shown.
+
+14
+00:00:56,237 --> 00:01:00,434
+As soon as the payment confirms, your balance updates automatically.
+
+15
+00:01:09,997 --> 00:01:12,275
+You can also top up without logging in.
+
+16
+00:01:12,325 --> 00:01:20,256
+On pay.unitycarrier.com/pay, type your username, choose an amount and continue to the secure checkout.
+
+17
+00:01:23,997 --> 00:01:25,507
+Or use Telegram.
+
+18
+00:01:25,557 --> 00:01:30,438
+Open our bot, send /topup, type your username, tap an amount, then Pay.
+
+19
+00:01:30,488 --> 00:01:33,405
+The bot tells you the moment your credit arrives.
+
+20
+00:01:38,997 --> 00:01:41,894
+To make calls, you need your SIP login.
+
+21
+00:01:41,944 --> 00:01:46,846
+Open SIP Users. Your SIP username and password are right here.
+
+22
+00:01:46,896 --> 00:01:54,101
+Our server is www.unitycarrier.com, port 5060, UDP.
+
+23
+00:01:55,101 --> 00:01:59,875
+Install any SIP app, such as Zoiper, Linphone or MicroSIP.
+
+24
+00:01:59,925 --> 00:02:04,955
+Add a SIP account with your SIP username, your password and our server.
+
+25
+00:02:05,005 --> 00:02:09,394
+When it shows Registered, dial the country code and the number, and you're through.
+
+26
+00:02:16,101 --> 00:02:18,443
+No app? Call right from your browser.
+
+27
+00:02:18,493 --> 00:02:22,051
+In SIP Users, select your line and tap Webphone.
+
+28
+00:02:22,101 --> 00:02:25,381
+Allow the microphone, dial the number and tap Call.
+
+29
+00:02:34,101 --> 00:02:36,763
+Finally, open Telegram & security.
+
+30
+00:02:36,813 --> 00:02:43,934
+Connect Telegram for payment messages and low-balance alerts, and turn on two-step login to protect your account.
+
+31
+00:02:43,984 --> 00:02:48,053
+Share your invite link, and you and your friend both get bonus credit.
+
+32
+00:02:49,053 --> 00:02:50,776
+That's it. Happy calling!
+
+33
+00:02:50,826 --> 00:02:53,901
+Questions? Just message us on Telegram.
+

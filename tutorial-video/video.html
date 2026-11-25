@@ -303,9 +303,15 @@ const sipWindow = `<div class="win" data-k="sipwin" style="left:40px;top:44px;wi
 
 // ------------------------------------------------------------------ scenes
 const scenes = [];
-function scene(id, start, dur, html, setup, update, chapter = -1) {
+// Scenes play one after another. A scene lasts its base length, or longer if its narration needs it
+// (window.SCENE_MIN, set by render.cjs from the voice-over timing); the extra time holds its last frame.
+let timelineEnd = 0;
+function scene(id, _start, dur, html, setup, update, chapter = -1) {
     const node = el(`<div class="scene" id="${id}">${html}</div>`);
     stage.appendChild(node);
+    dur = Math.max(dur, (window.SCENE_MIN || {})[id] || 0);
+    const start = timelineEnd;
+    timelineEnd += dur;
     const s = { id, start, dur, node, update, chapter, ctx: {} };
     if (setup) setup(s.ctx, node);
     scenes.push(s);
@@ -630,7 +636,12 @@ scene('outro', 161.5, 7, `<div class="center"><div>
 stage.appendChild(chapters);
 stage.appendChild(ripple);
 stage.appendChild(cursor);
-window.DURATION = 168.5;
+window.DURATION = timelineEnd;
+window.TIMELINE = scenes.map(s => ({ id: s.id, start: s.start, dur: s.dur }));
+const chapterBounds = [0, 1, 2, 3, 4].map(i => {
+    const own = scenes.filter(s => s.chapter === i);
+    return [own[0].start, own[own.length - 1].start + own[own.length - 1].dur];
+});
 
 // ------------------------------------------------------------------ render
 function cursorAt(s, local) {
@@ -658,10 +669,9 @@ window.render = function (t) {
     // chapters
     const ch = active ? active.chapter : -1;
     chapters.style.opacity = ch >= 0 ? 1 : 0;
-    const bounds = [[14.5, 46.5], [46.5, 97.5], [97.5, 130.5], [130.5, 148.5], [148.5, 161.5]];
     chapters.querySelectorAll('div').forEach((d, i) => {
         d.classList.toggle('on', i === ch);
-        d.querySelector('i').style.width = (clamp((t - bounds[i][0]) / (bounds[i][1] - bounds[i][0])) * 100) + '%';
+        d.querySelector('i').style.width = (clamp((t - chapterBounds[i][0]) / (chapterBounds[i][1] - chapterBounds[i][0])) * 100) + '%';
     });
     // cursor
     let pos = null, local = 0;
