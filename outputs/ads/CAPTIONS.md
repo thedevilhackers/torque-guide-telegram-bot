@@ -180,6 +180,8 @@ Apply: 🌐 unityperformance.co/franchise
 
 ## Video: "What's the secret?" (lead video for tuning)
 
+Two versions: `what-is-tuning-*.mp4` is 22 seconds and silent, so add Instagram music. `what-is-tuning-voiceover-*.mp4` is 74 seconds, with narration explaining ECU tuning, original music and sound effects. **Don't add Instagram music to the voiceover version**; it already has its own.
+
 Same car. Same engine. +25 hp. What's the secret? 🤔
 
 It's called an ECU remap. Your car's computer decides its power, and from the factory it plays it safe. We fine-tune boost, fuel and timing for your engine:
