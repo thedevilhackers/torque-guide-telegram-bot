@@ -1,0 +1,698 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Unity Carrier tutorial</title>
+<!--
+  Tutorial video, drawn frame by frame: render(t) puts every element where it belongs at time t (seconds).
+  render.js steps t at 25 fps, screenshots each frame and ffmpeg joins them. Open this file in a browser and
+  call play() in the console to preview it in real time.
+-->
+<style>
+:root {
+    --bg: #050a14; --panel: #0c1526; --line: #1d2a44; --text: #eaf1ff; --muted: #93a4c3; --accent: #22b8f0; --accent2: #2f6bff;
+    --ok: #26d07c; --warn: #ffb547;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; width: 1280px; height: 720px; overflow: hidden; background: var(--bg); color: var(--text);
+    font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+#stage { position: absolute; inset: 0; overflow: hidden;
+    background: radial-gradient(900px 500px at 85% 10%, rgba(47, 107, 255, .20), transparent 60%),
+                radial-gradient(700px 500px at 0% 100%, rgba(34, 184, 240, .12), transparent 60%), var(--bg); }
+.scene { position: absolute; inset: 0; opacity: 0; }
+.abs { position: absolute; }
+
+/* captions */
+.cap { position: absolute; left: 44px; top: 70px; width: 392px; }
+.cap .step { display: inline-flex; gap: 8px; align-items: center; padding: 5px 12px; border-radius: 999px; font-size: 13px; font-weight: 700;
+    letter-spacing: .06em; text-transform: uppercase; color: var(--accent); border: 1px solid rgba(34, 184, 240, .4); background: rgba(34, 184, 240, .08); }
+.cap h2 { font-size: 31px; line-height: 1.15; margin: 16px 0 14px; letter-spacing: -.01em; }
+.cap p { font-size: 18px; color: #c9d6ef; margin: 0 0 12px; }
+.cap .hint { font-size: 15px; color: var(--muted); border-left: 3px solid var(--accent); padding: 4px 0 4px 12px; margin-top: 18px; }
+.cap code, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.cap code { color: #fff; background: rgba(255, 255, 255, .08); padding: 1px 6px; border-radius: 6px; font-size: .92em; }
+.cap b { color: #fff; }
+
+/* chapter bar */
+#chapters { position: absolute; left: 44px; right: 44px; bottom: 22px; display: flex; gap: 8px; opacity: 0; }
+#chapters div { flex: 1; height: 30px; border-radius: 8px; background: rgba(255, 255, 255, .05); color: var(--muted); font-size: 13px;
+    font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 6px; position: relative; overflow: hidden; }
+#chapters div i { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(90deg, var(--accent2), var(--accent)); opacity: .35; width: 0; }
+#chapters div span { position: relative; }
+#chapters div.on { color: #fff; }
+
+/* browser */
+.browser { position: absolute; left: 470px; top: 58px; width: 780px; height: 560px; border-radius: 14px; overflow: hidden;
+    background: #fff; box-shadow: 0 30px 80px rgba(0, 0, 0, .55), 0 0 0 1px rgba(255, 255, 255, .08); }
+.browser .bar { height: 34px; background: #e9edf3; display: flex; align-items: center; gap: 7px; padding: 0 12px; }
+.browser .bar i { width: 11px; height: 11px; border-radius: 50%; background: #ff5f57; }
+.browser .bar i:nth-child(2) { background: #febc2e; } .browser .bar i:nth-child(3) { background: #28c840; }
+.browser .url { margin-left: 12px; flex: 1; height: 22px; border-radius: 7px; background: #fff; color: #333; font-size: 12.5px; display: flex;
+    align-items: center; padding: 0 10px; gap: 6px; }
+.browser .url::before { content: "🔒"; font-size: 10px; }
+.browser .view { position: absolute; left: 0; right: 0; top: 34px; bottom: 0; overflow: hidden; background: #f4f6fb; }
+.layer { position: absolute; inset: 0; opacity: 0; }
+.layer img { position: absolute; left: 0; top: 0; width: 100%; }
+
+/* MagnusBilling-style screens (simplified) */
+.mb-bg { position: absolute; inset: 0; background: linear-gradient(135deg, #0f3d7a 0%, #1f6fbf 45%, #63b3ed 100%); }
+.mb-login { position: absolute; left: 50%; top: 50%; width: 330px; transform: translate(-50%, -50%); background: rgba(255, 255, 255, .96);
+    border-radius: 14px; padding: 26px 26px 22px; color: #1d2b44; box-shadow: 0 20px 50px rgba(0, 0, 0, .3); }
+.mb-login .logo { display: flex; align-items: center; gap: 10px; font-weight: 800; letter-spacing: .02em; margin-bottom: 14px; }
+.logo-mark { width: 34px; height: 34px; border-radius: 9px; background: linear-gradient(135deg, var(--accent2), var(--accent)); display: grid; place-items: center; }
+.logo-mark svg { width: 19px; height: 19px; color: #fff; }
+.mb-login h3 { margin: 0 0 14px; font-size: 16px; color: #52627d; font-weight: 600; }
+.in { height: 38px; border: 1px solid #ccd5e3; border-radius: 8px; margin-bottom: 10px; display: flex; align-items: center; padding: 0 12px;
+    font-size: 14px; color: #1d2b44; background: #fff; position: relative; }
+.in.ph { color: #9aa7bb; }
+.in.focus { border-color: #2f6bff; box-shadow: 0 0 0 3px rgba(47, 107, 255, .18); }
+.in .lbl { position: absolute; top: -8px; left: 9px; background: #fff; padding: 0 4px; font-size: 10.5px; color: #6b7a93; }
+.btnx { height: 38px; border-radius: 8px; background: #2f6bff; color: #fff; display: grid; place-items: center; font-weight: 700; font-size: 14px; }
+.btnx.ghost { background: transparent; color: #2f6bff; border: 1px solid #c9d7f5; }
+.mb-login .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.mb-flag { position: absolute; right: 16px; top: 14px; font-size: 12px; color: #fff; background: rgba(0, 0, 0, .25); border-radius: 6px; padding: 3px 8px; }
+.mb-signup { width: 430px; }
+.check { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #42526e; margin: 4px 0 12px; }
+.check b { width: 17px; height: 17px; border-radius: 4px; border: 1.5px solid #9aa7bb; display: grid; place-items: center; font-size: 12px; color: #fff; }
+.check b.on { background: #2f6bff; border-color: #2f6bff; }
+.toast { position: absolute; left: 50%; top: 24px; transform: translateX(-50%); background: #0f9d58; color: #fff; padding: 10px 18px; border-radius: 10px;
+    font-weight: 600; font-size: 14px; box-shadow: 0 10px 30px rgba(0, 0, 0, .25); white-space: nowrap; opacity: 0; }
+
+.desk { position: absolute; inset: 0; background: linear-gradient(160deg, #cfe3f7 0%, #a9c8ea 50%, #87b0de 100%); }
+.desk .top { position: absolute; left: 0; right: 0; top: 0; height: 30px; background: rgba(255, 255, 255, .7); display: flex; align-items: center;
+    justify-content: space-between; padding: 0 14px; font-size: 12.5px; color: #33415c; }
+.desk .icons { position: absolute; right: 18px; top: 44px; display: grid; grid-template-columns: repeat(2, 86px); gap: 12px 8px; }
+.dicon { display: grid; justify-items: center; gap: 4px; font-size: 11.5px; color: #1d2b44; font-weight: 600; text-align: center; position: relative; }
+.dicon b { width: 52px; height: 52px; border-radius: 14px; display: grid; place-items: center; font-size: 25px; box-shadow: 0 4px 12px rgba(0, 0, 0, .12); }
+.dock { position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); display: flex; gap: 8px; padding: 7px 10px; border-radius: 16px;
+    background: rgba(255, 255, 255, .45); }
+.dock b { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; font-size: 15px; }
+.ring { position: absolute; border: 3px solid #ffb547; border-radius: 16px; box-shadow: 0 0 0 6px rgba(255, 181, 71, .25); opacity: 0; pointer-events: none; }
+
+.win { position: absolute; background: #fff; border-radius: 10px; box-shadow: 0 18px 50px rgba(0, 0, 0, .3); overflow: hidden; opacity: 0; }
+.win .wt { height: 30px; background: #f1f4f9; border-bottom: 1px solid #dfe5ee; display: flex; align-items: center; padding: 0 12px; font-size: 12.5px;
+    font-weight: 700; color: #33415c; justify-content: space-between; }
+.win .wt span:last-child { color: #8a97ad; font-weight: 400; }
+.tb { display: flex; gap: 6px; padding: 8px 10px; border-bottom: 1px solid #e6ebf2; }
+.tb span { font-size: 12px; padding: 5px 10px; border: 1px solid #d5dde9; border-radius: 6px; color: #33415c; background: #fff; }
+.tb span.hl { border-color: #2f6bff; color: #2f6bff; font-weight: 700; }
+.grid { font-size: 12.5px; color: #33415c; }
+.grid .gh, .grid .gr { display: grid; grid-template-columns: 1.1fr 1fr 1.6fr; padding: 8px 12px; border-bottom: 1px solid #eef1f6; }
+.grid .gh { font-weight: 700; color: #6b7a93; background: #fafbfd; }
+.grid .gr.sel { background: #e8f0ff; }
+.form { padding: 14px; font-size: 12.5px; }
+.form .f { display: grid; grid-template-columns: 110px 1fr; align-items: center; gap: 10px; margin-bottom: 9px; color: #6b7a93; }
+.form .f div { height: 30px; border: 1px solid #d5dde9; border-radius: 6px; display: flex; align-items: center; padding: 0 9px; color: #1d2b44;
+    justify-content: space-between; }
+.infobox { margin: 12px 14px 0; padding: 10px 12px; border-radius: 8px; background: #eaf7f0; color: #0b6b3a; font-size: 13px; font-weight: 600; opacity: 0; }
+
+/* crypto checkout (example) */
+.co { position: absolute; inset: 0; background: #f6f7fb; display: grid; place-items: center; opacity: 0; }
+.co .box { width: 380px; background: #fff; border-radius: 14px; box-shadow: 0 10px 30px rgba(20, 30, 60, .12); padding: 22px; color: #1d2b44; }
+.co h4 { margin: 0 0 4px; font-size: 13px; color: #6b7a93; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; }
+.co .amt { font-size: 28px; font-weight: 800; margin-bottom: 14px; }
+.coins { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.coins div { border: 1px solid #dfe5ee; border-radius: 9px; padding: 9px 6px; text-align: center; font-size: 13px; font-weight: 700; }
+.coins div.on { border-color: #2f6bff; background: #eef3ff; color: #2f6bff; }
+.co .send { margin-top: 14px; display: grid; grid-template-columns: 86px 1fr; gap: 12px; align-items: center; opacity: 0; }
+.qr { width: 86px; height: 86px; border-radius: 8px;
+    background: repeating-conic-gradient(#1d2b44 0 25%, #fff 0 50%) 0 0 / 14px 14px; outline: 6px solid #fff; outline-offset: -6px; }
+.co .status { margin-top: 14px; padding: 9px 12px; border-radius: 9px; font-size: 13.5px; font-weight: 700; background: #fff6e5; color: #9a5b00; opacity: 0; }
+.co .status.ok { background: #e7f8ef; color: #0b7a43; }
+.balfix { position: absolute; background: #fff; font-weight: 800; color: #172033; display: flex; align-items: center; justify-content: flex-end; opacity: 0; }
+
+/* phones */
+.phone { position: absolute; left: 640px; top: 40px; width: 300px; height: 620px; border-radius: 40px; background: #0b0f19; padding: 12px;
+    box-shadow: 0 30px 80px rgba(0, 0, 0, .55), 0 0 0 2px #2a3550; }
+.phone .scr { position: absolute; inset: 12px; border-radius: 30px; overflow: hidden; background: #fff; }
+.phone .notch { position: absolute; left: 50%; top: 20px; width: 84px; height: 20px; transform: translateX(-50%); background: #0b0f19; border-radius: 12px; z-index: 5; }
+
+.tg { position: absolute; inset: 0; background: #dfe9f3; }
+.tg .hd { position: absolute; left: 0; right: 0; top: 0; height: 88px; background: #fff; display: flex; align-items: flex-end; gap: 10px; padding: 0 14px 10px;
+    border-bottom: 1px solid #e3e8ef; z-index: 2; }
+.tg .hd .av { width: 34px; height: 34px; border-radius: 50%; background: linear-gradient(135deg, var(--accent2), var(--accent)); display: grid; place-items: center;
+    color: #fff; font-size: 16px; }
+.tg .hd b { display: block; font-size: 14px; color: #1d2b44; }
+.tg .hd small { color: #7a889f; font-size: 11.5px; }
+.tg .msgs { position: absolute; left: 0; right: 0; top: 88px; bottom: 50px; overflow: hidden; }
+.tg .track { position: absolute; left: 10px; right: 10px; bottom: 8px; display: flex; flex-direction: column; gap: 7px; }
+.bub { max-width: 84%; padding: 8px 11px; border-radius: 14px; font-size: 12.5px; line-height: 1.38; color: #1d2b44; background: #fff; white-space: pre-line;
+    box-shadow: 0 1px 1px rgba(0, 0, 0, .06); display: none; }
+.bub.me { align-self: flex-end; background: #e1fec6; }
+.bub .kb { display: grid; gap: 4px; margin-top: 7px; }
+.bub .kb div { display: grid; gap: 4px; grid-auto-flow: column; grid-auto-columns: 1fr; }
+.bub .kb span { background: rgba(47, 107, 255, .1); color: #2559d8; border-radius: 8px; padding: 6px 4px; text-align: center; font-weight: 700; font-size: 12px; }
+.bub .kb span.tap { background: #2f6bff; color: #fff; }
+.tg .inp { position: absolute; left: 0; right: 0; bottom: 0; height: 50px; background: #fff; border-top: 1px solid #e3e8ef; display: flex; align-items: center;
+    padding: 0 14px; color: #9aa7bb; font-size: 13px; }
+
+.sip { position: absolute; inset: 0; background: #f3f5f9; color: #1d2b44; }
+.sip .hd { height: 88px; display: flex; align-items: flex-end; padding: 0 16px 10px; font-weight: 800; font-size: 16px; background: #fff; border-bottom: 1px solid #e3e8ef; }
+.sip .body { padding: 14px; }
+.sip .sf { margin-bottom: 9px; }
+.sip .sf small { display: block; font-size: 11px; color: #7a889f; margin-bottom: 3px; }
+.sip .sf div { height: 34px; border-radius: 8px; background: #fff; border: 1px solid #d9e0ea; display: flex; align-items: center; padding: 0 10px; font-size: 13.5px; }
+.sip .sf div.focus { border-color: #2f6bff; box-shadow: 0 0 0 3px rgba(47, 107, 255, .15); }
+.sip .acc { margin: 14px; background: #fff; border-radius: 12px; padding: 14px; display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
+.dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #26c165; margin-right: 6px; }
+.pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 6px 26px; }
+.pad b { height: 50px; border-radius: 50%; background: #fff; display: grid; place-items: center; font-size: 20px; font-weight: 600; color: #1d2b44;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, .06); }
+.num { text-align: center; font-size: 23px; font-weight: 700; letter-spacing: .04em; height: 46px; display: flex; align-items: center; justify-content: center; }
+.callbtn { width: 58px; height: 58px; border-radius: 50%; background: #26c165; margin: 10px auto 0; display: grid; place-items: center; color: #fff; font-size: 24px; }
+.incall { position: absolute; inset: 0; background: linear-gradient(180deg, #1c2b4a, #0b1222); color: #fff; display: grid; place-items: center; text-align: center; opacity: 0; }
+.incall .av { width: 86px; height: 86px; border-radius: 50%; background: rgba(255, 255, 255, .1); display: grid; place-items: center; font-size: 36px; margin: 0 auto 14px; }
+.hang { width: 58px; height: 58px; border-radius: 50%; background: #ef4444; display: grid; place-items: center; margin: 26px auto 0; font-size: 24px; }
+
+.perm { position: absolute; background: #fff; border-radius: 10px; box-shadow: 0 12px 34px rgba(0, 0, 0, .3); padding: 14px; width: 300px; color: #1d2b44;
+    font-size: 13px; opacity: 0; }
+.perm .pb { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+.perm .pb span { padding: 6px 14px; border-radius: 6px; border: 1px solid #d5dde9; font-weight: 600; }
+.perm .pb span:last-child { background: #2f6bff; color: #fff; border-color: #2f6bff; }
+
+/* cursor */
+#cursor { position: absolute; left: 0; top: 0; width: 26px; height: 26px; z-index: 50; opacity: 0; pointer-events: none; }
+#ripple { position: absolute; width: 44px; height: 44px; margin: -22px 0 0 -22px; border-radius: 50%; border: 3px solid #ffb547; z-index: 49; opacity: 0; }
+
+/* intro / outro */
+.center { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; }
+.big-logo { width: 92px; height: 92px; border-radius: 24px; background: linear-gradient(135deg, var(--accent2), var(--accent)); display: grid; place-items: center;
+    margin: 0 auto 22px; box-shadow: 0 20px 60px rgba(34, 184, 240, .35); }
+.big-logo svg { width: 50px; height: 50px; color: #fff; }
+.brand { font-size: 46px; font-weight: 800; letter-spacing: .04em; }
+.sub { font-size: 22px; color: #b8c7e3; margin-top: 8px; }
+.pills { display: flex; gap: 10px; justify-content: center; margin-top: 26px; }
+.pills span { padding: 8px 16px; border-radius: 999px; border: 1px solid var(--line); background: rgba(255, 255, 255, .04); font-size: 16px; }
+.cards3 { position: absolute; left: 470px; top: 110px; width: 780px; display: grid; gap: 16px; }
+.card3 { display: grid; grid-template-columns: 64px 1fr; gap: 18px; align-items: center; padding: 20px 22px; border-radius: 16px;
+    background: rgba(255, 255, 255, .04); border: 1px solid var(--line); opacity: 0; }
+.card3 b.n { width: 64px; height: 64px; border-radius: 16px; display: grid; place-items: center; font-size: 30px;
+    background: linear-gradient(135deg, rgba(47, 107, 255, .35), rgba(34, 184, 240, .25)); }
+.card3 h3 { margin: 0 0 4px; font-size: 22px; }
+.card3 p { margin: 0; color: var(--muted); font-size: 16px; }
+.overlay-note { position: absolute; background: #0c1526; color: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; font-size: 14px;
+    width: 300px; box-shadow: 0 16px 40px rgba(0, 0, 0, .45); opacity: 0; }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<svg width="0" height="0" style="position:absolute">
+    <symbol id="phone-ico" viewBox="0 0 24 24"><path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11.4 11.4 0 0 0 3.6.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.57a1 1 0 0 1-.25 1z" fill="currentColor"/><path d="M15 3.5a6 6 0 0 1 5.5 5.5M15 7a2.5 2.5 0 0 1 2 2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+</svg>
+<script>
+'use strict';
+const BOXES = window.BOXES || {};
+const stage = document.getElementById('stage');
+const LOGO = '<svg><use href="#phone-ico"/></svg>';
+const SERVER = 'www.unitycarrier.com';
+const PANEL_URL = 'https://www.unitycarrier.com/panel/';
+const PAY_URL = 'https://pay.unitycarrier.com/pay/';
+
+// ------------------------------------------------------------------ helpers
+const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
+const ease = x => { x = clamp(x); return x < .5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2; };
+const fade = (t, t0, d = .35) => ease((t - t0) / d);
+const fadeIO = (t, t0, t1, d = .35) => Math.min(fade(t, t0, d), 1 - fade(t, t1, d));
+const el = (html) => { const d = document.createElement('div'); d.innerHTML = html.trim(); return d.firstElementChild; };
+const $ = (root, sel) => root.querySelector(sel);
+const typed = (t, t0, text, cps = 14) => text.slice(0, Math.max(0, Math.floor((t - t0) * cps)));
+const dots = (n) => '•'.repeat(n);
+function caret(t, show) { return show && Math.floor(t * 2) % 2 === 0 ? '|' : ''; }
+function setInput(node, value, placeholder, focus) {
+    node.firstChild.nodeValue = value !== '' ? value : placeholder;
+    node.classList.toggle('ph', value === '');
+    node.classList.toggle('focus', !!focus);
+}
+function path(t, pts) {
+    if (t <= pts[0][0]) return [pts[0][1], pts[0][2]];
+    for (let i = 1; i < pts.length; i++) {
+        if (t <= pts[i][0]) {
+            const k = ease((t - pts[i - 1][0]) / (pts[i][0] - pts[i - 1][0]));
+            return [pts[i - 1][1] + (pts[i][1] - pts[i - 1][1]) * k, pts[i - 1][2] + (pts[i][2] - pts[i - 1][2]) * k];
+        }
+    }
+    const last = pts[pts.length - 1];
+    return [last[1], last[2]];
+}
+// Screenshot geometry: point on a screenshot (CSS px of the captured page) -> stage px.
+function shotPoint(shot, key, frame, scroll = 0) {
+    const b = BOXES[shot][key];
+    const s = frame.w / BOXES[shot]._size.w;
+    return [frame.x + (b.x + b.w / 2) * s, frame.y + 34 + (b.y + b.h / 2) * s - scroll];
+}
+const BROWSER = { x: 470, y: 58, w: 780 };
+
+// ------------------------------------------------------------------ shared pieces
+const cursor = el('<svg id="cursor" viewBox="0 0 26 26"><path d="M4 2l17 10.5-7.6 1.7 4.6 8.3-3.3 1.8-4.6-8.4L4 21z" fill="#fff" stroke="#111" stroke-width="1.6" stroke-linejoin="round"/></svg>');
+const ripple = el('<div id="ripple"></div>');
+const chapters = el(`<div id="chapters">
+    <div><i></i><span>1 · Account</span></div><div><i></i><span>2 · Top up</span></div><div><i></i><span>3 · SIP app</span></div>
+    <div><i></i><span>4 · Browser call</span></div><div><i></i><span>Extras</span></div></div>`);
+
+function browser(url, layersHtml) {
+    return `<div class="browser"><div class="bar"><i></i><i></i><i></i><div class="url">${url}</div></div><div class="view">${layersHtml}</div></div>`;
+}
+function caption(step, title, body, hint) {
+    return `<div class="cap"><span class="step">${step}</span><h2>${title}</h2>${body}${hint ? `<p class="hint">${hint}</p>` : ''}</div>`;
+}
+const loginCard = `<div class="mb-login">
+    <div class="logo"><span class="logo-mark">${LOGO}</span>UNITY CARRIER</div>
+    <h3>Sign into your account</h3>
+    <div class="in ph" data-k="user">Username or email</div>
+    <div class="in ph" data-k="pass">Password</div>
+    <div class="btnx" data-k="login">Login</div>
+    <div class="btnx ghost" style="margin-top:10px" data-k="create">Create an account</div>
+</div><div class="mb-flag">🇬🇧 English</div>`;
+const desktopHtml = (extra = '') => `<div class="desk">
+    <div class="top"><span><b>UNITY CARRIER</b> · demo1001</span><span>Balance <b data-k="bal">5.00</b> · 🇬🇧 · 14:32</span></div>
+    <div class="icons">
+        <div class="dicon" data-k="topup"><b style="background:#dbeafe">💳</b>Top up</div>
+        <div class="dicon" data-k="tgsec"><b style="background:#e0e7ff">🔐</b>Telegram &amp; security</div>
+        <div class="dicon" data-k="sip"><b style="background:#dcfce7">📞</b>SIP Users</div>
+        <div class="dicon"><b style="background:#fef3c7">🧾</b>CDR</div>
+        <div class="dicon"><b style="background:#fce7f3">💶</b>Refills</div>
+        <div class="dicon"><b style="background:#ede9fe">📊</b>Rates</div>
+    </div>
+    <div class="dock"><b style="background:#dbeafe">💳</b><b style="background:#dcfce7">📞</b><b style="background:#fef3c7">🧾</b><b style="background:#fce7f3">💶</b><b style="background:#ede9fe">📊</b></div>
+    ${extra}
+</div>`;
+// position of a desktop icon (stage px)
+function iconPoint(root, key) {
+    const view = $(root, '.view').getBoundingClientRect();
+    const r = $(root, `[data-k="${key}"] b`).getBoundingClientRect();
+    return [r.left + r.width / 2, r.top + r.height / 2];
+}
+function nodePoint(node) {
+    const r = node.getBoundingClientRect();
+    return [r.left + r.width / 2, r.top + r.height / 2];
+}
+const sipWindow = `<div class="win" data-k="sipwin" style="left:40px;top:44px;width:600px;height:400px">
+    <div class="wt"><span>SIP Users</span><span>✕</span></div>
+    <div class="tb"><span>➕ Add</span><span data-k="webphone">🎧 Webphone</span><span>Export CSV</span></div>
+    <div style="display:grid;grid-template-columns:1.25fr 1fr;height:100%">
+        <div class="grid"><div class="gh"><span>SIP user</span><span>Host</span><span>Codec</span></div>
+            <div class="gr" data-k="row"><span><b>demo1001</b></span><span>dynamic</span><span>opus, alaw, ulaw, g729</span></div></div>
+        <div style="border-left:1px solid #e6ebf2" class="form">
+            <div class="f">SIP user<div>demo1001</div></div>
+            <div class="f">SIP password<div><span data-k="pw">••••••••••</span><span data-k="eye">👁</span></div></div>
+            <div class="f">WebRTC<div>Yes</div></div>
+            <div class="f">Codecs<div>opus, alaw, ulaw</div></div>
+        </div>
+    </div>
+</div>`;
+
+// ------------------------------------------------------------------ scenes
+const scenes = [];
+function scene(id, start, dur, html, setup, update, chapter = -1) {
+    const node = el(`<div class="scene" id="${id}">${html}</div>`);
+    stage.appendChild(node);
+    const s = { id, start, dur, node, update, chapter, ctx: {} };
+    if (setup) setup(s.ctx, node);
+    scenes.push(s);
+}
+
+// 0. Intro
+scene('intro', 0, 6.5, `<div class="center"><div>
+    <div class="big-logo">${LOGO}</div><div class="brand">UNITY CARRIER</div>
+    <div class="sub">Getting started in 3 minutes</div>
+    <div class="pills"><span>👤 Create your account</span><span>💳 Top up with crypto</span><span>📞 Call from an app or your browser</span></div>
+</div></div>`, null, (t, n, c) => {
+    $(n, '.big-logo').style.cssText += `;opacity:${fade(t, .2)};transform:scale(${.8 + .2 * fade(t, .2, .6)})`;
+    $(n, '.brand').style.opacity = fade(t, .7);
+    $(n, '.sub').style.opacity = fade(t, 1.2);
+    n.querySelectorAll('.pills span').forEach((p, i) => { p.style.opacity = fade(t, 2 + i * .4); });
+});
+
+// 1. Overview
+scene('overview', 6.5, 8, caption('How it works', 'Three simple steps', `<p>Everything happens in your customer panel, on our payment website or in Telegram.</p>`) + `
+<div class="cards3">
+    <div class="card3"><b class="n">👤</b><div><h3>1 · Create your account</h3><p>In the customer panel: <span class="mono">${PANEL_URL}</span></p></div></div>
+    <div class="card3"><b class="n">💳</b><div><h3>2 · Top up with crypto</h3><p>In the panel, on <span class="mono">pay.unitycarrier.com/pay</span> or in Telegram <b>@unitypayment_bot</b></p></div></div>
+    <div class="card3"><b class="n">📞</b><div><h3>3 · Make calls</h3><p>From any SIP app on your phone or computer, or straight from your browser (WebRTC)</p></div></div>
+</div>`, null, (t, n) => {
+    $(n, '.cap').style.opacity = fade(t, .1);
+    n.querySelectorAll('.card3').forEach((c, i) => { c.style.opacity = fade(t, .6 + i * .8); c.style.transform = `translateY(${(1 - fade(t, .6 + i * .8)) * 16}px)`; });
+});
+
+// 2. Sign up
+scene('signup', 14.5, 21, caption('Step 1 · Account', 'Create your account',
+    `<p>Open <code>www.unitycarrier.com/panel</code> and tap <b>Create an account</b>.</p>
+     <p>Choose a username and password, fill in your details, accept the terms and tap <b>Signup</b>.</p>`,
+    'Prefer help? Message us on Telegram at @unitypayment_bot and we create it for you.') + browser(PANEL_URL, `
+    <div class="layer" data-k="login"><div class="mb-bg"></div>${loginCard}</div>
+    <div class="layer" data-k="form"><div class="mb-bg"></div><div class="mb-login mb-signup">
+        <div class="logo"><span class="logo-mark">${LOGO}</span>Create an account</div>
+        <div class="in ph" data-k="u">Username</div>
+        <div class="in ph" data-k="e">Email</div>
+        <div class="row2"><div class="in ph" data-k="p1">Password</div><div class="in ph" data-k="p2">Confirm password</div></div>
+        <div class="row2"><div class="in ph" data-k="fn">First name</div><div class="in ph" data-k="ln">Last name</div></div>
+        <div class="row2"><div class="in ph" data-k="ph">Phone</div><div class="in" data-k="plan">Standard plan ▾</div></div>
+        <div class="check" data-k="terms"><b>✓</b>I accept the terms</div>
+        <div class="btnx" data-k="go">Signup</div>
+    </div><div class="toast" data-k="toast">✅ Account created: you can log in now</div></div>`), null, (t, n, c) => {
+    $(n, '.cap').style.opacity = fade(t, .1);
+    $(n, '.browser').style.opacity = fade(t, .2);
+    const formT = 3.2;
+    $(n, '[data-k=login]').style.opacity = 1 - fade(t, formT);
+    $(n, '[data-k=form]').style.opacity = fade(t, formT);
+    const f = (k) => $(n, `[data-k=form] [data-k=${k}]`);
+    const steps = [['u', 'demo1001', 4], ['e', 'demo@example.com', 5.4], ['p1', dots(10), 7.2], ['p2', dots(10), 8.4], ['fn', 'Demo', 9.6], ['ln', 'Customer', 10.4], ['ph', '+44 7700 900123', 11.4]];
+    steps.forEach(([k, v, t0], i) => {
+        const next = steps[i + 1] ? steps[i + 1][2] : 13.2;
+        const val = typed(t, t0, v, k.startsWith('p') && k !== 'ph' ? 14 : 13);
+        setInput(f(k), val, { u: 'Username', e: 'Email', p1: 'Password', p2: 'Confirm password', fn: 'First name', ln: 'Last name', ph: 'Phone' }[k], t >= t0 && t < next);
+    });
+    $(n, '[data-k=terms] b').classList.toggle('on', t >= 14);
+    $(n, '[data-k=toast]').style.opacity = fadeIO(t, 15.6, 19.5);
+    c.cursor = [[0, 1000, 600], [2.2, 0, 0, 'create'], [3.2, 0, 0, 'create'], [3.8, 0, 0, 'u'], [13.4, 0, 0, 'terms'], [14.6, 0, 0, 'go'], [17, 0, 0, 'go']];
+    c.clicks = [2.6, 4, 14, 15.1];
+    c.targets = { create: $(n, '[data-k=login] [data-k=create]'), u: f('u'), terms: $(n, '[data-k=terms] b'), go: f('go') };
+}, 0);
+
+// 3. Log in
+scene('login', 35.5, 11, caption('Step 1 · Account', 'Log in',
+    `<p>Log in with your username and password.</p><p>Your desktop has everything: <b>Top up</b>, <b>SIP Users</b>, call history (<b>CDR</b>), refills and rates.</p>`,
+    'Turned on two-step login? Enter the 6-digit code from the app on your phone.') + browser(PANEL_URL, `
+    <div class="layer" data-k="login"><div class="mb-bg"></div>${loginCard}</div>
+    <div class="layer" data-k="desk">${desktopHtml('<div class="ring" data-k="ring"></div>')}</div>`), null, (t, n, c) => {
+    $(n, '.cap').style.opacity = fade(t, .1);
+    $(n, '.browser').style.opacity = 1;
+    setInput($(n, '[data-k=user]'), typed(t, .8, 'demo1001'), 'Username or email', t > .8 && t < 1.9);
+    setInput($(n, '[data-k=pass]'), typed(t, 2.1, dots(10), 12), 'Password', t > 2.1 && t < 3.2);
+    $(n, '[data-k=login]').style.opacity = 1 - fade(t, 3.9);
+    $(n, '[data-k=desk]').style.opacity = fade(t, 3.9);
+    const ring = $(n, '[data-k=ring]');
+    const order = ['topup', 'sip', 'tgsec'];
+    const idx = Math.floor((t - 5.2) / 1.6);
+    if (t > 5.2 && idx < order.length) {
+        const icon = $(n, `[data-k=${order[idx]}]`);
+        const view = $(n, '.view');
+        ring.style.left = (icon.offsetLeft + icon.parentNode.offsetLeft - 6) + 'px';
+        ring.style.top = (icon.offsetTop + icon.parentNode.offsetTop - 6) + 'px';
+        ring.style.width = (icon.offsetWidth + 12) + 'px';
+        ring.style.height = (icon.offsetHeight + 12) + 'px';
+        ring.style.opacity = fadeIO(t, 5.2 + idx * 1.6, 5.2 + idx * 1.6 + 1.3, .25);
+    } else {
+        ring.style.opacity = 0;
+    }
+    c.cursor = [[0, 1000, 600], [.6, 0, 0, 'user'], [2, 0, 0, 'pass'], [3.3, 0, 0, 'go'], [4.2, 1100, 560]];
+    c.clicks = [.7, 2.05, 3.5];
+    c.targets = { user: $(n, '[data-k=user]'), pass: $(n, '[data-k=pass]'), go: $(n, '[data-k=login] .btnx') };
+}, 0);
+
+// 4. Top up in the panel
+scene('ptopup', 46.5, 22, caption('Step 2 · Top up', 'Top up in the panel',
+    `<p>Open <b>Top up</b>, pick an amount and tap <b>Pay with crypto</b>.</p>
+     <p>On the checkout, choose a coin and send the exact amount shown. Your balance updates automatically once the payment confirms.</p>`,
+    'Bundles of minutes are on the same page, if we offer them.') + browser(PANEL_URL, `
+    <div class="layer" data-k="desk" style="opacity:1">${desktopHtml()}</div>
+    <div class="win" data-k="tw" style="left:20px;top:40px;width:740px;height:470px"><div class="wt"><span>💳 Top up</span><span>✕</span></div>
+        <div style="position:absolute;left:0;right:0;top:30px;bottom:0;overflow:hidden">
+            <img data-k="a" src="shots/panel-topup.png" style="position:absolute;left:0;top:0;width:740px">
+            <img data-k="b" src="shots/panel-topup-25.png" style="position:absolute;left:0;top:0;width:740px;opacity:0">
+            <div class="balfix" data-k="balfix">30.00</div>
+        </div></div>
+    <div class="co" data-k="co"><div class="box">
+        <h4>Crypto checkout · OxaPay</h4><div class="amt">€25.00</div>
+        <div class="coins"><div data-k="usdt">USDT</div><div>BTC</div><div>ETH</div><div>TRX</div><div>LTC</div><div>TON</div></div>
+        <div class="send" data-k="send"><div class="qr"></div><div style="font-size:13px">Send exactly <b>25.38 USDT</b> (TRC20)<br><span class="mono" style="font-size:11.5px;color:#6b7a93">TX7d…demo…9fQ2</span><br><span style="color:#6b7a93">within 60 minutes</span></div></div>
+        <div class="status" data-k="wait">⏳ Waiting for your payment…</div>
+        <div class="status ok" data-k="paid">✅ Payment received. Returning to UNITY CARRIER…</div>
+    </div></div>`), (c, n) => {}, (t, n, c) => {
+    $(n, '.cap').style.opacity = fade(t, .1);
+    const win = $(n, '[data-k=tw]');
+    win.style.opacity = fade(t, 1.5, .3);
+    win.style.transform = `scale(${.96 + .04 * fade(t, 1.5, .3)})`;
+    const scale = 740 / 900;
+    $(n, '[data-k=b]').style.opacity = t >= 4.1 ? 1 : 0;
+    const co = $(n, '[data-k=co]');
+    co.style.opacity = fadeIO(t, 6.6, 14.4);
+    $(n, '[data-k=usdt]').classList.toggle('on', t >= 8.6);
+    $(n, '[data-k=send]').style.opacity = fade(t, 8.9);
+    $(n, '[data-k=wait]').style.opacity = t < 11.8 ? fade(t, 9.4) : 0;
+    $(n, '[data-k=paid]').style.opacity = fade(t, 11.8);
+    $(n, '[data-k=paid]').style.display = t >= 11.8 ? 'block' : 'none';
+    $(n, '[data-k=wait]').style.display = t >= 11.8 ? 'none' : 'block';
+    // balance after payment (covers the screenshot's old balance)
+    const b = BOXES['panel-topup'].balance;
+    const bal = $(n, '[data-k=balfix]');
+    Object.assign(bal.style, { left: (b.x - 40) * scale + 'px', top: (b.y - 2) * scale + 'px', width: (b.w + 42) * scale + 'px', height: (b.h + 4) * scale + 'px',
+        fontSize: (26 * scale) + 'px', opacity: fade(t, 15) });
+    bal.style.color = t > 15 && t < 17.5 ? '#0f8a4b' : '#172033';
+    $(n, '.desk [data-k=bal]').textContent = t > 15 ? '30.00' : '5.00';
+    const view = $(n, '.view').getBoundingClientRect();
+    const shot = (key) => { const bx = BOXES['panel-topup'][key] || BOXES['panel-topup-25'][key];
+        return [view.left + 20 + (bx.x + bx.w / 2) * scale, view.top + 40 + 30 + (bx.y + bx.h / 2) * scale]; };
+    c.cursor = [[0, 1000, 600], [.9, ...iconPoint(n, 'topup')], [2.4, ...iconPoint(n, 'topup')], [3.6, ...shot('chip25')], [4.8, ...shot('chip25')],
+        [5.6, ...shot('pay')], [6.6, ...shot('pay')], [8.1, ...nodePoint($(n, '[data-k=usdt]'))], [9.6, ...nodePoint($(n, '[data-k=usdt]'))], [11, 1180, 600],
+        [15.5, ...shot('balance')], [21, ...shot('balance')]];
+    c.clicks = [1.2, 4, 6.1, 8.5];
+}, 1);
+
+// 5. Website
+scene('web', 68.5, 14, caption('Step 2 · Top up', 'Or top up on our website',
+    `<p>No login needed. On <code>pay.unitycarrier.com/pay</code> type your username, choose an amount and continue to the secure crypto checkout.</p>
+     <p>You can top up anyone's account, and you get a receipt page.</p>`) + browser(PAY_URL, `
+    <div class="layer" data-k="a" style="opacity:1"><img src="shots/pay-empty.png"></div>
+    <div class="layer" data-k="b"><img src="shots/pay-filled.png"></div>
+    <div class="layer" data-k="c"><img src="shots/status.png"></div>`), null, (t, n, c) => {
+    $(n, '.cap').style.opacity = fade(t, .1);
+    const scroll = 110 * ease((t - 5.6) / .9);
+    $(n, '[data-k=b]').style.opacity = fade(t, 2.6, .5);
+    n.querySelectorAll('[data-k=a] img, [data-k=b] img').forEach(img => { img.style.transform = `translateY(${-scroll}px)`; });
+    $(n, '[data-k=c]').style.opacity = fade(t, 8.6, .5);
+    const f = { x: BROWSER.x, y: BROWSER.y, w: 780 };
+    c.cursor = [[0, 1000, 650], [1.4, ...shotPoint('pay-empty', 'username', f)], [2.4, ...shotPoint('pay-empty', 'username', f)],
+        [3.6, ...shotPoint('pay-filled', 'chip25', f)], [4.6, ...shotPoint('pay-filled', 'chip25', f)],
+        [5.4, ...shotPoint('pay-filled', 'chip25', f)], [6.9, ...shotPoint('pay-filled', 'submit', f, 110)], [7.8, ...shotPoint('pay-filled', 'submit', f, 110)], [9.4, 1150, 640]];
+    c.clicks = [1.9, 4, 7.4];
+}, 1);
+
+// 6. Telegram
+const tgMsgs = [
+    ['me', '/topup', 1],
+    ['bot', 'Send the <b>username</b> of the account you want to top up', 2],
+    ['me', 'demo1001', 3.5],
+    ['bot', 'Account: <span class="mono">demo1001</span>\nChoose an amount, or type one between €5.00 and €1,000.00.<div class="kb"><div><span>€10</span><span data-k="t25">€25</span><span>€50</span></div><div><span>€100</span><span>🎟 Promo code</span></div></div>', 5],
+    ['bot', '🧾 <b>Payment created</b>\nAccount: <span class="mono">demo1001</span>\nAmount: <b>€25.00</b> · Credit: <b>25.00</b><div class="kb"><div><span>Pay €25.00</span></div><div><span>Check status</span></div></div>', 7.6],
+    ['bot', '✅ <b>Payment confirmed</b>\n25.00 credit has been added to <span class="mono">demo1001</span>. Thank you!<div class="kb"><div><span>⚡ €25 again</span></div><div><span>💳 €10</span><span>💳 €25</span><span>💳 €50</span></div></div>', 10.5],
+];
+scene('tg', 82.5, 15, caption('Step 2 · Top up', 'Or top up in Telegram',
+    `<p>Open <b>@unitypayment_bot</b> and send <code>/topup</code>. Type your username, tap an amount and then <b>Pay</b>.</p>
+     <p>The bot tells you when the credit lands. Low-balance alerts come with <b>one-tap</b> top-up buttons.</p>`,
+    'Connect your Telegram in the panel (Telegram & security) to get alerts automatically.') + `
+<div class="phone"><div class="notch"></div><div class="scr"><div class="tg">
+    <div class="hd"><div class="av">${LOGO.replace('<svg>', '<svg style="width:17px;height:17px">')}</div><div><b>UNITY PAY</b><small>bot</small></div></div>
+    <div class="msgs"><div class="track">${tgMsgs.map(m => `<div class="bub ${m[0] === 'me' ? 'me' : ''}">${m[1]}</div>`).join('')}</div></div>
+    <div class="inp">Message</div>
+</div></div></div>`, null, (t, n, c) => {
+    $(n, '.cap').style.opacity = fade(t, .1);
+    $(n, '.phone').style.opacity = fade(t, .2);
+    n.querySelectorAll('.bub').forEach((b, i) => {
+        const on = t >= tgMsgs[i][2];
+        b.style.display = on ? 'block' : 'none';
+        b.style.opacity = fade(t, tgMsgs[i][2], .25);
+    });
+    const tap = $(n, '[data-k=t25]');
+    tap.classList.toggle('tap', t >= 6.3 && t < 7.4);
+    c.cursor = t > 5.6 && t < 7.6 ? [[5.6, 1100, 600], [6.2, ...nodePoint(tap)], [7.6, ...nodePoint(tap)]] : null;
+    c.clicks = [6.3];
+}, 1);
+
+// 7. SIP details
+scene('sipdetails', 97.5, 12, caption('Step 3 · SIP app', 'Find your SIP login',
+    `<p>Open <b>SIP Users</b>. Your <b>SIP username</b> and <b>SIP password</b> are there (tap 👁 to show the password).</p>
+     <p>You need them with our server address:</p><p><code>${SERVER}</code> · port <code>5060</code> · <code>UDP</code></p>`,
+    'Keep your SIP password private: anyone with it can call on your balance.') + browser(PANEL_URL, `
+    <div class="layer" style="opacity:1">${desktopHtml(sipWindow + `<div class="infobox" data-k="info" style="position:absolute;left:40px;top:456px;width:600px">🖥 Server: ${SERVER} · Port 5060 · UDP</div>`)}</div>`), null, (t, n, c) => {
+    $(n, '.cap').style.opacity = fade(t, .1);
+    const win = $(n, '[data-k=sipwin]');
+    win.style.opacity = fade(t, 2, .3);
+    $(n, '[data-k=row]').classList.toggle('sel', t >= 3.6);
+    $(n, '[data-k=pw]').textContent = t >= 5.6 ? 'Xk9#p2Lm-q' : '••••••••••';
+    $(n, '[data-k=info]').style.opacity = fade(t, 7);
+    c.cursor = [[0, 1000, 600], [1.2, ...iconPoint(n, 'sip')], [2, ...iconPoint(n, 'sip')], [3.2, ...nodePoint($(n, '[data-k=row]'))],
+        [4.8, ...nodePoint($(n, '[data-k=eye]'))], [6, ...nodePoint($(n, '[data-k=eye]'))], [7.5, 1160, 620]];
+    c.clicks = [1.6, 3.5, 5.5];
+}, 2);
+
+// 8. SIP app
+scene('sipapp', 109.5, 21, caption('Step 3 · SIP app', 'Call from any SIP app',
+    `<p>Install a SIP app such as <b>Zoiper</b>, <b>Linphone</b>, <b>MicroSIP</b> or <b>Groundwire</b>, and add a SIP account:</p>
+     <p>Username and password: your SIP login<br>Server / domain: <code>${SERVER}</code><br>Port <code>5060</code>, transport <code>UDP</code></p>
+     <p>When it shows <b>Registered</b>, dial the <b>country code + number</b>.</p>`,
+    'Codecs: G.711 (alaw/ulaw), G.729 and Opus all work.') + `
+<div class="phone"><div class="notch"></div><div class="scr">
+    <div class="sip" data-k="form"><div class="hd">Add SIP account</div><div class="body">
+        <div class="sf"><small>Username</small><div data-k="u"> </div></div>
+        <div class="sf"><small>Password</small><div data-k="p"> </div></div>
+        <div class="sf"><small>Domain / server</small><div data-k="d"> </div></div>
+        <div class="sf"><small>Port</small><div data-k="port"> </div></div>
+        <div class="sf"><small>Transport</small><div>UDP ▾</div></div>
+        <div class="btnx" data-k="save" style="margin-top:12px">Save</div>
+    </div></div>
+    <div class="sip" data-k="dial" style="opacity:0"><div class="hd">Phone</div>
+        <div class="acc"><span><b>demo1001</b>@${SERVER}</span><span><span class="dot"></span>Registered</span></div>
+        <div class="num mono" data-k="num"></div>
+        <div class="pad">${['1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '#'].map(k => `<b>${k}</b>`).join('')}</div>
+        <div class="callbtn" data-k="call">📞</div>
+    </div>
+    <div class="incall" data-k="incall"><div><div class="av">👤</div><div style="font-size:20px;font-weight:700" class="mono">+44 7700 900123</div>
+        <div style="color:#9fb1d1;margin-top:4px" data-k="timer">Calling…</div><div class="hang">📵</div></div></div>
+</div></div>`, null, (t, n, c) => {
+    $(n, '.cap').style.opacity = fade(t, .1);
+    $(n, '.phone').style.opacity = fade(t, .2);
+    const fields = [['u', 'demo1001', 1.2, 13], ['p', dots(10), 2.8, 13], ['d', SERVER, 4.4, 15], ['port', '5060', 6.4, 10]];
+    fields.forEach(([k, v, t0, cps], i) => {
+        const node = $(n, `[data-k=${k}]`);
+        node.textContent = typed(t, t0, v, cps) || ' ';
+        node.classList.toggle('focus', t >= t0 && t < (fields[i + 1] ? fields[i + 1][2] : 7.4));
+    });
+    $(n, '[data-k=form]').style.opacity = 1 - fade(t, 8.6);
+    $(n, '[data-k=dial]').style.opacity = fade(t, 8.6);
+    const digits = typed(t, 10.6, '447700900123', 5);
+    $(n, '[data-k=num]').textContent = digits.replace(/^(\d{2})(\d{0,4})(\d{0,6})$/, (m, a, b, cc) => [a, b, cc].filter(Boolean).join(' '));
+    $(n, '[data-k=incall]').style.opacity = fade(t, 14.4);
+    const sec = Math.max(0, Math.floor(t - 15.6));
+    $(n, '[data-k=timer]').textContent = t < 15.6 ? 'Calling…' : `00:0${Math.min(sec, 9)}`;
+    c.cursor = t < 8.6 ? [[0, 1100, 640], [7.6, ...nodePoint($(n, '[data-k=save]'))], [8.4, ...nodePoint($(n, '[data-k=save]'))]]
+        : [[8.6, 790, 560], [13.4, ...nodePoint($(n, '[data-k=call]'))], [14.4, ...nodePoint($(n, '[data-k=call]'))], [16, 1120, 640]];
+    c.clicks = [8.1, 13.9];
+}, 2);
+
+// 9. Browser (WebRTC)
+scene('webrtc', 130.5, 18, caption('Step 4 · Browser call', 'Call from your browser',
+    `<p>No app needed. In <b>SIP Users</b>, select your line and tap <b>Webphone</b>.</p>
+     <p>Allow the microphone, dial the number and tap <b>Call</b>. Works in Chrome, Edge, Firefox and Safari.</p>`,
+    'No Webphone button, or it says WebRTC is off? Message us and we turn it on for your line.') + browser(PANEL_URL, `
+    <div class="layer" style="opacity:1">${desktopHtml(sipWindow)}</div>
+    <div class="win" data-k="wp" style="left:430px;top:30px;width:300px;height:470px;opacity:0"><div class="wt"><span>🎧 Webphone · demo1001</span><span>✕</span></div>
+        <div class="sip" style="top:30px">
+            <div class="acc" style="margin:10px"><span>demo1001</span><span data-k="reg">Connecting…</span></div>
+            <div class="num mono" data-k="num"></div>
+            <div class="pad" style="padding:0 30px;gap:8px">${['1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '#'].map(k => `<b style="height:44px">${k}</b>`).join('')}</div>
+            <div class="callbtn" data-k="call" style="width:50px;height:50px;font-size:20px">📞</div>
+            <div class="incall" data-k="incall" style="border-radius:0"><div><div class="av">🎧</div><div class="mono" style="font-weight:700">+44 7700 900123</div>
+                <div style="color:#9fb1d1;margin-top:4px" data-k="timer">Calling…</div><div class="hang">📵</div></div></div>
+        </div></div>
+    <div class="perm" data-k="perm" style="left:20px;top:12px">🎤 <b>www.unitycarrier.com</b> wants to use your microphone<div class="pb"><span>Block</span><span data-k="allow">Allow</span></div></div>`),
+null, (t, n, c) => {
+    $(n, '.cap').style.opacity = fade(t, .1);
+    $(n, '[data-k=sipwin]').style.opacity = 1;
+    $(n, '[data-k=row]').classList.toggle('sel', t >= 1.6);
+    $(n, '[data-k=webphone]').classList.toggle('hl', t >= 3);
+    const wp = $(n, '[data-k=wp]');
+    wp.style.opacity = fade(t, 3.6);
+    const reg = $(n, '[data-k=reg]');
+    reg.innerHTML = t < 5 ? 'Connecting…' : '<span class="dot"></span>Registered';
+    $(n, '[data-k=perm]').style.opacity = fadeIO(t, 5.8, 8);
+    const digits = typed(t, 8.8, '447700900123', 5);
+    $(n, '[data-k=num]').textContent = digits.replace(/^(\d{2})(\d{0,4})(\d{0,6})$/, (m, a, b, cc) => [a, b, cc].filter(Boolean).join(' '));
+    $(n, '[data-k=incall]').style.opacity = fade(t, 12.4);
+    const sec = Math.max(0, Math.floor(t - 13.6));
+    $(n, '[data-k=timer]').textContent = t < 13.6 ? 'Calling…' : `00:0${Math.min(sec, 9)}`;
+    c.cursor = [[0, 1000, 600], [1.2, ...nodePoint($(n, '[data-k=row]'))], [2, ...nodePoint($(n, '[data-k=row]'))], [2.8, ...nodePoint($(n, '[data-k=webphone]'))],
+        [3.6, ...nodePoint($(n, '[data-k=webphone]'))], [6.8, ...nodePoint($(n, '[data-k=allow]'))], [7.6, ...nodePoint($(n, '[data-k=allow]'))],
+        [11.4, ...nodePoint($(n, '[data-k=call]'))], [12.2, ...nodePoint($(n, '[data-k=call]'))], [14, 1170, 640]];
+    c.clicks = [1.6, 3.2, 7.2, 11.9];
+}, 3);
+
+// 10. Extras
+scene('extras', 148.5, 13, caption('Extras', 'Alerts, security and rewards',
+    `<p><b>Telegram &amp; security</b> in the panel:</p>
+     <p>🔔 <b>Connect Telegram</b> for payment messages and low-balance alerts.</p>
+     <p>🔐 <b>Two-step login</b> protects your account with a code from your phone.</p>
+     <p>🎁 On the <b>Top up</b> page, share your invite link: you and your friend both get bonus credit.</p>`) + browser(PANEL_URL, `
+    <div class="layer" style="opacity:1"><img src="shots/panel-security.png"></div>
+    <div class="ring" data-k="r1"></div><div class="ring" data-k="r2"></div>`), null, (t, n, c) => {
+    $(n, '.cap').style.opacity = fade(t, .1);
+    const s = 780 / 900;
+    [['r1', 'tg', 1.5, 6], ['r2', 'ts', 6.2, 11]].forEach(([k, key, a, b]) => {
+        const bx = BOXES['panel-security'][key];
+        Object.assign($(n, `[data-k=${k}]`).style, { left: bx.x * s - 6 + 'px', top: bx.y * s - 6 + 'px', width: bx.w * s + 12 + 'px', height: bx.h * s + 12 + 'px',
+            opacity: fadeIO(t, a, b), borderRadius: '14px' });
+    });
+    c.cursor = null;
+}, 4);
+
+// 11. Outro
+scene('outro', 161.5, 7, `<div class="center"><div>
+    <div class="big-logo">${LOGO}</div><div class="brand">Happy calling!</div>
+    <div class="sub">Questions? We are here to help.</div>
+    <div class="pills"><span>💬 Telegram: @unitypayment_bot</span><span>🌐 www.unitycarrier.com</span></div>
+</div></div>`, null, (t, n) => {
+    $(n, '.big-logo').style.opacity = fade(t, .2);
+    $(n, '.brand').style.opacity = fade(t, .6);
+    $(n, '.sub').style.opacity = fade(t, 1);
+    n.querySelectorAll('.pills span').forEach((p, i) => { p.style.opacity = fade(t, 1.6 + i * .4); });
+});
+
+stage.appendChild(chapters);
+stage.appendChild(ripple);
+stage.appendChild(cursor);
+window.DURATION = 168.5;
+
+// ------------------------------------------------------------------ render
+function cursorAt(s, local) {
+    const c = s.ctx;
+    if (!c.cursor) return null;
+    const pts = c.cursor.map(p => {
+        if (p.length === 4) { const [x, y] = nodePoint(c.targets[p[3]]); return [p[0], x, y]; }
+        return p;
+    });
+    return path(local, pts);
+}
+
+window.render = function (t) {
+    let active = null;
+    for (const s of scenes) {
+        const local = t - s.start;
+        const vis = Math.min(fade(local, -.01, .45), 1 - fade(local, s.dur - .45, .45));
+        s.node.style.opacity = vis;
+        s.node.style.visibility = vis > 0 ? 'visible' : 'hidden';
+        if (vis > 0 || (local >= 0 && local < s.dur)) {
+            s.update(local, s.node, s.ctx);
+            if (local >= 0 && local < s.dur) active = s;
+        }
+    }
+    // chapters
+    const ch = active ? active.chapter : -1;
+    chapters.style.opacity = ch >= 0 ? 1 : 0;
+    const bounds = [[14.5, 46.5], [46.5, 97.5], [97.5, 130.5], [130.5, 148.5], [148.5, 161.5]];
+    chapters.querySelectorAll('div').forEach((d, i) => {
+        d.classList.toggle('on', i === ch);
+        d.querySelector('i').style.width = (clamp((t - bounds[i][0]) / (bounds[i][1] - bounds[i][0])) * 100) + '%';
+    });
+    // cursor
+    let pos = null, local = 0;
+    if (active) { local = t - active.start; pos = cursorAt(active, local); }
+    if (pos) {
+        const clicks = active.ctx.clicks || [];
+        const since = clicks.map(c => local - c).filter(d => d >= 0 && d < .5);
+        const press = since.length && since[0] < .16;
+        cursor.style.opacity = Math.min(fade(local, .2), 1 - fade(local, active.dur - .6));
+        cursor.style.transform = `translate(${pos[0] - 4}px, ${pos[1] - 2}px) scale(${press ? .85 : 1})`;
+        if (since.length) {
+            const k = since[0] / .5;
+            ripple.style.opacity = 1 - k;
+            ripple.style.left = pos[0] + 'px';
+            ripple.style.top = pos[1] + 'px';
+            ripple.style.transform = `scale(${.4 + k * 1.1})`;
+        } else {
+            ripple.style.opacity = 0;
+        }
+    } else {
+        cursor.style.opacity = 0;
+        ripple.style.opacity = 0;
+    }
+};
+
+// Real-time preview in a browser: play()
+window.play = function (from = 0) {
+    const t0 = performance.now() - from * 1000;
+    (function tick() { const t = (performance.now() - t0) / 1000; render(t); if (t < window.DURATION) requestAnimationFrame(tick); })();
+};
+render(0);
+</script>
+</body>
+</html>
