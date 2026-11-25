@@ -180,7 +180,7 @@ Apply: 🌐 unityperformance.co/franchise
 
 ## Video: "What's the secret?" (lead video for tuning)
 
-Two versions: `what-is-tuning-*.mp4` is 22 seconds and silent, so add Instagram music. `what-is-tuning-voiceover-*.mp4` is 74 seconds, with narration explaining ECU tuning, original music and sound effects. **Don't add Instagram music to the voiceover version**; it already has its own.
+Two versions: `what-is-tuning-*.mp4` is 22 seconds and silent, so add Instagram music. `what-is-tuning-voiceover-*.mp4` is 74 seconds, with narration explaining ECU tuning, original music and sound effects. The same video also comes with Hindi narration (`what-is-tuning-hindi-voiceover-*.mp4`, 83 seconds) and with quicker, North Indian-style Hinglish narration (`what-is-tuning-hinglish-voiceover-*.mp4`, 67 seconds). **Don't add Instagram music to the voiceover versions**; they already have their own.
 
 Same car. Same engine. +25 hp. What's the secret? 🤔
 
