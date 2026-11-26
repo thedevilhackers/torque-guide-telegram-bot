@@ -658,7 +658,9 @@ const ICON = {
 };
 const icon = (name) => `<svg viewBox="0 0 48 48" fill="none" stroke="${RED}" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">${ICON[name]}</svg>`;
 
-// ---------- Put everything on the page ----------
-document.body.insertAdjacentHTML("afterbegin", DEFS);
-for (const el of document.querySelectorAll("[data-fig]")) el.innerHTML = FIG[el.dataset.fig](el.dataset.dark === "1");
-for (const el of document.querySelectorAll("[data-icon]")) el.innerHTML = icon(el.dataset.icon);
+// ---------- Put everything on the page (after install.js has added its figures) ----------
+window.addEventListener("DOMContentLoaded", () => {
+  document.body.insertAdjacentHTML("afterbegin", DEFS);
+  for (const el of document.querySelectorAll("[data-fig]")) el.innerHTML = FIG[el.dataset.fig](el.dataset.dark === "1");
+  for (const el of document.querySelectorAll("[data-icon]")) el.innerHTML = icon(el.dataset.icon);
+});
