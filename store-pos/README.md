@@ -109,6 +109,12 @@ All branches use **one central server**: every till is just a browser pointed at
 
 Before going live: delete or change the demo staff accounts, give every manager their own PIN, and keep API keys in your admin panel's secret settings only.
 
+### Public demo
+
+Set `DEMO_MODE=1` to run a demo anyone can try: on an empty database the server loads the sample store by itself, and the sign-in page lists the demo logins with one-click sign-in. Webhooks and changes to staff accounts are turned off so visitors can't misuse the server or lock each other out. On Render's free plan (no disk) the data resets whenever the service restarts, which suits a demo; the first visit after it has been idle takes about a minute to wake up.
+
+Render settings for the demo: root directory `store-pos`, build `npm install`, start `npm start`, environment variables `NODE_VERSION=22` and `DEMO_MODE=1`, instance type Free.
+
 ## Connecting your restaurant admin panel
 
 1. Admin → **Admin panel / API** → *New API key* (scope: all branches).

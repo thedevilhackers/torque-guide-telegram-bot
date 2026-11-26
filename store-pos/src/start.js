@@ -19,4 +19,4 @@ process.emitWarning = function (warning, ...args) {
 };
 
 const { main } = await import("./server.js");
-main();
+await main();

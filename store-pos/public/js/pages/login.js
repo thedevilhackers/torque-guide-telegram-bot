@@ -22,17 +22,18 @@ function rememberUser(user) {
 
 export async function renderAuth(root, { onSignedIn }) {
   let needsSetup = false;
+  let demo = null;
   try {
-    needsSetup = (await get("/api/setup")).needs_setup;
+    ({ needs_setup: needsSetup, demo = null } = await get("/api/setup"));
   } catch (err) {
     mount(root, html`<div class="auth"><div class="card auth-card"><h2>Cannot reach the store server</h2><p class="muted">${err.message}</p></div></div>`);
     return;
   }
   if (needsSetup) return renderSetup(root, { onSignedIn });
-  renderLogin(root, { onSignedIn });
+  renderLogin(root, { onSignedIn, demo });
 }
 
-function renderLogin(root, { onSignedIn }) {
+function renderLogin(root, { onSignedIn, demo = null }) {
   let mode = "pin";
   const draw = () => {
     const recent = recentUsers();
@@ -58,6 +59,14 @@ function renderLogin(root, { onSignedIn }) {
             <button class="btn primary lg" type="submit">Sign in</button>
           </form>
           <p class="small faint" style="margin-top:14px">Cashiers usually sign in with a PIN. Owners and managers can use a password.</p>
+          ${demo
+            ? html`<div class="stack" style="margin-top:16px;padding:12px 14px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface-2);gap:8px" data-demo-logins>
+                <div><strong>Public demo</strong><div class="small muted">A sample store with made-up data. Anything you change is wiped when the demo restarts.</div></div>
+                <ul class="list-plain">${demo.logins.map(
+                  (l, i) => html`<li><div><div style="font-weight:600">${l.who}</div><div class="small muted mono"><span class="nowrap">${l.username}</span> · <span class="nowrap">PIN ${l.pin}</span>${l.password ? html` · <span class="nowrap">password ${l.password}</span>` : ""}</div></div><button type="button" class="btn sm" data-demo-login="${i}">Sign in</button></li>`
+                )}</ul>
+              </div>`
+            : ""}
         </div>
       </div>`
     );
@@ -67,6 +76,14 @@ function renderLogin(root, { onSignedIn }) {
   on(root, "click", "[data-mode]", (e, btn) => {
     mode = btn.dataset.mode;
     draw();
+  });
+  on(root, "click", "[data-demo-login]", (e, btn) => {
+    const login = demo.logins[Number(btn.dataset.demoLogin)];
+    mode = "pin";
+    draw();
+    $("[name=username]", root).value = login.username;
+    $("[name=pin]", root).value = login.pin;
+    $("[data-login]", root).requestSubmit();
   });
   on(root, "click", "[data-user]", (e, btn) => {
     $("[name=username]", root).value = btn.dataset.user;

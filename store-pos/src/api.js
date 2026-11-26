@@ -29,7 +29,7 @@ import {
   updateProduct
 } from "./catalog.js";
 import { getCustomer, saveCustomer, searchCustomers } from "./customers.js";
-import { seedDemo } from "./demo.js";
+import { DEMO_LOGINS, seedDemo } from "./demo.js";
 import {
   ADJUST_REASONS,
   adjustStock,
@@ -83,54 +83,66 @@ const dateParam = (ctx, key, fallback) => {
 const branchFilter = (ctx) => (ctx.query.branch_id === "all" && !ctx.principal.branchId ? null : ctx.branchId);
 const csv = (body, filename) => ({ __raw: true, type: "text/csv; charset=utf-8", body, filename });
 
-export function registerRoutes(router, { version }) {
+
+/** First-run setup: settings, first branch, owner account, optional demo data. Returns a session. */
+export async function completeSetup(db, body) {
+  if (value(db, "SELECT COUNT(*) FROM users") > 0) throw forbidden("Setup has already been completed", "SETUP_DONE");
+  const owner = body.owner ?? {};
+  const password = str(owner.password, "owner.password", { required: true, max: 200 });
+  if (password.length < 8) throw badRequest("Password must be at least 8 characters", "VALIDATION");
+  const pin = owner.pin ? String(owner.pin) : null;
+  if (pin && !/^\d{4,8}$/.test(pin)) throw badRequest("PIN must be 4 to 8 digits", "VALIDATION");
+  const [passwordHash, pinHash] = await Promise.all([hashSecret(password), pin ? hashSecret(pin) : null]);
+  const result = tx(db, () => {
+    if (value(db, "SELECT COUNT(*) FROM users") > 0) throw forbidden("Setup has already been completed", "SETUP_DONE");
+    updateSettings(db, {
+      store_name: body.store_name ?? "My Store",
+      currency: body.currency ?? "USD",
+      locale: body.locale ?? "en-US",
+      prices_include_tax: body.prices_include_tax ?? true
+    });
+    const branch = createBranch(db, body.branch ?? {});
+    const username = str(owner.username, "owner.username", { required: true, max: 40 }).toLowerCase();
+    if (!/^[a-z0-9._-]+$/.test(username)) throw badRequest("username may only use letters, digits, dots, dashes and underscores", "VALIDATION");
+    const userId = run(
+      db,
+      "INSERT INTO users(name, username, password_hash, pin_hash, role, created_at) VALUES (?, ?, ?, ?, 'owner', ?)",
+      str(owner.name, "owner.name", { required: true, max: 80 }),
+      username,
+      passwordHash,
+      pinHash,
+      nowIso()
+    ).id;
+    return { branch, userId };
+  });
+  let demo = null;
+  if (bool(body.demo)) {
+    const principal = { kind: "user", userId: result.userId, role: "owner", branchId: null, name: owner.name };
+    demo = await seedDemo(db, { branchId: result.branch.id, principal });
+  }
+  const session = createSession(db, result.userId);
+  return { ...session, branch: result.branch, demo };
+}
+
+export function registerRoutes(router, { version, demo: demoMode = false }) {
+  // On the public demo, turn off what a visitor could misuse: making the server call other
+  // addresses (webhooks) and changing the shared demo accounts.
+  const notOnDemo = (what) => {
+    if (demoMode) throw forbidden(`${what} is turned off on the public demo`, "DEMO_DISABLED");
+  };
   const r = router;
 
   // ---- public ----------------------------------------------------------------------
   r.get("/api/health", ({ db }) => ({ ok: true, version, time: nowIso(), branches: value(db, "SELECT COUNT(*) FROM branches") }), { auth: false });
 
-  r.get("/api/setup", ({ db }) => ({ needs_setup: value(db, "SELECT COUNT(*) FROM users") === 0 }), { auth: false });
+  r.get("/api/setup", ({ db }) => ({ needs_setup: value(db, "SELECT COUNT(*) FROM users") === 0, demo: demoMode ? { logins: DEMO_LOGINS } : undefined }), { auth: false });
 
   r.post(
     "/api/setup",
     async ({ db, body, ip }) => {
       if (value(db, "SELECT COUNT(*) FROM users") > 0) throw forbidden("Setup has already been completed", "SETUP_DONE");
       assertNotThrottled(`setup:${ip}`);
-      const owner = body.owner ?? {};
-      const password = str(owner.password, "owner.password", { required: true, max: 200 });
-      if (password.length < 8) throw badRequest("Password must be at least 8 characters", "VALIDATION");
-      const pin = owner.pin ? String(owner.pin) : null;
-      if (pin && !/^\d{4,8}$/.test(pin)) throw badRequest("PIN must be 4 to 8 digits", "VALIDATION");
-      const [passwordHash, pinHash] = await Promise.all([hashSecret(password), pin ? hashSecret(pin) : null]);
-      const result = tx(db, () => {
-        if (value(db, "SELECT COUNT(*) FROM users") > 0) throw forbidden("Setup has already been completed", "SETUP_DONE");
-        updateSettings(db, {
-          store_name: body.store_name ?? "My Store",
-          currency: body.currency ?? "USD",
-          locale: body.locale ?? "en-US",
-          prices_include_tax: body.prices_include_tax ?? true
-        });
-        const branch = createBranch(db, body.branch ?? {});
-        const username = str(owner.username, "owner.username", { required: true, max: 40 }).toLowerCase();
-        if (!/^[a-z0-9._-]+$/.test(username)) throw badRequest("username may only use letters, digits, dots, dashes and underscores", "VALIDATION");
-        const userId = run(
-          db,
-          "INSERT INTO users(name, username, password_hash, pin_hash, role, created_at) VALUES (?, ?, ?, ?, 'owner', ?)",
-          str(owner.name, "owner.name", { required: true, max: 80 }),
-          username,
-          passwordHash,
-          pinHash,
-          nowIso()
-        ).id;
-        return { branch, userId };
-      });
-      let demo = null;
-      if (bool(body.demo)) {
-        const principal = { kind: "user", userId: result.userId, role: "owner", branchId: null, name: owner.name };
-        demo = await seedDemo(db, { branchId: result.branch.id, principal });
-      }
-      const session = createSession(db, result.userId);
-      return { ...session, branch: result.branch, demo };
+      return completeSetup(db, body);
     },
     { auth: false }
   );
@@ -239,6 +251,7 @@ export function registerRoutes(router, { version }) {
   });
   r.patch("/api/users/:id", async ({ db, principal, body, ...ctx }) => {
     requirePermission(principal, "users.manage");
+    notOnDemo("Changing staff accounts");
     const user = await updateUser(db, principal, id(ctx), body);
     audit(db, principal, "user.updated", { entity: "user", entityId: user.id, branchId: user.branch_id, details: { ...body, password: body.password ? "***" : undefined, pin: body.pin ? "***" : undefined } });
     return user;
@@ -585,12 +598,14 @@ export function registerRoutes(router, { version }) {
     return { webhooks: listWebhooks(db), events: EVENTS };
   });
   r.post("/api/webhooks", ({ db, principal, body }) => {
+    notOnDemo("Sending webhooks");
     requirePermission(principal, "integrations.manage");
     const hook = createWebhook(db, body);
     audit(db, principal, "webhook.created", { entity: "webhook", entityId: hook.id, details: { url: hook.url, events: hook.events } });
     return hook;
   });
   r.patch("/api/webhooks/:id", ({ db, principal, body, ...ctx }) => {
+    notOnDemo("Sending webhooks");
     requirePermission(principal, "integrations.manage");
     return updateWebhook(db, id(ctx), body);
   });
@@ -600,6 +615,7 @@ export function registerRoutes(router, { version }) {
     return { ok: true };
   });
   r.post("/api/webhooks/:id/test", ({ db, principal, ...ctx }) => {
+    notOnDemo("Sending webhooks");
     requirePermission(principal, "integrations.manage");
     sendTestEvent(db, id(ctx));
     return { ok: true };
@@ -609,6 +625,7 @@ export function registerRoutes(router, { version }) {
     return listDeliveries(db, { webhookId: optionalId(query.webhook_id, "webhook_id"), limit: Number(query.limit) || 100 });
   });
   r.post("/api/webhooks/deliveries/:id/retry", ({ db, principal, ...ctx }) => {
+    notOnDemo("Sending webhooks");
     requirePermission(principal, "integrations.manage");
     retryDelivery(db, id(ctx));
     return { ok: true };

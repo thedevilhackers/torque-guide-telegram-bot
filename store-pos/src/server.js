@@ -4,7 +4,8 @@ import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { openDatabase } from "./db.js";
 import { createHandler, createRouter } from "./http.js";
-import { registerRoutes } from "./api.js";
+import { completeSetup, registerRoutes } from "./api.js";
+import { DEMO_STORE } from "./demo.js";
 import { startScheduler } from "./scheduler.js";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -21,26 +22,34 @@ function loadDotEnv() {
   }
 }
 
-export function createApp({ dbPath = ":memory:", corsOrigins = [], frameAncestors = "'self'", logger = console } = {}) {
+export function createApp({ dbPath = ":memory:", corsOrigins = [], frameAncestors = "'self'", logger = console, demo = false } = {}) {
   const db = openDatabase(dbPath);
   const router = createRouter();
-  registerRoutes(router, { version });
+  registerRoutes(router, { version, demo });
   const handler = createHandler({ db, router, publicDir: join(root, "public"), sharedDir: join(root, "shared"), corsOrigins, frameAncestors, logger });
   const server = createServer(handler);
   return { db, server, handler };
 }
 
 /** Starts the web server using the settings in .env / environment variables. */
-export function main() {
+export async function main() {
   loadDotEnv();
+  // DEMO_MODE=1: a public demo that fills an empty database with the sample store and shows the
+  // demo logins on the sign-in page (see DEMO_STORE / DEMO_LOGINS in demo.js).
+  const demo = process.env.DEMO_MODE === "1";
   const port = Number(process.env.PORT) || 3000;
   const host = process.env.HOST || "0.0.0.0";
   const dbPath = process.env.DATABASE_PATH || join(root, "data", "store.db");
   const { db, server } = createApp({
     dbPath,
     corsOrigins: (process.env.CORS_ORIGINS ?? "").split(",").map((s) => s.trim()).filter(Boolean),
-    frameAncestors: process.env.FRAME_ANCESTORS || "'self'"
+    frameAncestors: process.env.FRAME_ANCESTORS || "'self'",
+    demo
   });
+  if (demo && !db.prepare("SELECT COUNT(*) AS n FROM users").get().n) {
+    await completeSetup(db, DEMO_STORE);
+    console.log("Demo mode: sample store loaded.");
+  }
   const stopScheduler = startScheduler(db);
   server.on("error", (error) => {
     if (error.code === "EADDRINUSE") {

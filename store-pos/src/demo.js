@@ -55,6 +55,23 @@ function rng(seed) {
   };
 }
 
+// Public demo (DEMO_MODE=1): the store it creates on an empty database, and the logins it shows.
+export const DEMO_STORE = {
+  store_name: "QuickMart",
+  currency: "INR",
+  locale: "en-IN",
+  demo: true,
+  branch: { code: "MGR", name: "MG Road", timezone: "Asia/Kolkata", address: "45 MG Road" },
+  owner: { name: "Demo Owner", username: "owner", password: "demo-owner-123", pin: "9999" }
+};
+
+export const DEMO_LOGINS = [
+  { who: "Owner (all branches)", username: "owner", password: "demo-owner-123", pin: "9999" },
+  { who: "Manager, MG Road", username: "manager1", pin: "2222" },
+  { who: "Cashier, MG Road", username: "cashier1", pin: "1111" },
+  { who: "Cashier, Station Road", username: "cashier2", pin: "3333" }
+];
+
 export async function seedDemo(db, { branchId, principal }) {
   const settings = getSettings(db);
   const [factor, step] = SCALE[settings.currency] ?? [1, 1];
