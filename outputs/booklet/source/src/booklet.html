@@ -1,0 +1,881 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>The Tuning Book · Unity Performance</title>
+<link rel="stylesheet" href="booklet.css">
+<style id="pagesize">@page { size: 148mm 210mm; margin: 0; }</style>
+</head>
+<body>
+
+<!-- 1. COVER -->
+<section class="page dark cover" id="cover" data-nofoot>
+  <div class="grid-lines"></div>
+  <div class="glow" style="width:170mm;height:120mm;left:-10mm;top:78mm"></div>
+  <div class="in">
+    <img class="logo" src="img/logo-transparent.png" alt="Unity Motorsports Performance">
+    <p class="tag">Performance · Protection · Perfection</p>
+    <div class="title">
+      <p class="pre">The customer guide to car tuning</p>
+      <h1>The Tuning<span>Book</span></h1>
+      <p>Stage 1 to Stage 3, explained part by part: what we fit, why we fit it, how we tune it and how we check every step.</p>
+      <div class="stagebar"><span>Stage 1</span><span>Stage 2</span><span>Stage 3</span></div>
+    </div>
+    <div class="art fig" data-fig="turbo" data-dark="1"></div>
+    <div class="contact">
+      <div><div class="qr"><img src="img/qr-site.svg" alt="QR code for unityperformance.co"></div><p class="scan">Scan to search your car</p></div>
+      <div class="rows">
+        <div><span>WhatsApp</span><strong>+91 87096 47229</strong></div>
+        <div><span>Website</span><strong>unityperformance.co</strong></div>
+        <div><span>Workshop</span><strong>L-12, Argora Housing Colony, Ranchi, Jharkhand 834002</strong></div>
+        <div><span>Open</span><strong>Mon–Sat, 9:00–18:00</strong></div>
+        <div><span>Instagram</span><strong>@unitytuners</strong></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 2. WELCOME + CONTENTS -->
+<section class="page" id="contents" data-run="Contents">
+  <div class="in">
+    <p class="kicker">Welcome</p>
+    <h1>Inside this <em>book</em></h1>
+    <p class="lede">Tuning shouldn't be a mystery. This book explains, in plain words, what happens to your car at each stage: every part we fit and why, how we calibrate the software, and how we check our work at every step. Read it before your tune, and keep it in the glovebox afterwards.</p>
+    <div class="toc-list" id="toc"></div>
+    <div class="note auto"><p style="margin:0"><b>A note on numbers.</b> Power figures in this book are estimates for healthy, standard cars on the right fuel. We confirm what's realistic for your car after its health check, and we check every tune with data logs on the road.</p></div>
+  </div>
+</section>
+
+<!-- 3. HOW AN ENGINE MAKES POWER -->
+<section class="page" id="power" data-toc="How your engine makes power" data-group="The basics" data-run="The basics">
+  <div class="in">
+    <p class="kicker">The basics</p>
+    <h1>How your engine<br><em>makes power</em></h1>
+    <p class="lede">Every engine is an air pump. The more air it can take in, the more fuel it can burn and the more power it makes. A turbo forces in extra air, and the ECU decides how much.</p>
+    <div class="fig" data-fig="airpath"></div>
+    <div class="why mt">
+      <div><h3><span class="n">1</span>Air in</h3><p>Air passes the filter. Sensors measure how much is coming in and how warm it is, and report to the ECU, the car's computer.</p></div>
+      <div><h3><span class="n">2</span>Squeezed and cooled</h3><p>The turbo's compressor packs the air in: that's <b>boost</b>. Squeezing heats the air, so the intercooler cools it again. Cooler air is denser and safer.</p></div>
+      <div><h3><span class="n">3</span>Burned and reused</h3><p>The ECU adds fuel and a spark (a diesel ignites from compression alone). The exhaust then spins the turbo's turbine, which drives the compressor on the same shaft.</p></div>
+    </div>
+    <div class="fact auto"><span class="big">2 LEVERS</span><p><b>Software</b> decides how hard the engine works. <b>Hardware</b> decides how much air and fuel it can flow. Stage 1 uses the first lever; Stages 2 and 3 add the second.</p></div>
+  </div>
+</section>
+
+<!-- 4. INSIDE THE ECU -->
+<section class="page" id="ecu" data-toc="Inside the ECU" data-group="The basics" data-run="The basics">
+  <div class="in">
+    <p class="kicker">The basics</p>
+    <h1>Inside the <em>ECU</em></h1>
+    <p class="lede">The engine control unit is a small, rugged computer. Hundreds of times a second it reads the sensors, looks up its maps and sets the boost, fuel and spark. Tuning means rewriting those maps.</p>
+    <div class="fig" data-fig="ecu" style="margin:0 22mm"></div>
+    <ol class="parts mt">
+      <li><b>Cover</b>Seals out water and dust, and spreads heat away from the electronics.</li>
+      <li><b>Circuit board</b>Power supply and the drivers that fire the injectors and coils and move the throttle and wastegate.</li>
+      <li><b>Processor and flash memory</b>The program and its maps live here. This is what we read, change and write back.</li>
+      <li><b>Connector</b>Links the ECU to every sensor and actuator on the car.</li>
+      <li><b>Base and heat sink</b>Holds the board and carries heat into the car's body.</li>
+    </ol>
+    <div class="grid2 auto">
+      <div class="card tight"><h3>Why factories leave power on the table</h3>
+        <ul class="dots small" style="color:var(--ink-2);font-size:7.5pt">
+          <li>One engine is sold in many countries, so it's set up for the worst fuel and hottest weather it might meet.</li>
+          <li>Carmakers often sell one engine at two or three power levels. The software sets the difference.</li>
+          <li>Settings favour emissions tests, noise limits and long service intervals over response.</li>
+        </ul></div>
+      <div class="card tight ink"><h3>What we never touch</h3>
+        <ul class="dots" style="font-size:7.5pt">
+          <li>Emissions systems: catalyst, DPF, EGR, AdBlue.</li>
+          <li>The immobiliser and anti-theft systems.</li>
+          <li>Safety systems: ABS, airbags, stability control.</li>
+          <li>The odometer.</li>
+        </ul></div>
+    </div>
+  </div>
+</section>
+
+<!-- 5. MAPS -->
+<section class="page" id="maps" data-toc="What a tune actually changes" data-group="The basics" data-run="The basics">
+  <div class="in">
+    <p class="kicker">The basics</p>
+    <h1>What a tune <em>actually changes</em></h1>
+    <p class="lede">Inside the ECU, most decisions come from tables called maps. Each one is a grid: engine speed along one side, load or pedal along the other, and a value in every cell.</p>
+    <div class="fig" data-fig="maps"></div>
+    <p class="cap">Example boost maps for a turbo petrol engine (an illustration). Darker cells ask for more boost. Stage 1 raises the target in the mid-range, where you feel it most, and stays gentle at low load so the car is just as smooth in traffic.</p>
+    <div class="grid3 mt">
+      <div class="card tight"><h3>Boost target</h3><p class="small">How much the turbo pushes, at each speed and load. Kept within the turbo's safe speed.</p></div>
+      <div class="card tight"><h3>Fuel</h3><p class="small">Petrol: the air-fuel ratio. Diesel: injection quantity, timing and rail pressure.</p></div>
+      <div class="card tight"><h3>Ignition timing</h3><p class="small">When the spark fires (petrol). Optimised for your fuel, with knock control fully active.</p></div>
+      <div class="card tight"><h3>Torque limits</h3><p class="small">The ceiling the ECU allows, often per gear. Raised to match, within the gearbox's capacity.</p></div>
+      <div class="card tight"><h3>Pedal map</h3><p class="small">How much the throttle opens for your foot. Made smooth and progressive, never jumpy.</p></div>
+      <div class="card tight"><h3>Protection</h3><p class="small">Limits for temperature, knock and smoke. We keep them all, and often tighten them.</p></div>
+    </div>
+    <div class="note auto"><p style="margin:0">A good tune changes hundreds of values across many maps. It's not one "power slider", and that's why every file is built for one car and checked with logs.</p></div>
+  </div>
+</section>
+
+<!-- 6. WHY TUNING -->
+<section class="page" id="why" data-toc="Why tuning is the most popular upgrade" data-group="The basics" data-run="The basics">
+  <div class="in">
+    <p class="kicker">The basics</p>
+    <h1>Why tuning is the <em>most popular</em> upgrade</h1>
+    <p class="lede">On a modern turbo engine, software is the biggest single step you can take. No other upgrade gives as much for the money, and it's the foundation every later stage builds on.</p>
+    <div class="grid2">
+      <div class="card"><h3>Best value per rupee</h3><p class="small" style="color:var(--ink-2)">Stage 1 adds no parts. You're paying for expertise and time, and getting the headroom your engine already has.</p></div>
+      <div class="card"><h3>Completely reversible</h3><p class="small" style="color:var(--ink-2)">We save your original file, so the car can go back to factory settings whenever you want.</p></div>
+      <div class="card"><h3>Keeps factory manners</h3><p class="small" style="color:var(--ink-2)">Cold starts, idle, AC and cruise control all work as before. It's still your daily car.</p></div>
+      <div class="card"><h3>Made for Indian roads</h3><p class="small" style="color:var(--ink-2)">More pull for highway overtakes, ghat climbs, full cars and summer heat with the AC on.</p></div>
+    </div>
+    <h2 class="mt2">What you'll feel</h2>
+    <div class="benefits">
+      <div class="benefit"><span class="ic" data-icon="overtake"></span><div><h3>Quicker overtakes</h3><p>Stronger mid-range means less downshifting and shorter time on the wrong side of the road.</p></div></div>
+      <div class="benefit"><span class="ic" data-icon="hill"></span><div><h3>Stronger on hills</h3><p>Ghats and flyovers in a higher gear, without the engine straining.</p></div></div>
+      <div class="benefit"><span class="ic" data-icon="ac"></span><div><h3>Pulls with the AC on</h3><p>The AC takes power. A tune gives it back, and then some.</p></div></div>
+      <div class="benefit"><span class="ic" data-icon="load"></span><div><h3>Strong with a full car</h3><p>Seven people and luggage feel far less like a burden.</p></div></div>
+      <div class="benefit"><span class="ic" data-icon="pedal"></span><div><h3>Sharper response</h3><p>The car answers your foot sooner, without being jumpy.</p></div></div>
+      <div class="benefit"><span class="ic" data-icon="smooth"></span><div><h3>Smoother power</h3><p>A fuller, more even pull through the rev range.</p></div></div>
+      <div class="benefit"><span class="ic" data-icon="fuel"></span><div><h3>Same or better economy</h3><p>Driven the same way, most cars use about the same fuel. Use the power often and you'll use more.</p></div></div>
+      <div class="benefit"><span class="ic" data-icon="undo"></span><div><h3>Back to stock anytime</h3><p>Your original file is saved and can be restored.</p></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- 7. STAGES AT A GLANCE -->
+<section class="page" id="stages" data-toc="The three stages at a glance" data-group="The basics" data-run="The basics">
+  <div class="in">
+    <p class="kicker">The basics</p>
+    <h1>Three stages, <em>one path</em></h1>
+    <p class="lede">Each stage builds on the last, and each comes with its own calibration for the parts on your car. You can stop at any stage.</p>
+    <table class="stages">
+      <thead><tr><th></th><th class="s">Stage 1</th><th class="s">Stage 2</th><th class="s">Stage 3</th></tr></thead>
+      <tbody>
+        <tr><td class="k">What it is</td><td>Software only</td><td>Software + breathing parts</td><td>Bigger turbo + supporting parts</td></tr>
+        <tr><td class="k">Parts added</td><td>None</td><td>Intercooler, intake, downpipe with high-flow catalyst, plugs</td><td>Stage 2 parts + turbo, fuel system, clutch, cooling</td></tr>
+        <tr><td class="k">Turbo petrol</td><td>About +20% power</td><td>About +30% power</td><td>About +50% power</td></tr>
+        <tr><td class="k">Turbo diesel</td><td>+15–20% power and torque</td><td>About +25%</td><td>+35–40%</td></tr>
+        <tr><td class="k">Fuel</td><td>What you use now</td><td>Premium petrol advised</td><td>Premium or ethanol blend</td></tr>
+        <tr><td class="k">Clutch</td><td>Usually fine; we check</td><td>Check; upgrade if worn</td><td>Upgrade needed</td></tr>
+        <tr><td class="k">Daily feel</td><td>Like stock, stronger</td><td>Same comfort, more sound</td><td>Firmer, more focused</td></tr>
+        <tr><td class="k">Time</td><td>Usually one day</td><td>One to two days</td><td>Days to weeks (parts)</td></tr>
+        <tr><td class="k">Best for</td><td>Almost everyone</td><td>Enthusiasts</td><td>Build projects</td></tr>
+      </tbody>
+    </table>
+    <h2 class="mt2">Power by stage: two popular cars</h2>
+    <div class="fig" data-fig="stagebars"></div>
+    <p class="cap">Estimated figures from our model list, for healthy, standard cars. More cars on page <span data-ref="figures"></span>.</p>
+  </div>
+</section>
+
+<!-- 8. STAGE 1 OPENER -->
+<section class="page dark opener" id="stage1" data-toc="Stage 1: software only" data-group="Stage 1" data-run="Stage 1">
+  <div class="grid-lines"></div>
+  <div class="glow" style="width:160mm;height:160mm;right:-60mm;top:-30mm"></div>
+  <div class="num">1</div>
+  <img class="mark" src="img/turbo-symbol-transparent.png" alt="">
+  <div class="in">
+    <p class="label">Stage 1</p>
+    <h1>Software <em>only</em></h1>
+    <p class="lede">The same car, unlocked. Nothing added and nothing removed: we recalibrate the ECU for your engine, your fuel and the way you drive.</p>
+    <div class="stats">
+      <div><span>Typical gain</span><strong>+20%</strong><small>turbo petrol power</small></div>
+      <div><span>Diesel</span><strong>+15–20%</strong><small>power and torque</small></div>
+      <div><span>Parts</span><strong>None</strong><small>health check first</small></div>
+      <div><span>Time</span><strong>1 day</strong><small>usually</small></div>
+    </div>
+    <div class="cols">
+      <div><h3>You'll feel</h3><ul class="dots">
+        <li>A much stronger mid-range, roughly 1,800–4,500 rpm.</li>
+        <li>Quicker overtakes, often without a downshift.</li>
+        <li>Sharper, smoother throttle response.</li>
+        <li>Easier climbs with a full car and the AC on.</li></ul></div>
+      <div><h3>Good to know</h3><ul class="dots">
+        <li>Non-turbo petrol engines gain much less, about 3–8%. We'll tell you honestly if it isn't worth it.</li>
+        <li>Your original file is saved. Back to stock anytime.</li>
+        <li>Emissions equipment stays fitted and working.</li></ul></div>
+    </div>
+    <div class="toc mt2"><a>What Stage 1 changes <span data-ref="s1changes"></span></a><a>Stage 1, step by step <span data-ref="process"></span></a></div>
+  </div>
+</section>
+
+<!-- 9. STAGE 1 CHANGES -->
+<section class="page" id="s1changes" data-toc="What Stage 1 changes, line by line" data-group="Stage 1" data-run="Stage 1">
+  <div class="in">
+    <p class="kicker">Stage 1</p>
+    <h1>What Stage 1 <em>changes</em></h1>
+    <p class="lede">Petrol and diesel engines make power differently, so their tunes change different things. Here's what we adjust, and why.</p>
+    <div class="grid2">
+      <div>
+        <h2>Turbo petrol</h2>
+        <table><tbody>
+          <tr><td class="k">Boost</td><td>Raised through the mid-range, kept within the turbo's safe speed. More air means more torque.</td></tr>
+          <tr><td class="k">Ignition</td><td>Spark timing optimised for your fuel's octane. Knock control stays fully active.</td></tr>
+          <tr><td class="k">Fuel</td><td>A slightly richer mixture at full load keeps pistons, valves and the catalyst cool.</td></tr>
+          <tr><td class="k">Torque limits</td><td>Raised to match the new torque, per gear where the car needs it.</td></tr>
+          <tr><td class="k">Pedal map</td><td>Quicker, smoother response, with no on-off feel.</td></tr>
+          <tr><td class="k">Gearbox</td><td>Optional TCU tune for automatics and DCTs (page <span data-ref="plugs"></span>).</td></tr>
+        </tbody></table>
+      </div>
+      <div>
+        <h2>Turbo diesel</h2>
+        <table><tbody>
+          <tr><td class="k">Fuel quantity</td><td>More fuel only where there's air to burn it, so there's no black smoke.</td></tr>
+          <tr><td class="k">Rail pressure</td><td>Raised slightly for finer spray and a cleaner burn.</td></tr>
+          <tr><td class="k">Timing</td><td>Adjusted for efficiency and lower exhaust temperatures.</td></tr>
+          <tr><td class="k">Boost (VGT)</td><td>More boost, earlier, within the turbo's limits.</td></tr>
+          <tr><td class="k">Smoke limit</td><td>Set so fuel never exceeds the air available.</td></tr>
+          <tr><td class="k">Torque limits</td><td>Per gear, to protect the clutch and gearbox.</td></tr>
+        </tbody></table>
+      </div>
+    </div>
+    <div class="grid2 mt2">
+      <div class="card"><h3>What stays exactly the same</h3><ul class="ticks small" style="color:var(--ink-2);font-size:7.6pt">
+        <li>Catalyst, DPF, EGR and AdBlue systems</li><li>Cold start, idle and cooling-fan behaviour</li><li>Immobiliser and all safety systems</li><li>Service reminders and warning lights</li></ul></div>
+      <div class="card ink"><h3>Fuel matters</h3><p style="font-size:7.6pt;margin:0">We tune for the fuel you actually use. If you choose premium (95+ octane) for more power, the tune is built for it, so keep using it. Tell us if you change fuel, and we'll check the tune.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- 10. PROCESS -->
+<section class="page" id="process" data-toc="Stage 1, step by step" data-group="Stage 1" data-run="Stage 1">
+  <div class="in">
+    <p class="kicker">Stage 1 · Our process</p>
+    <h1>Step by step, <em>every time</em></h1>
+    <p class="lede">Every tune follows the same ten steps, whatever the car. Nothing is skipped, and you can ask to see any step.</p>
+    <div class="steps">
+      <div class="step"><h3>Consultation</h3><p>On WhatsApp: your car, engine, year, kilometres, fuel, any modifications and how you drive. We confirm what's possible and give an estimate.</p></div>
+      <div class="step"><h3>Health check</h3><p>A full fault scan of every module, live data review and visual checks (page <span data-ref="health"></span>). Anything that needs fixing first, we tell you before we start.</p></div>
+      <div class="step"><h3>Baseline log</h3><p>A test drive recording boost, timing, fuel trims and temperatures, so we know how your car runs before we touch it.</p></div>
+      <div class="step"><h3>Read and back up</h3><p>We read the ECU and save your original file under your car's record. It's never overwritten, and you can have a copy.</p></div>
+      <div class="step"><h3>Calibrate</h3><p>We build the file for your engine, fuel and gearbox. Every change is made and checked by hand: no one-click generic files.</p></div>
+      <div class="step"><h3>Flash</h3><p>With a battery supply connected, we write the new file and verify it.</p></div>
+      <div class="step"><h3>Road logs</h3><p>Full-load runs on a safe road, logging boost, timing corrections, fuel and temperatures against our limits (page <span data-ref="monitor"></span>).</p></div>
+      <div class="step"><h3>Refine</h3><p>If anything is outside our limits, we adjust the file and log again, until every run is clean.</p></div>
+      <div class="step"><h3>Handover</h3><p>We explain what changed, show you the logs, clear any stored codes and go through care tips.</p></div>
+      <div class="step"><h3>Aftercare</h3><p>Message us anytime. If you change fuel, parts or how you use the car, we'll check the tune again.</p></div>
+    </div>
+    <div class="fact auto"><span class="big">1 DAY</span><p>Most Stage 1 tunes are finished the same day. If your car needs a repair first, we'll say so, with the cost, before we begin.</p></div>
+  </div>
+</section>
+
+<!-- 11. STAGE 2 OPENER -->
+<section class="page dark opener" id="stage2" data-toc="Stage 2: software + breathing" data-group="Stage 2" data-run="Stage 2">
+  <div class="grid-lines"></div>
+  <div class="glow" style="width:160mm;height:160mm;right:-60mm;top:-30mm"></div>
+  <div class="num">2</div>
+  <img class="mark" src="img/turbo-symbol-transparent.png" alt="">
+  <div class="in">
+    <p class="label">Stage 2</p>
+    <h1>Software <em>+ breathing</em></h1>
+    <p class="lede">Stage 2 helps the engine breathe: cooler air in, a freer exhaust out, and a new calibration that makes use of both.</p>
+    <div class="stats">
+      <div><span>Typical gain</span><strong>+30%</strong><small>turbo petrol power</small></div>
+      <div><span>Diesel</span><strong>+25%</strong><small>power and torque</small></div>
+      <div><span>Parts</span><strong>4–5</strong><small>bolt-on upgrades</small></div>
+      <div><span>Time</span><strong>1–2 days</strong><small>parts in stock</small></div>
+    </div>
+    <div class="cols">
+      <div><h3>Why parts now</h3><ul class="dots">
+        <li>At Stage 1 power the factory intercooler, intake and downpipe become the limit.</li>
+        <li>Removing those limits lets the turbo make the same boost with less heat and effort.</li>
+        <li>The result is more power, and power that stays consistent on hot days and long climbs.</li></ul></div>
+      <div><h3>What stays</h3><ul class="dots">
+        <li>A catalytic converter, always.</li>
+        <li>On diesels: the DPF, EGR and AdBlue systems.</li>
+        <li>Factory comfort: idle, cold start and AC.</li></ul></div>
+    </div>
+    <div class="toc mt2">
+      <a>Intercooler <span data-ref="intercooler"></span></a><a>Intake, boost pipes and valves <span data-ref="intake"></span></a>
+      <a>Downpipe and high-flow catalyst <span data-ref="downpipe"></span></a><a>Spark plugs and gearbox tuning <span data-ref="plugs"></span></a><a>Stage 2 for diesels <span data-ref="diesel"></span></a></div>
+  </div>
+</section>
+
+<!-- 12. INTERCOOLER -->
+<section class="page" id="intercooler" data-toc="Intercooler" data-group="Stage 2" data-run="Stage 2 · Parts">
+  <div class="in">
+    <p class="kicker">Stage 2 · Part 1</p>
+    <h1>The <em>intercooler</em></h1>
+    <p class="lede">Squeezing air heats it up. The intercooler is a radiator for the air the turbo sends to your engine, and at Stage 2 it's the most important part.</p>
+    <div class="fig" data-fig="intercooler"></div>
+    <ol class="parts mt">
+      <li><b>Inlet end tank</b>Spreads hot air from the turbo across the core.</li>
+      <li><b>Bar-and-plate core</b>The charge air flows through these sealed passages.</li>
+      <li><b>Fins</b>Outside air flows across them and carries the heat away.</li>
+      <li><b>Outlet end tank</b>Collects the cooled air and sends it to the throttle.</li>
+      <li><b>Couplers and clamps</b>Multi-ply silicone joints that hold the higher boost.</li>
+    </ol>
+    <div class="why mt">
+      <div><h3>Why it's fitted</h3><p>Factory intercoolers are sized for factory boost. After a few hard runs, or on a 40 °C day, they heat-soak. Intake temperature climbs and the ECU pulls timing to protect the engine, so power fades just when you need it.</p></div>
+      <div><h3>What it does</h3><p>A larger core with more frontal area and internal fins keeps intake temperature low and steady, run after run. Cooler air is denser, carrying more oxygen, and far less likely to knock.</p></div>
+      <div><h3>What we check</h3><ul class="dots"><li>Intake temperature on back-to-back runs</li><li>Boost before and after the core</li><li>Smoke test for leaks</li><li>Clearance and secure clamps</li></ul></div>
+    </div>
+    <div class="fact auto"><span class="big">3%</span><p>Every 10 °C of cooler intake air makes the charge about 3% denser, so there's more oxygen to burn with every stroke.</p></div>
+  </div>
+</section>
+
+<!-- 13. INTAKE -->
+<section class="page" id="intake" data-toc="Intake, boost pipes and valves" data-group="Stage 2" data-run="Stage 2 · Parts">
+  <div class="in">
+    <p class="kicker">Stage 2 · Part 2</p>
+    <h1>Intake, boost pipes <em>and valves</em></h1>
+    <p class="lede">The engine's first breath. A freer intake reduces restriction before the turbo, and stronger pipes hold the extra boost after it.</p>
+    <div class="fig" data-fig="intake"></div>
+    <ol class="parts mt">
+      <li><b>Airbox lid</b>The factory airbox stays: it's designed to draw cool air.</li>
+      <li><b>High-flow panel filter</b>Washable cotton gauze. Flows more air than paper while still filtering dust.</li>
+      <li><b>Airbox base and snorkel</b>Takes in outside air, away from engine-bay heat.</li>
+      <li><b>Silicone intake hose</b>Smooth bore, no collapsing under suction.</li>
+      <li><b>Stainless clamps</b>Hold every joint tight under boost.</li>
+    </ol>
+    <div class="why mt">
+      <div><h3>Why it's fitted</h3><p>Any restriction before the turbo makes it spin harder for the same boost, which means hotter air and more turbo stress. We prefer a high-flow filter in the factory box. Open cone filters often suck in hot air, and in the monsoon they can suck in water.</p></div>
+      <div><h3>Boost pipes</h3><p>Factory plastic and rubber pipes can balloon or split at higher boost. Reinforced silicone hoses with proper clamps hold the pressure. The <b>diverter valve</b> releases pressure when you lift off; an uprated piston valve stops it leaking at higher boost.</p></div>
+      <div><h3>What we check</h3><ul class="dots"><li>Air-mass and pressure readings after fitting</li><li>Fuel trims stay close to zero</li><li>Boost leak test</li><li>The calibration is matched to the new parts</li></ul></div>
+    </div>
+  </div>
+</section>
+
+<!-- 14. DOWNPIPE -->
+<section class="page" id="downpipe" data-toc="Downpipe and high-flow catalyst" data-group="Stage 2" data-run="Stage 2 · Parts">
+  <div class="in">
+    <p class="kicker">Stage 2 · Part 3</p>
+    <h1>Downpipe and <em>high-flow catalyst</em></h1>
+    <p class="lede">The first section of exhaust after the turbo. On many turbo engines it's the biggest restriction, and freeing it wakes the turbo up.</p>
+    <div class="fig" data-fig="downpipe" style="margin:0 5mm"></div>
+    <ol class="parts mt">
+      <li><b>Turbo outlet flange</b>Machined to seal perfectly against the turbo.</li>
+      <li><b>Wide, smooth bends</b>Mandrel-bent stainless steel keeps the full diameter through every bend.</li>
+      <li><b>High-flow catalytic converter</b>Bigger cells for freer flow, and it still cleans the exhaust.</li>
+      <li><b>Joint to the exhaust</b>Connects to the rest of the factory system.</li>
+      <li><b>Lambda sensor bosses</b>Both oxygen sensors stay, before and after the catalyst.</li>
+    </ol>
+    <div class="why mt">
+      <div><h3>Why it's fitted</h3><p>A turbo is driven by the pressure difference across its turbine. Lower pressure after it means the turbo spools sooner and runs cooler, so the same boost costs the engine less work.</p></div>
+      <div><h3>What we fit</h3><p>A stainless downpipe with a high-flow sports catalyst. The second lambda sensor keeps checking that the catalyst works, just like the factory one.</p></div>
+      <div><h3>What we check</h3><ul class="dots"><li>Lambda readings either side of the catalyst</li><li>No exhaust leaks or fault codes</li><li>Heat clearance from hoses and wiring</li><li>Sound at idle and at cruise</li></ul></div>
+    </div>
+    <div class="note auto"><p style="margin:0"><b>What we don't do:</b> we don't fit "decat" pipes or remove catalytic converters. A car without a working catalyst pollutes far more and won't pass an emissions check.</p></div>
+  </div>
+</section>
+
+<!-- 15. PLUGS + GEARBOX -->
+<section class="page" id="plugs" data-toc="Spark plugs and gearbox tuning" data-group="Stage 2" data-run="Stage 2 · Parts">
+  <div class="in">
+    <p class="kicker">Stage 2 · Part 4</p>
+    <h1>Spark plugs <em>and ignition</em></h1>
+    <p class="lede">More boost means higher pressure and heat in the cylinder. The spark has to stay strong, and the plug's tip has to stay cool.</p>
+    <div style="display:grid;grid-template-columns:58mm 1fr;gap:5mm;align-items:center">
+      <div class="fig" data-fig="plugs"></div>
+      <div>
+        <h3>Why one step colder</h3>
+        <p>A plug's <b>heat range</b> is how quickly it passes heat from its tip into the cylinder head. With more boost, a standard plug's tip can get hot enough to light the mixture early, before the spark. That's <b>pre-ignition</b>, and it can break a piston. A colder plug sheds heat faster and stays safe.</p>
+        <h3 class="mt">Gap and coils</h3>
+        <p>We set a slightly smaller gap so high boost can't blow the spark out, and we check the logs for misfires. A weak coil shows up quickly on a tuned car and gets replaced.</p>
+        <h3 class="mt">How often</h3>
+        <p>Tuned turbo engines need plugs more often than the handbook says. We'll give you an interval for your engine.</p>
+      </div>
+    </div>
+    <div class="rule"></div>
+    <p class="kicker">Automatic and dual-clutch gearboxes</p>
+    <h2>Gearbox (TCU) tuning</h2>
+    <div class="grid2">
+      <p>Many automatics limit engine torque to protect themselves, and shift early for economy. A TCU tune raises those limits within the gearbox's real capacity and, on dual-clutch boxes (DCT), raises clutch clamping pressure so the clutches can't slip.</p>
+      <div><ul class="dots">
+        <li>Firmer, quicker shifts when you drive hard; smooth in traffic.</li>
+        <li>Kick-down and shift points matched to the new power band.</li>
+        <li>Some gearboxes, such as dry-clutch DCTs, have firm limits. We'll tell you the safe ceiling.</li></ul></div>
+    </div>
+  </div>
+</section>
+
+<!-- 16. DIESEL STAGE 2 -->
+<section class="page" id="diesel" data-toc="Stage 2 for diesels" data-group="Stage 2" data-run="Stage 2 · Diesel">
+  <div class="in">
+    <p class="kicker">Stage 2 · Diesel</p>
+    <h1>Stage 2 <em>for diesels</em></h1>
+    <p class="lede">A diesel has no throttle and no spark. Its power comes from how much fuel is injected, and the turbo must supply enough air to burn that fuel cleanly.</p>
+    <div class="fig" data-fig="vgt"></div>
+    <p class="cap">Most modern diesels, from the Fortuner to the Scorpio-N, use a variable-geometry turbo (VGT). Movable vanes change how the exhaust hits the turbine, giving quick boost low down and plenty of flow at high rpm. The ECU controls the vanes, so the tune controls them too.</p>
+    <div class="grid2 mt">
+      <div class="card"><h3>What's in a diesel Stage 2</h3><ul class="dots" style="font-size:7.6pt">
+        <li><b>Larger intercooler.</b> The biggest gain: diesels heat-soak when towing or climbing ghats.</li>
+        <li><b>Intake and silicone boost pipes</b>, as on page <span data-ref="intake"></span>.</li>
+        <li><b>Clutch check</b>, and an upgrade for high-torque manuals such as the Thar and Scorpio.</li>
+        <li><b>A calibration</b> matched to the new parts and logged on the road.</li></ul></div>
+      <div class="card"><h3>What we watch on diesels</h3><ul class="dots" style="font-size:7.6pt">
+        <li>Exhaust gas temperature</li><li>Smoke: lambda under full load</li><li>Rail pressure, target against actual</li><li>Boost and vane position</li><li>DPF soot load and pressure</li></ul></div>
+    </div>
+    <div class="grid2 auto">
+      <div class="note"><p style="margin:0"><b>DPF, EGR and AdBlue stay.</b> They're legal requirements on BS6 cars, and removing them raises pollution. A healthy DPF doesn't hold back Stage 1 or Stage 2 power.</p></div>
+      <div class="note blue"><p style="margin:0"><b>No black smoke.</b> Smoke is unburnt fuel: wasted money and the sign of a poor tune. Ours shouldn't smoke under full load.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- 17. STAGE 3 OPENER -->
+<section class="page dark opener" id="stage3" data-toc="Stage 3: the full build" data-group="Stage 3" data-run="Stage 3">
+  <div class="grid-lines"></div>
+  <div class="glow" style="width:160mm;height:160mm;right:-60mm;top:-30mm"></div>
+  <div class="num">3</div>
+  <img class="mark" src="img/turbo-symbol-transparent.png" alt="">
+  <div class="in">
+    <p class="label">Stage 3</p>
+    <h1>The <em>full build</em></h1>
+    <p class="lede">A bigger turbo, the fuel to feed it, a clutch to hold it, and a calibration written from scratch to tie it all together.</p>
+    <div class="stats">
+      <div><span>Typical gain</span><strong>+50%</strong><small>turbo petrol power</small></div>
+      <div><span>Diesel</span><strong>+35–40%</strong><small>power and torque</small></div>
+      <div><span>Parts</span><strong>Turbo +</strong><small>fuel, clutch, cooling</small></div>
+      <div><span>Time</span><strong>Varies</strong><small>days to weeks</small></div>
+    </div>
+    <div class="cols">
+      <div><h3>Before every Stage 3</h3><ul class="dots">
+        <li>Compression and leak-down test.</li>
+        <li>Turbo oil feed, drain and mounts inspected.</li>
+        <li>Driveline, mounts and brakes checked.</li>
+        <li>Power target, parts and budget agreed in writing.</li></ul></div>
+      <div><h3>Is it for you?</h3><ul class="dots">
+        <li>It's a project, not a weekend job.</li>
+        <li>Expect more sound, a firmer clutch and shorter service intervals.</li>
+        <li>Very high targets can need engine internals (rods, pistons). We'll say if yours does.</li></ul></div>
+    </div>
+    <div class="toc mt2">
+      <a>The turbocharger, exploded <span data-ref="turbo"></span></a><a>Hybrid or bigger turbo? <span data-ref="turbochoice"></span></a>
+      <a>Fuel system <span data-ref="fuel"></span></a><a>Clutch and flywheel <span data-ref="clutch"></span></a><a>Cooling, oil and supporting parts <span data-ref="support"></span></a></div>
+  </div>
+</section>
+
+<!-- 18. TURBO EXPLODED -->
+<section class="page" id="turbo" data-toc="The turbocharger, exploded" data-group="Stage 3" data-run="Stage 3 · Parts">
+  <div class="in">
+    <p class="kicker">Stage 3 · Part 1</p>
+    <h1>The <em>turbocharger</em></h1>
+    <p class="lede">A turbo is two fans on one shaft. Exhaust spins the turbine, the turbine spins the compressor, and the compressor packs air into the engine, at well over 150,000 rpm.</p>
+    <div class="fig" data-fig="turbo"></div>
+    <ol class="parts mt">
+      <li><b>Compressor housing</b>Collects air from the wheel and turns its speed into pressure: boost.</li>
+      <li><b>Compressor wheel</b>Machined aluminium. Its size and blade shape decide how much air the turbo can move.</li>
+      <li><b>Backplate</b>Closes and seals the compressor side.</li>
+      <li><b>Bearing housing (CHRA)</b>The heart: bearings and seals, cooled by oil and, on many turbos, coolant.</li>
+      <li><b>Shaft and turbine wheel</b>One piece, in heat-resistant alloy. It runs red-hot at full load.</li>
+      <li><b>Turbine housing</b>Aims the exhaust at the turbine. Its size (A/R) sets quick spool against top-end power.</li>
+      <li><b>Wastegate actuator</b>Lets exhaust bypass the turbine. This is how the ECU controls boost.</li>
+      <li><b>Oil feed and drain</b>Fresh oil in at the top, out at the bottom. Without it, a turbo dies in seconds.</li>
+    </ol>
+    <div class="card ink auto"><h3>Why turbos fail, and how we prevent it</h3>
+      <div class="grid2" style="font-size:7.5pt;gap:2mm 5mm"><ul class="dots"><li><b>Oil starvation or dirty oil:</b> the right oil, changed on time.</li><li><b>Overspeeding:</b> turbo speed is limited in every calibration.</li></ul><ul class="dots"><li><b>Heat soak:</b> let it idle briefly after hard driving.</li><li><b>Debris:</b> a good filter, and a clean, sealed intake.</li></ul></div></div>
+  </div>
+</section>
+
+<!-- 19. TURBO CHOICE -->
+<section class="page" id="turbochoice" data-toc="Hybrid or bigger turbo?" data-group="Stage 3" data-run="Stage 3 · Parts">
+  <div class="in">
+    <p class="kicker">Stage 3 · Part 2</p>
+    <h1>Hybrid or <em>bigger turbo?</em></h1>
+    <p class="lede">Stage 3 starts with the turbo, and the choice decides how your car will feel. It's a trade between how early boost arrives and how much power it makes at the top.</p>
+    <div class="fig" data-fig="turbocurves"></div>
+    <p class="cap">An illustration of how the power curve changes shape with each turbo. Not measured figures for a specific car.</p>
+    <div class="grid3 mt">
+      <div class="card"><h3 style="color:var(--blue)">Factory turbo</h3><p class="small" style="color:var(--ink-2)">Spools quickly and suits Stages 1 and 2. Pushed beyond its design, it runs out of breath at high rpm and gets hot.</p></div>
+      <div class="card" style="border-color:var(--red)"><h3 class="red">Hybrid turbo</h3><p class="small" style="color:var(--ink-2)">The factory housings with a larger compressor wheel and upgraded turbine and bearings. It bolts on, boost arrives a little later, and there's much more top end. The best balance for road cars.</p></div>
+      <div class="card"><h3 style="color:var(--green)">Bigger turbo</h3><p class="small" style="color:var(--ink-2)">A larger frame turbo makes the most power but builds boost later, and needs more supporting parts. Best for dedicated project cars.</p></div>
+    </div>
+    <div class="note auto"><p style="margin:0"><b>A new turbo means a new calibration.</b> Boost, fuel, timing and turbo-speed limits are rebuilt from scratch for it, then proven with logs. Fuel, clutch and cooling come next: pages <span data-ref="fuel"></span>–<span data-ref="support"></span>.</p></div>
+  </div>
+</section>
+
+<!-- 20. FUEL -->
+<section class="page" id="fuel" data-toc="Fuel system: pump and injectors" data-group="Stage 3" data-run="Stage 3 · Parts">
+  <div class="in">
+    <p class="kicker">Stage 3 · Part 3</p>
+    <h1>The <em>fuel system</em></h1>
+    <p class="lede">More air needs more fuel. At Stage 3 the factory pump and injectors can reach their limit, and running lean is the fastest way to damage a turbo engine.</p>
+    <div class="fig" data-fig="fuel" style="margin:0 9mm"></div>
+    <div class="grid2 mt">
+      <ol class="parts one">
+        <li><b>High-pressure pump</b>Driven by the camshaft; raises fuel pressure for the injectors.</li>
+        <li><b>Pump piston</b>Its size and stroke set how much fuel the pump delivers.</li>
+        <li><b>Follower</b>Rides on the cam lobe and pushes the piston.</li>
+        <li><b>Cam lobe</b>Turns the engine's rotation into pump strokes.</li>
+        <li><b>Pressure control valve</b>The ECU sets the pressure it needs.</li>
+      </ol>
+      <ol class="parts one start6">
+        <li><b>Connector</b>The ECU opens the injector electrically.</li>
+        <li><b>Seals</b>Hold the injector tight against rail and head.</li>
+        <li><b>Injector body</b>Opens for thousandths of a second at a time.</li>
+        <li><b>Nozzle</b>Finely machined holes shape the spray.</li>
+        <li><b>Spray</b>A fine mist burns completely and cleanly.</li>
+      </ol>
+    </div>
+    <div class="why mt">
+      <div><h3>The pressures</h3><p>Petrol direct injection: about <b>200–350 bar</b>. Diesel common rail: <b>1,600–2,500 bar</b>, over a thousand times a tyre.</p></div>
+      <div><h3>Why upgrade</h3><p>If the pump can't hold its target at full load, the mixture goes lean: hot and prone to knock. An uprated pump and larger injectors supply the extra.</p></div>
+      <div><h3>What we monitor</h3><ul class="dots"><li>Rail pressure, target vs actual</li><li>Injector opening time</li><li>Lambda at full load</li></ul></div>
+    </div>
+  </div>
+</section>
+
+<!-- 21. CLUTCH -->
+<section class="page" id="clutch" data-toc="Clutch and flywheel" data-group="Stage 3" data-run="Stage 3 · Parts">
+  <div class="in">
+    <p class="kicker">Stage 3 · Part 4</p>
+    <h1>Clutch <em>and flywheel</em></h1>
+    <p class="lede">Every newton-metre goes through the clutch. Factory clutches have some margin. Stage 2 can use it up on a worn clutch, and Stage 3 always needs more.</p>
+    <div class="fig" data-fig="clutch" style="margin:0 8mm"></div>
+    <ol class="parts mt">
+      <li><b>Release bearing</b>Pushes the diaphragm when you press the pedal.</li>
+      <li><b>Pressure plate</b>Its diaphragm spring clamps the disc. Clamping force decides how much torque it holds.</li>
+      <li><b>Clutch disc</b>Friction lining on both faces, with damper springs to soften engagement.</li>
+      <li><b>Flywheel</b>Often dual-mass. Smooths engine pulses and provides the friction face.</li>
+    </ol>
+    <div class="why mt">
+      <div><h3>Signs it's slipping</h3><p>Revs rise but speed doesn't, usually in 4th or 5th at full throttle from low rpm. Slipping glazes the clutch quickly, so stop using full power and let us check it.</p></div>
+      <div><h3>The upgrade</h3><p>A pressure plate with higher clamping force and a stronger disc. Organic linings stay smooth for daily driving; ceramic or sintered linings hold more torque but grab harder.</p></div>
+      <div><h3>Our advice</h3><p>For most road cars: an uprated organic clutch, keeping the dual-mass flywheel where possible. A lighter single-mass flywheel is stronger but adds vibration and noise.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- 22. SUPPORTING -->
+<section class="page" id="support" data-toc="Cooling, oil and supporting parts" data-group="Stage 3" data-run="Stage 3 · Parts">
+  <div class="in">
+    <p class="kicker">Stage 3 · Part 5</p>
+    <h1>Cooling, oil and <em>supporting parts</em></h1>
+    <p class="lede">More power makes more heat, and more speed. These parts keep a tuned car reliable on long climbs, in city traffic and when you need to stop.</p>
+    <div class="fig" data-fig="cooling"></div>
+    <div class="grid3 mt">
+      <div class="card tight"><h3>Radiator and fan</h3><p class="small" style="color:var(--ink-2)">A higher-capacity radiator if coolant temperature creeps up on long climbs or in traffic.</p></div>
+      <div class="card tight"><h3>Oil cooler</h3><p class="small" style="color:var(--ink-2)">Keeps oil temperature stable. The oil protects the turbo's bearings, so its temperature matters.</p></div>
+      <div class="card tight"><h3>Engine oil</h3><p class="small" style="color:var(--ink-2)">Fully synthetic, to your engine's specification, changed sooner on hard-driven tuned cars.</p></div>
+      <div class="card tight"><h3>Brakes</h3><p class="small" style="color:var(--ink-2)">Uprated pads and fresh high-temperature fluid first; bigger discs and calipers for Stage 3.</p></div>
+      <div class="card tight"><h3>Tyres</h3><p class="small" style="color:var(--ink-2)">Quality tyres with the right load and speed rating. All your power goes through four small patches.</p></div>
+      <div class="card tight"><h3>Mounts</h3><p class="small" style="color:var(--ink-2)">Stiffer engine and gearbox mount inserts stop wheel hop and protect driveshafts, with a little more vibration.</p></div>
+    </div>
+    <div class="note auto"><p style="margin:0"><b>Stopping comes first.</b> If we think your brakes or tyres aren't up to the power you're asking for, we'll say so before the tune, not after.</p></div>
+  </div>
+</section>
+
+<!-- 23. ETHANOL -->
+<section class="page" id="ethanol" data-toc="Ethanol and flex-fuel tuning" data-group="Our work" data-run="Fuel">
+  <div class="in">
+    <p class="kicker">Fuel</p>
+    <h1>Ethanol and <em>flex-fuel</em> tuning</h1>
+    <p class="lede">India is moving to ethanol-blended petrol (E20). Ethanol can be very good for a turbo engine, as long as the tune knows it's there.</p>
+    <div class="grid2">
+      <div class="card"><h3>Why ethanol helps</h3><ul class="dots" style="font-size:7.6pt">
+        <li><b>High octane.</b> Pure ethanol rates around 108 RON, so it resists knock and allows more timing and boost.</li>
+        <li><b>Cooling.</b> It absorbs a lot of heat as it evaporates, cooling the air in the cylinder.</li>
+        <li><b>Cleaner burn.</b> Ethanol carries its own oxygen.</li></ul></div>
+      <div class="card"><h3>What it needs</h3><ul class="dots" style="font-size:7.6pt">
+        <li><b>More fuel.</b> Ethanol carries about a third less energy than petrol, so higher blends need noticeably more fuel. E20 needs a few percent more; E85 needs about a third more.</li>
+        <li><b>A fuel system that keeps up</b> (page <span data-ref="fuel"></span>).</li>
+        <li><b>Compatible seals and hoses.</b> Older cars weren't all built for E20. We check yours.</li></ul></div>
+    </div>
+    <h2 class="mt2">Ethanol builds from our workshop</h2>
+    <div class="grid4">
+      <div class="card tight"><h3>Polo 1.0 TSI</h3><p class="small">Stage 1+ ethanol tune, about 140 hp.</p></div>
+      <div class="card tight"><h3>Skoda Kodiaq</h3><p class="small">E27 fuel with Stage 1.</p></div>
+      <div class="card tight"><h3>Maruti Suzuki</h3><p class="small">Stage 1+ on E30.</p></div>
+      <div class="card tight"><h3>Maruti Ciaz</h3><p class="small">Stage 1+ on E20 fuel.</p></div>
+    </div>
+    <div class="why mt2">
+      <div><h3>E20 at the pump</h3><p>Most new cars are built for E20. Our E20 calibrations make the most of its octane and keep the mixture right.</p></div>
+      <div><h3>Higher blends</h3><p>E27 and E30 tunes give more power, but you need a reliable supply and a consistent mix. We'll tell you honestly if that's practical for you.</p></div>
+      <div><h3>Flex-fuel</h3><p>On some cars, an ethanol-content sensor lets the ECU adjust automatically to whatever blend is in the tank.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- 24. MONITORING -->
+<section class="page" id="monitor" data-toc="How we monitor everything" data-group="Our work" data-run="Monitoring">
+  <div class="in">
+    <p class="kicker">Monitoring</p>
+    <h1>How we monitor <em>everything</em></h1>
+    <p class="lede">We don't guess. Every tune is checked with data logs from your own car, recorded on the road under real conditions, and compared with limits we set before we start.</p>
+    <div class="fig" data-fig="logs"></div>
+    <div class="fig mt" data-fig="knock" style="margin:3mm 14mm 0"></div>
+    <p class="cap">An example log from a Stage 1 turbo petrol (an illustration). Boost and lambda follow their targets closely, and every cylinder's timing correction stays small and well inside our limit.</p>
+    <div class="grid2 mt">
+      <div><h3>Petrol: what we log</h3><p class="small" style="color:var(--ink-2)">Boost target vs actual · wastegate duty · ignition timing and knock correction per cylinder · lambda target vs actual · fuel trims · rail pressure · intake, coolant and oil temperature · torque requested vs delivered · misfire counters</p></div>
+      <div><h3>Diesel: what we log</h3><p class="small" style="color:var(--ink-2)">Boost and vane position · rail pressure target vs actual · injection quantity · lambda (smoke) · exhaust gas temperature · DPF soot load and pressure · intake and coolant temperature</p></div>
+    </div>
+    <div class="note auto"><p style="margin:0"><b>No dyno, no made-up numbers.</b> We use road logs, not a dyno. Our power figures are estimates for healthy, standard cars, and the logs prove your car is running safely and as intended.</p></div>
+  </div>
+</section>
+
+<!-- 25. HEALTH CHECK + LIMITS -->
+<section class="page" id="health" data-toc="Health check and safety limits" data-group="Our work" data-run="Monitoring">
+  <div class="in">
+    <p class="kicker">Monitoring</p>
+    <h1>Health check and <em>the limits we set</em></h1>
+    <p class="lede">A tune can only be as healthy as the car it goes on. Before we tune, we check. And every file we write has safety limits built in.</p>
+    <div class="grid2" style="align-items:start">
+      <div><h2>Health check</h2><ul class="check">
+        <li><b>Fault scan</b> of every module, not just the engine</li>
+        <li><b>Live data:</b> fuel trims, misfires, sensor readings</li>
+        <li><b>Battery</b> and charging voltage</li>
+        <li><b>Plugs and coils</b> (petrol) or injector corrections (diesel)</li>
+        <li><b>Boost leak test</b> with smoke</li>
+        <li><b>Intake and exhaust</b> leaks</li>
+        <li><b>Oil, coolant and belts</b></li>
+        <li><b>Clutch slip test</b> on the road</li>
+        <li><b>Tyres and brakes</b>, visual check</li>
+        <li><b>DPF condition</b> (diesel)</li>
+        <li><b>Compression / leak-down</b> (Stage 3, or on request)</li></ul></div>
+      <div><h2>Limits in every tune</h2><ul class="ticks" style="font-size:7.8pt">
+        <li>Turbo speed kept within the maker's design range</li>
+        <li>Knock control fully active on every cylinder</li>
+        <li>Richer mixture at full load to protect pistons and catalyst</li>
+        <li>Exhaust temperature protection kept</li>
+        <li>Overboost protection with a safe fallback</li>
+        <li>Torque limited in low gears to protect the driveline</li>
+        <li>Power reduction on overheating kept active</li></ul>
+        <div class="fact mt"><span class="big">NO</span><p>If a car isn't healthy, we don't tune it until it is. We'll show you what we found and what it costs to fix.</p></div></div>
+    </div>
+    <h2 class="mt2">If we find a problem</h2>
+    <table class="find"><thead><tr><th>What we find</th><th>What we do</th></tr></thead><tbody>
+      <tr><td>Misfires or a weak coil</td><td>Replace plugs or coils before tuning; a tune makes weak ignition worse.</td></tr>
+      <tr><td>A boost leak</td><td>Fix the pipe, clamp or seal, then smoke-test again.</td></tr>
+      <tr><td>A slipping clutch</td><td>Replace it first, or tune with torque limits it can hold.</td></tr>
+      <tr><td>High fuel trims</td><td>Find the air leak, sensor or injector fault behind them.</td></tr>
+      <tr><td>Stored fault codes</td><td>Diagnose and repair the cause; we never just clear and tune.</td></tr>
+      <tr><td>A blocked or overloaded DPF</td><td>Regenerate or clean it so it works as designed.</td></tr>
+    </tbody></table>
+  </div>
+</section>
+
+<!-- 26. FIGURES TABLE -->
+<section class="page" id="figures" data-toc="Power figures for popular cars" data-group="Our work" data-run="Power figures">
+  <div class="in">
+    <p class="kicker">Power figures</p>
+    <h1>Popular cars, <em>stage by stage</em></h1>
+    <p class="lede">Estimated power (hp) and torque (Nm) from our model list. Every car is different, and we confirm what's realistic for yours after the health check.</p>
+    <table class="figs">
+      <thead><tr><th>Car and engine</th><th>Stock</th><th>Stage 1</th><th>Stage 2</th><th>Stage 3</th></tr></thead>
+      <tbody id="figrows"></tbody>
+    </table>
+    <p class="cap mt">Estimates for healthy, standard cars on the fuel they were designed for. Stage 2 and 3 figures assume the parts described in this book. Don't see your car? Search it at <b>unityperformance.co</b> or send us your model on WhatsApp.</p>
+  </div>
+</section>
+
+<!-- 27. CARE -->
+<section class="page care" id="care" data-toc="Looking after your tuned car" data-group="After your tune" data-run="After your tune">
+  <div class="in">
+    <p class="kicker">After your tune</p>
+    <h1>Looking after your <em>tuned car</em></h1>
+    <p class="lede">A tuned car isn't fragile, but it rewards good habits. These are the ones that matter most.</p>
+    <div class="grid2">
+      <div class="card"><h3><span class="n">01</span>Warm up, cool down</h3><p class="small" style="color:var(--ink-2)">Don't use full power until the oil is warm, about 10 minutes of gentle driving. After hard driving, let the engine idle for 30–60 seconds before switching off.</p></div>
+      <div class="card"><h3><span class="n">02</span>Use the right fuel</h3><p class="small" style="color:var(--ink-2)">Use the fuel your tune was built for. If you need to use a lower grade, drive gently until the next fill-up, and tell us if you switch for good.</p></div>
+      <div class="card"><h3><span class="n">03</span>Oil on time</h3><p class="small" style="color:var(--ink-2)">Fully synthetic oil to your engine's specification. Changing it sooner than the handbook says is the cheapest protection your turbo can get.</p></div>
+      <div class="card"><h3><span class="n">04</span>Plugs, coils and filter</h3><p class="small" style="color:var(--ink-2)">Check plugs and coils at every service. Clean or replace the air filter often, especially in dusty months.</p></div>
+      <div class="card"><h3><span class="n">05</span>Listen to the car</h3><p class="small" style="color:var(--ink-2)">A warning light, smoke, a misfire or a sudden loss of power means: stop using full power and message us.</p></div>
+      <div class="card"><h3><span class="n">06</span>Before a dealer visit</h3><p class="small" style="color:var(--ink-2)">A software update at the service centre can overwrite your tune. Tell us before you go, and we'll advise.</p></div>
+      <div class="card"><h3><span class="n">07</span>Tyres and brakes</h3><p class="small" style="color:var(--ink-2)">Keep tyres at the right pressure and replace worn pads early. More power means you'll reach speed sooner, so you need to stop sooner too.</p></div>
+      <div class="card"><h3><span class="n">08</span>Keep your record</h3><p class="small" style="color:var(--ink-2)">Fill in the log on page <span data-ref="record"></span> at each service. It helps us, any mechanic, and the next owner if you sell.</p></div>
+    </div>
+    <div class="fact auto"><span class="big">1×</span><p>We recommend a quick log check once a year, or whenever you change fuel, parts or how you use the car.</p></div>
+  </div>
+</section>
+
+<!-- 28. PROMISE -->
+<section class="page promise" id="promise" data-toc="What we will and won't do" data-group="After your tune" data-run="Our promise">
+  <div class="in">
+    <p class="kicker">Our promise</p>
+    <h1>What we will <em>and won't</em> do</h1>
+    <p class="lede">Good tuning is as much about what you refuse to do as what you do. Here's where we stand.</p>
+    <div class="grid2">
+      <div class="card"><h2 style="color:var(--green)">We will</h2><ul class="ticks" style="font-size:7.8pt">
+        <li>Health-check every car before we tune it</li>
+        <li>Save your original file, so you can go back to stock anytime</li>
+        <li>Build every file for your car, fuel and parts</li>
+        <li>Keep emissions equipment fitted and working</li>
+        <li>Log every tune and explain the results to you</li>
+        <li>Tell you honestly when a stage isn't worth it</li></ul></div>
+      <div class="card"><h2 class="red">We won't</h2><ul class="crosses" style="font-size:7.8pt">
+        <li>Remove or disable catalysts, DPF, EGR or AdBlue</li>
+        <li>Touch immobilisers or anti-theft systems</li>
+        <li>Change odometer readings</li>
+        <li>Disable ABS, airbags or stability control</li>
+        <li>Tune a car with known faults before they're fixed</li>
+        <li>Promise dyno numbers we haven't measured</li></ul></div>
+    </div>
+    <h2 class="mt2">Good to know</h2>
+    <div class="grid2">
+      <div><h3>Warranty</h3><p class="small" style="color:var(--ink-2)">A modified ECU can affect the manufacturer's warranty on the engine and drivetrain, and dealers can often detect reprogramming. If your car is under warranty, let's talk about it first.</p></div>
+      <div><h3>Insurance</h3><p class="small" style="color:var(--ink-2)">Tell your insurer about any modification. An undisclosed modification can affect a claim.</p></div>
+      <div><h3>Back to stock</h3><p class="small" style="color:var(--ink-2)">We can flash your original file back whenever you want, for example before you sell the car.</p></div>
+      <div><h3>The law</h3><p class="small" style="color:var(--ink-2)">Modifications must comply with the Motor Vehicles Act and your RTO's rules. Exhaust parts must meet noise and emission norms.</p></div>
+    </div>
+    <div class="fact auto"><span class="big">ASK</span><p>Unsure about any of this? Ask us before you book. We'd rather you decide with all the facts than be surprised later.</p></div>
+  </div>
+</section>
+
+<!-- 29. FAQ -->
+<section class="page" id="faq" data-toc="Questions customers ask" data-group="After your tune" data-run="Questions">
+  <div class="in">
+    <p class="kicker">Questions</p>
+    <h1>Questions <em>customers ask</em></h1>
+    <div class="grid2 qa mt" style="gap:0 6mm">
+      <div>
+        <h3>Will tuning damage my engine?</h3><p>A careful tune within the hardware's limits, on a healthy, well-maintained engine, is reliable. Problems come from aggressive generic files, poor maintenance or ignoring warning signs. That's why we check, log and set limits.</p>
+        <h3>Will my mileage drop?</h3><p>Driven the same way, most cars use about the same fuel, and some diesels use slightly less at a steady cruise. Use the extra power often and you'll use more.</p>
+        <h3>Can I go back to stock?</h3><p>Yes. We keep your original file and can flash it back at any time.</p>
+        <h3>Can the service centre see it?</h3><p>Sometimes, yes. And a dealer software update can overwrite the tune, so tell us before a service visit.</p>
+        <h3>Which fuel should I use?</h3><p>The one your tune was built for. Stage 1 can be made for regular fuel. Stage 2 and 3 petrol tunes usually need premium (95+ octane) or an ethanol blend.</p>
+        <h3>Is it safe on an automatic?</h3><p>Yes, with torque limits matched to the gearbox. On some automatics and DCTs we also recommend a gearbox (TCU) tune.</p>
+        <h3>Will it be harder to drive in traffic?</h3><p>No. Low-load areas stay close to stock, so the car is just as easy at walking pace. You'll only notice the difference when you press harder.</p>
+      </div>
+      <div>
+        <h3>How long does it take?</h3><p>Stage 1 usually takes a day, Stage 2 one to two days, and Stage 3 depends on parts.</p>
+        <h3>Do I need Stage 1 before Stage 2?</h3><p>No. Stage 2 comes with its own calibration, which replaces Stage 1. Many customers start with Stage 1 and add parts later.</p>
+        <h3>My car has high mileage. Can I tune it?</h3><p>Often, yes, after the health check. Worn clutches, weak coils or leaks get fixed first.</p>
+        <h3>Do you use a dyno?</h3><p>No. We tune and verify with road logs. Our figures are estimates for healthy, standard cars, and we say so.</p>
+        <h3>Will it affect warranty or insurance?</h3><p>It can. Please read page <span data-ref="promise"></span> before you decide.</p>
+        <h3>My car already has other parts. Can you tune it?</h3><p>Yes. Tell us about every modification, including filters and exhausts, so the calibration matches the car.</p>
+        <h3>What does it cost?</h3><p>It depends on the car and the stage. Send us your model on WhatsApp for a free estimate.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 30. GLOSSARY -->
+<section class="page" id="glossary" data-toc="Glossary" data-group="After your tune" data-run="Glossary">
+  <div class="in">
+    <p class="kicker">Glossary</p>
+    <h1>Tuning words, <em>explained</em></h1>
+    <div class="gloss mt">
+      <p><b>A/R</b>The size ratio of a turbo housing. Smaller spools sooner; larger flows more at the top.</p>
+      <p><b>AFR / Lambda</b>The ratio of air to fuel. Lambda 1.0 is chemically exact; below 1.0 is richer.</p>
+      <p><b>Boost</b>Pressure above the atmosphere in the intake, made by the turbo. Measured in bar.</p>
+      <p><b>BS6</b>India's current emission standard for new vehicles.</p>
+      <p><b>Catalytic converter</b>Turns harmful exhaust gases into less harmful ones.</p>
+      <p><b>CHRA</b>The turbo's centre section: shaft, bearings and seals.</p>
+      <p><b>DCT</b>Dual-clutch transmission: an automatic with two clutches.</p>
+      <p><b>Diverter valve</b>Releases boost pressure when you lift off the throttle.</p>
+      <p><b>Downpipe</b>The first section of exhaust after the turbo.</p>
+      <p><b>DPF</b>Diesel particulate filter. Traps soot and burns it off.</p>
+      <p><b>ECU</b>Engine control unit: the computer that runs the engine.</p>
+      <p><b>EGR</b>Exhaust gas recirculation. Feeds some exhaust back in to reduce NOx.</p>
+      <p><b>EGT</b>Exhaust gas temperature. Too high damages turbos and pistons.</p>
+      <p><b>Flash</b>Writing a file to the ECU's memory.</p>
+      <p><b>Fuel trim</b>The ECU's small corrections to fuelling. Large trims point to a fault.</p>
+      <p><b>Heat range</b>How quickly a spark plug passes heat away from its tip.</p>
+      <p><b>Heat soak</b>When parts get so hot they can't cool the air, and power fades.</p>
+      <p><b>hp / PS</b>Units of power: how fast the engine can do work.</p>
+      <p><b>Hybrid turbo</b>A factory turbo rebuilt with larger or better internals.</p>
+      <p><b>Intercooler</b>A radiator that cools the air after the turbo.</p>
+      <p><b>Knock</b>Uncontrolled burning that hammers the pistons. The ECU listens for it and retards the spark.</p>
+      <p><b>Lag / spool</b>How long the turbo takes to build boost.</p>
+      <p><b>Log</b>A recording of sensor data on a drive.</p>
+      <p><b>MAF / MAP</b>Sensors that measure air mass and manifold pressure.</p>
+      <p><b>Map</b>A table in the ECU: for example, boost by rpm and load.</p>
+      <p><b>Nm (torque)</b>Twisting force. It's what you feel as pull.</p>
+      <p><b>Octane (RON)</b>A fuel's resistance to knock. Higher is safer under boost.</p>
+      <p><b>Pre-ignition</b>Fuel lighting before the spark. It can destroy a piston.</p>
+      <p><b>Rail pressure</b>Fuel pressure at the injectors.</p>
+      <p><b>Remap</b>Changing the ECU's maps: another word for a tune.</p>
+      <p><b>TCU</b>Transmission control unit: the automatic gearbox's computer.</p>
+      <p><b>VGT</b>Variable-geometry turbo, with movable vanes. Common on diesels.</p>
+      <p><b>Wastegate</b>A valve that lets exhaust bypass the turbine to control boost.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 31. TUNE RECORD -->
+<section class="page" id="record" data-toc="Your tune record" data-group="After your tune" data-run="Your record">
+  <div class="in">
+    <p class="kicker">Your record</p>
+    <h1>Your <em>tune record</em></h1>
+    <p class="lede">We fill this in at handover. Keep it with your car's papers.</p>
+    <div class="fill">
+      <div>Owner</div><div>Phone</div>
+      <div>Car and engine</div><div>Registration</div>
+      <div>Year</div><div>Kilometres at tune</div>
+      <div>Stage and options</div><div>Fuel the tune is built for</div>
+      <div>Job / file ID</div><div>Date</div>
+      <div class="wide">Parts fitted</div>
+      <div class="wide">Notes</div>
+      <div>Tuned by</div><div>Next check due</div>
+    </div>
+    <h2 class="mt2">Checks at handover</h2>
+    <ul class="check" style="columns:2;column-gap:6mm">
+      <li>Original file saved</li><li>Road logs within limits</li><li>No stored fault codes</li><li>Care tips explained</li>
+    </ul>
+    <h2 class="mt2">Service and check log</h2>
+    <table class="log"><thead><tr><th style="width:18%">Date</th><th style="width:16%">km</th><th>Work done</th><th style="width:20%">By</th></tr></thead>
+      <tbody><tr><td></td><td></td><td></td><td></td></tr><tr><td></td><td></td><td></td><td></td></tr><tr><td></td><td></td><td></td><td></td></tr><tr><td></td><td></td><td></td><td></td></tr><tr><td></td><td></td><td></td><td></td></tr></tbody></table>
+  </div>
+</section>
+
+<!-- 32. BACK COVER -->
+<section class="page dark back" id="back" data-nofoot>
+  <div class="grid-lines"></div>
+  <div class="glow" style="width:180mm;height:140mm;left:-16mm;bottom:-50mm"></div>
+  <div class="in">
+    <p class="kicker" style="color:var(--red-bright)">Ready when you are</p>
+    <h1>How much more can <em>your car</em> do?</h1>
+    <p class="lede">Send us your car's model on WhatsApp for a free estimate, or search it on our website to see its gains at every stage.</p>
+    <div class="qrs">
+      <figure><div class="qr"><img src="img/qr-wa.svg" alt="QR code to message us on WhatsApp"></div><figcaption>WhatsApp<small>Free estimate</small></figcaption></figure>
+      <figure><div class="qr"><img src="img/qr-site.svg" alt="QR code for unityperformance.co"></div><figcaption>Website<small>Search your car</small></figcaption></figure>
+      <figure><div class="qr"><img src="img/qr-insta.svg" alt="QR code for our Instagram"></div><figcaption>Instagram<small>@unitytuners</small></figcaption></figure>
+    </div>
+    <div class="info">
+      <div><span>WhatsApp / phone</span><strong>+91 87096 47229</strong></div>
+      <div><span>Website</span><strong>unityperformance.co</strong></div>
+      <div><span>Workshop</span><strong>L-12, Argora Housing Colony,<br>Ranchi, Jharkhand 834002</strong></div>
+      <div><span>Open</span><strong>Monday to Saturday<br>9:00–18:00</strong></div>
+    </div>
+    <div class="auto">
+      <img class="logo" src="img/logo-transparent.png" alt="Unity Motorsports Performance">
+      <p class="small" style="text-align:center;margin-top:3mm;color:#6b6b73">Power figures are estimates for healthy, standard cars. Emissions equipment stays fitted on every tune. © 2026 Unity Performance, Ranchi.</p>
+    </div>
+  </div>
+</section>
+
+<script>
+// Power figures, from the model list on unityperformance.co: [hp, Nm] for stock and each stage.
+const FIGS = [
+  ["Toyota Fortuner 2.8", "d", [204, 500], [235, 580], [255, 620], [285, 680]],
+  ["Toyota Innova Crysta 2.4", "d", [150, 343], [175, 410], [185, 435], [205, 460]],
+  ["Mahindra Scorpio-N 2.2", "d", [175, 400], [205, 480], [220, 510], [240, 540]],
+  ["Mahindra XUV700 2.2", "d", [185, 420], [220, 505], [235, 535], [260, 565]],
+  ["Mahindra XUV700 2.0 turbo", "p", [200, 380], [235, 455], [255, 480], [295, 510]],
+  ["Mahindra Thar 2.2", "d", [130, 300], [155, 360], [165, 380], [185, 405]],
+  ["Hyundai Creta / Kia Seltos 1.5 turbo", "p", [160, 253], [190, 305], [205, 325], [240, 340]],
+  ["Hyundai Creta / Kia Seltos 1.4 turbo", "p", [140, 242], [165, 290], [180, 305], [205, 325]],
+  ["Hyundai Creta / Kia Seltos 1.5 CRDi", "d", [116, 250], [135, 300], [145, 320], [160, 335]],
+  ["Hyundai i20 1.0 turbo", "p", [120, 172], [145, 210], [155, 225], [180, 235]],
+  ["VW Virtus / Taigun, Skoda Slavia / Kushaq 1.0 TSI", "p", [115, 178], [140, 215], [150, 230], [175, 240]],
+  ["VW Virtus / Taigun GT 1.5 TSI", "p", [150, 250], [175, 300], [190, 320], [220, 335]],
+  ["Tata Nexon 1.2 turbo", "p", [120, 170], [145, 205], [155, 215], [180, 230]],
+  ["Tata Nexon 1.5 diesel", "d", [110, 260], [130, 310], [140, 330], [155, 345]],
+];
+document.getElementById("figrows").innerHTML = FIGS.map(([name, fuel, ...st]) =>
+  `<tr><td>${name}<span class="fuel ${fuel}">${fuel === "d" ? "Diesel" : "Petrol"}</span></td>${st.map(([hp, nm], i) => `<td>${i ? "<b>" : ""}${hp} hp${i ? "</b>" : ""}<br><small>${nm} Nm</small></td>`).join("")}</tr>`).join("");
+
+// Page numbers, running headers, cross-references and the contents list.
+const pages = [...document.querySelectorAll(".page")];
+const pageOf = {};
+pages.forEach((p, i) => {
+  const num = i + 1;
+  pageOf[p.id] = num;
+  p.classList.add(num % 2 ? "odd" : "even");
+  if (p.hasAttribute("data-nofoot")) return;
+  p.insertAdjacentHTML("beforeend", `<div class="run"><span>The Tuning Book</span><b>${p.dataset.run || ""}</b></div><div class="foot"><span class="pn">${String(num).padStart(2, "0")}</span><span>unityperformance.co</span></div>`);
+});
+for (const el of document.querySelectorAll("[data-ref]")) el.textContent = pageOf[el.dataset.ref];
+const groups = {};
+for (const p of pages) if (p.dataset.toc) (groups[p.dataset.group] ||= []).push(p);
+document.getElementById("toc").innerHTML = Object.entries(groups).map(([g, ps]) =>
+  `<div class="toc-group"><h3>${g}</h3>${ps.map((p) => `<div class="toc-row"><span>${p.dataset.toc}</span><span class="dots"></span><span class="pg">${pageOf[p.id]}</span></div>`).join("")}</div>`).join("");
+
+// Print version: 3 mm bleed on every side.
+if (new URLSearchParams(location.search).get("print")) {
+  document.documentElement.classList.add("print");
+  document.getElementById("pagesize").textContent = "@page { size: 154mm 216mm; margin: 0; }";
+}
+</script>
+<script src="illus.js"></script>
+</body>
+</html>

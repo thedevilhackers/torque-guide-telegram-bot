@@ -1,0 +1,237 @@
+/* The Tuning Book: A5 customer booklet. Light content pages, dark covers and stage openers. */
+@font-face { font-family: "Barlow"; font-weight: 400; src: url(fonts/barlow-400.woff2) format("woff2"); }
+@font-face { font-family: "Barlow"; font-weight: 500; src: url(fonts/barlow-500.woff2) format("woff2"); }
+@font-face { font-family: "Barlow"; font-weight: 600; src: url(fonts/barlow-600.woff2) format("woff2"); }
+@font-face { font-family: "Barlow Condensed"; font-weight: 500; src: url(fonts/barlow-condensed-500.woff2) format("woff2"); }
+@font-face { font-family: "Barlow Condensed"; font-weight: 600; src: url(fonts/barlow-condensed-600.woff2) format("woff2"); }
+@font-face { font-family: "Barlow Condensed"; font-weight: 700; src: url(fonts/barlow-condensed-700.woff2) format("woff2"); }
+@font-face { font-family: "Anton"; font-weight: 400; src: url(fonts/anton-400.woff2) format("woff2"); }
+
+:root {
+  --bleed: 0mm;
+  --pw: calc(148mm + 2 * var(--bleed));
+  --ph: calc(210mm + 2 * var(--bleed));
+  --m: calc(var(--bleed) + 11mm);
+  --paper: #f7f5f2;
+  --card: #ffffff;
+  --ink: #141418;
+  --ink-2: #3a3a41;
+  --ink-3: #6b6b73;
+  --line: #e1ddd7;
+  --red: #d81b16;
+  --red-bright: #ff2d26;
+  --dark: #0b0b0e;
+  --dark-2: #16161b;
+  --dark-line: #2a2a31;
+  --blue: #3f78c0;
+  --green: #2c9a6a;
+}
+.print { --bleed: 3mm; }
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body { background: #8a8a90; font: 400 8.5pt/1.42 "Barlow", sans-serif; color: var(--ink-2); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+@media screen { body { display: flex; flex-direction: column; align-items: center; gap: 8mm; padding: 8mm 0; } }
+
+.page { position: relative; width: var(--pw); height: var(--ph); overflow: hidden; background: var(--paper); break-after: page; }
+.page > .in { position: absolute; inset: calc(var(--m) + 6mm) var(--m) calc(var(--m) + 4mm); display: flex; flex-direction: column; }
+
+/* Running header and footer. */
+.run { position: absolute; left: var(--m); right: var(--m); top: calc(var(--bleed) + 7mm); display: flex; justify-content: space-between; align-items: center;
+  font: 700 6.4pt/1 "Barlow Condensed"; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink-3); }
+.run b { color: var(--red); font-weight: 700; }
+.foot { position: absolute; left: var(--m); right: var(--m); bottom: calc(var(--bleed) + 6.5mm); display: flex; justify-content: space-between; align-items: center;
+  padding-top: 2mm; border-top: 0.25mm solid var(--line); font: 600 6.4pt/1 "Barlow Condensed"; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-3); }
+.foot .pn { font: 700 9pt/1 "Barlow Condensed"; letter-spacing: 0.04em; color: var(--ink); }
+.page.even .foot { flex-direction: row-reverse; }
+.dark .foot { border-top-color: var(--dark-line); color: #8a8a92; }
+.dark .foot .pn { color: #fff; }
+.dark .run { color: #8a8a92; }
+
+/* Type. */
+.kicker { font: 700 7pt/1 "Barlow Condensed"; letter-spacing: 0.2em; text-transform: uppercase; color: var(--red); margin: 0 0 2.2mm; }
+h1 { margin: 0; font: 700 25pt/0.94 "Barlow Condensed"; letter-spacing: -0.005em; text-transform: uppercase; color: var(--ink); }
+h1 em { font-style: normal; color: var(--red); }
+h2 { margin: 0 0 1.6mm; font: 700 12pt/1 "Barlow Condensed"; text-transform: uppercase; letter-spacing: 0.01em; color: var(--ink); }
+h3 { margin: 0 0 1.2mm; font: 700 9.4pt/1.05 "Barlow Condensed"; text-transform: uppercase; letter-spacing: 0.03em; color: var(--ink); }
+h3 .n { color: var(--red); margin-right: 1mm; }
+p { margin: 0 0 1.6mm; }
+.lede { margin: 2.6mm 0 3.4mm; font: 500 9.6pt/1.36 "Barlow"; color: var(--ink-2); max-width: 118mm; }
+.small { font-size: 7pt; line-height: 1.38; color: var(--ink-3); }
+b, strong { font-weight: 600; color: var(--ink); }
+.dark b, .dark strong { color: #fff; }
+.red { color: var(--red); }
+ul.dots { margin: 0; padding: 0; list-style: none; }
+ul.dots li { position: relative; padding-left: 3.2mm; margin-bottom: 1mm; }
+ul.dots li::before { content: ""; position: absolute; left: 0; top: 1.55mm; width: 1.3mm; height: 1.3mm; border-radius: 50%; background: var(--red); }
+ul.ticks, ul.crosses { margin: 0; padding: 0; list-style: none; }
+ul.ticks li, ul.crosses li { position: relative; padding-left: 4.6mm; margin-bottom: 1.25mm; }
+ul.ticks li::before, ul.crosses li::before { position: absolute; left: 0; top: 0.2mm; width: 3.3mm; height: 3.3mm; border-radius: 50%; color: #fff; font: 700 6.4pt/3.3mm "Barlow"; text-align: center; }
+ul.ticks li::before { content: ""; background: var(--green) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Cpath d='M2.4 5.3 L4.3 7.1 L7.8 3.2' fill='none' stroke='white' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 100% no-repeat; }
+ul.crosses li::before { content: ""; background: var(--red) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Cpath d='M3.2 3.2 L6.8 6.8 M6.8 3.2 L3.2 6.8' fill='none' stroke='white' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E") center / 100% no-repeat; }
+
+/* Layout helpers. */
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 3.4mm 5mm; }
+.grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 3mm 4mm; }
+.grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3mm; }
+.span2 { grid-column: span 2; }
+.grow { flex: 1; }
+.mt { margin-top: 3mm; }
+.mt2 { margin-top: 5mm; }
+.auto { margin-top: auto; }
+.card { background: var(--card); border: 0.25mm solid var(--line); border-radius: 2.4mm; padding: 3mm 3.4mm; }
+.card.tight { padding: 2.4mm 2.8mm; }
+.card.ink { background: var(--ink); border-color: var(--ink); color: #cfcbc5; }
+.card.ink h3, .card.ink b { color: #fff; }
+.note { border-left: 0.9mm solid var(--red); background: var(--card); padding: 2.4mm 3.2mm; border-radius: 0 2mm 2mm 0; }
+.note.blue { border-left-color: var(--blue); }
+.fig { margin: 0 -1mm; }
+.fig svg { display: block; width: 100%; height: auto; }
+.cap { margin-top: 1.2mm; font-size: 6.8pt; line-height: 1.35; color: var(--ink-3); }
+.rule { height: 0.25mm; background: var(--line); margin: 3mm 0; }
+
+/* Numbered parts legend for the exploded views. */
+ol.parts { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: 1fr 1fr; gap: 1.8mm 5mm; counter-reset: p; }
+ol.parts li { position: relative; padding-left: 6mm; counter-increment: p; font-size: 7.9pt; line-height: 1.36; }
+ol.parts li::before { content: counter(p); position: absolute; left: 0; top: 0; width: 4.2mm; height: 4.2mm; border-radius: 50%; background: var(--red); color: #fff; font: 700 7.4pt/4.2mm "Barlow Condensed"; text-align: center; }
+ol.parts li b { display: block; font: 700 8.2pt/1.15 "Barlow Condensed"; letter-spacing: 0.03em; text-transform: uppercase; color: var(--ink); margin-bottom: 0.3mm; }
+ol.parts.one { grid-template-columns: 1fr; }
+ol.parts.start6 { counter-reset: p 5; }
+
+/* Three-column "why / what / check" blocks on part pages. */
+.why { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4mm; }
+.why > div { border-top: 0.6mm solid var(--ink); padding-top: 2mm; }
+.why > div:first-child { border-top-color: var(--red); }
+.why h3 { font-size: 8.6pt; }
+.why p, .why li { font-size: 7.9pt; line-height: 1.38; }
+
+/* Fact chips. */
+.fact { display: flex; gap: 2.6mm; align-items: center; background: var(--ink); color: #e9e6e1; border-radius: 2.4mm; padding: 2.6mm 3.2mm; }
+.fact .big { font: 400 20pt/1 "Anton"; color: var(--red-bright); letter-spacing: 0.01em; white-space: nowrap; }
+.fact p { margin: 0; font-size: 7.6pt; line-height: 1.35; }
+.fact b { color: #fff; }
+
+/* Tables. */
+table { width: 100%; border-collapse: collapse; font-size: 7.4pt; line-height: 1.3; }
+th { font: 700 6.8pt/1.1 "Barlow Condensed"; letter-spacing: 0.1em; text-transform: uppercase; text-align: left; color: var(--ink-3); padding: 1.6mm 1.6mm; border-bottom: 0.35mm solid var(--ink); vertical-align: bottom; }
+td { padding: 1.5mm 1.6mm; border-bottom: 0.25mm solid var(--line); vertical-align: top; color: var(--ink-2); }
+td.k { font: 700 7.6pt/1.15 "Barlow Condensed"; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink); white-space: nowrap; }
+.stages th.s, .stages td.s { width: 27%; }
+.stages th.s { color: var(--red); font-size: 8pt; }
+.stages th.s:first-of-type { }
+table.figs td, table.figs th { text-align: right; white-space: nowrap; }
+table.figs td:first-child, table.figs th:first-child { text-align: left; white-space: normal; }
+table.figs td b { font-weight: 600; color: var(--ink); }
+table.figs td small { color: var(--ink-3); font-size: 6.6pt; }
+table.figs td { padding-top: 1.15mm; padding-bottom: 1.15mm; }
+table.figs tr:nth-child(even) td { background: rgba(255, 255, 255, 0.65); }
+table.figs .fuel { display: inline-block; margin-left: 1mm; padding: 0.2mm 1.2mm; border-radius: 1mm; font: 700 5.8pt/1.4 "Barlow Condensed"; letter-spacing: 0.08em; text-transform: uppercase; vertical-align: 0.2mm; }
+table.figs .fuel.p { background: #fde4e2; color: #a5120d; }
+table.figs .fuel.d { background: #e3ecf7; color: #2a5a96; }
+
+/* Benefits grid with icons. */
+.benefits { display: grid; grid-template-columns: 1fr 1fr; gap: 2.6mm 4mm; }
+.benefit { display: grid; grid-template-columns: 9mm 1fr; gap: 2.4mm; align-items: start; }
+.benefit .ic { width: 9mm; height: 9mm; border-radius: 2.2mm; background: #fff; border: 0.25mm solid var(--line); padding: 1.6mm; }
+.benefit h3 { font-size: 8.6pt; margin-bottom: 0.6mm; }
+.benefit p { font-size: 7.6pt; line-height: 1.34; margin: 0; }
+
+/* Step-by-step process. */
+.steps { display: grid; grid-template-columns: 1fr 1fr; gap: 0 5mm; counter-reset: s; }
+.step { position: relative; padding: 0 0 2.6mm 9mm; counter-increment: s; }
+.step::before { content: counter(s, decimal-leading-zero); position: absolute; left: 0; top: -0.4mm; font: 700 11pt/1 "Barlow Condensed"; color: var(--red); }
+.step::after { content: ""; position: absolute; left: 2.6mm; top: 5mm; bottom: 0.6mm; width: 0.25mm; background: var(--line); }
+.step h3 { font-size: 8.8pt; margin-bottom: 0.6mm; }
+.step p { font-size: 7.7pt; line-height: 1.36; margin: 0; }
+
+/* Checklists. */
+.check { margin: 0; padding: 0; list-style: none; }
+.check li { position: relative; padding: 1.2mm 0 1.2mm 6mm; border-bottom: 0.25mm solid var(--line); font-size: 7.9pt; line-height: 1.3; }
+.check li::before { content: ""; position: absolute; left: 0; top: 1.3mm; width: 3.2mm; height: 3.2mm; border: 0.35mm solid var(--ink); border-radius: 0.7mm; background: #fff; }
+.check li b { font-weight: 600; }
+
+/* FAQ and glossary. */
+.qa h3 { font-size: 9.4pt; margin: 0 0 0.8mm; }
+.qa p { font-size: 8.3pt; line-height: 1.42; margin: 0 0 3.2mm; }
+.gloss { columns: 2; column-gap: 6mm; }
+.gloss p { break-inside: avoid; font-size: 7.8pt; line-height: 1.38; margin: 0 0 2mm; }
+.gloss b { font: 700 8pt/1 "Barlow Condensed"; letter-spacing: 0.04em; text-transform: uppercase; color: var(--red); margin-right: 1mm; }
+
+/* Fill-in record page. */
+.fill { display: grid; grid-template-columns: 1fr 1fr; gap: 0 6mm; }
+.fill div { border-bottom: 0.3mm solid #b9b4ad; padding: 4.2mm 0 1mm; font: 700 6.6pt/1 "Barlow Condensed"; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-3); }
+.fill div.wide { grid-column: span 2; }
+table.log td { height: 7.4mm; }
+
+/* ---------- Dark pages: cover, stage openers, back cover ---------- */
+.dark { background: var(--dark); color: #bdb9b3; }
+.dark h1, .dark h2, .dark h3 { color: #fff; }
+.dark .lede { color: #cfcbc5; }
+.dark .glow { position: absolute; border-radius: 50%; background: radial-gradient(closest-side, rgba(255, 45, 38, 0.42), rgba(255, 45, 38, 0)); pointer-events: none; }
+.dark .grid-lines { position: absolute; inset: 0; background-image: linear-gradient(rgba(255,255,255,.035) 0.25mm, transparent 0.25mm), linear-gradient(90deg, rgba(255,255,255,.035) 0.25mm, transparent 0.25mm); background-size: 8mm 8mm; }
+
+/* Cover. */
+.cover .in { inset: calc(var(--bleed) + 12mm) calc(var(--bleed) + 11mm) calc(var(--bleed) + 10mm); }
+.cover .logo { width: 56mm; margin: 0 auto; display: block; }
+.cover .tag { text-align: center; margin-top: 2mm; font: 600 6.6pt/1 "Barlow Condensed"; letter-spacing: 0.38em; text-transform: uppercase; color: #8a8a92; }
+.cover .title { margin-top: 6.5mm; text-align: center; }
+.cover .title .pre { font: 700 8pt/1 "Barlow Condensed"; letter-spacing: 0.42em; text-transform: uppercase; color: var(--red-bright); }
+.cover .title h1 { margin-top: 2.4mm; font-size: 45pt; line-height: 0.86; letter-spacing: -0.01em; }
+.cover .title h1 span { display: block; color: transparent; -webkit-text-stroke: 0.45mm #fff; }
+.cover .title p { margin: 3mm auto 0; max-width: 96mm; font: 500 9pt/1.32 "Barlow"; color: #cfcbc5; }
+.cover .stagebar { display: flex; justify-content: center; gap: 2mm; margin-top: 4.2mm; }
+.cover .stagebar span { padding: 1.3mm 3.2mm; border: 0.3mm solid #3a3a42; border-radius: 99mm; font: 700 7pt/1 "Barlow Condensed"; letter-spacing: 0.2em; text-transform: uppercase; color: #fff; }
+.cover .stagebar span:nth-child(3) { background: var(--red); border-color: var(--red); }
+.cover .art { margin: -1mm -2mm -1mm; }
+.cover .contact { margin-top: auto; display: grid; grid-template-columns: 25mm 1fr; gap: 4.4mm; align-items: center; padding: 3.4mm 4mm; border: 0.3mm solid var(--dark-line); border-radius: 3mm; background: rgba(255, 255, 255, 0.03); }
+.qr { background: #fff; border-radius: 2mm; padding: 2mm; }
+.qr img { display: block; width: 100%; }
+.cover .contact .rows { display: grid; gap: 1.5mm; font-size: 7.6pt; line-height: 1.25; color: #cfcbc5; }
+.cover .contact .rows div { display: grid; grid-template-columns: 17mm 1fr; }
+.cover .contact .rows span { font: 700 6.4pt/1.6 "Barlow Condensed"; letter-spacing: 0.16em; text-transform: uppercase; color: #8a8a92; }
+.cover .contact .rows strong { color: #fff; font-weight: 600; }
+.cover .scan { margin-top: 1.4mm; text-align: center; font: 700 6pt/1.2 "Barlow Condensed"; letter-spacing: 0.12em; text-transform: uppercase; color: #8a8a92; }
+
+/* Stage openers. */
+.opener .num { position: absolute; right: calc(var(--bleed) + 8mm); top: calc(var(--bleed) + 16mm); font: 400 235pt/0.8 "Anton"; color: transparent; -webkit-text-stroke: 0.6mm rgba(255, 45, 38, 0.85); text-shadow: 0 0 18mm rgba(255, 45, 38, 0.35); }
+.opener .in { justify-content: flex-end; }
+.opener .label { font: 700 8pt/1 "Barlow Condensed"; letter-spacing: 0.4em; text-transform: uppercase; color: var(--red-bright); }
+.opener h1 { margin-top: 2mm; font-size: 42pt; }
+.opener .lede { max-width: 100mm; }
+.opener .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2mm; margin: 2mm 0 4mm; }
+.opener .stats div { padding: 2.6mm; border: 0.3mm solid var(--dark-line); border-radius: 2.2mm; background: rgba(255, 255, 255, 0.03); }
+.opener .stats span { display: block; font: 700 6pt/1 "Barlow Condensed"; letter-spacing: 0.16em; text-transform: uppercase; color: #8a8a92; margin-bottom: 1.4mm; }
+.opener .stats strong { display: block; font: 700 11pt/1.05 "Barlow Condensed"; color: #fff; letter-spacing: 0.01em; }
+.opener .stats small { display: block; margin-top: 0.8mm; font-size: 6.4pt; color: #8a8a92; line-height: 1.25; }
+.opener .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 5mm; }
+.opener h3 { color: #fff; font-size: 8.6pt; margin-bottom: 1.6mm; }
+.opener ul.dots li { font-size: 7.8pt; color: #cfcbc5; }
+.opener .toc a { display: flex; justify-content: space-between; padding: 1.2mm 0; border-bottom: 0.25mm solid var(--dark-line); font: 600 8pt/1.2 "Barlow Condensed"; letter-spacing: 0.06em; text-transform: uppercase; color: #fff; text-decoration: none; }
+.opener .toc a span { color: var(--red-bright); }
+.opener .mark { position: absolute; left: calc(var(--m) - 2mm); top: calc(var(--m) + 2mm); width: 30mm; opacity: 0.9; }
+
+/* Contents page. */
+.toc-list { columns: 2; column-gap: 7mm; }
+.toc-group { break-inside: avoid; margin-bottom: 4mm; }
+.toc-group h3 { font-size: 8pt; letter-spacing: 0.18em; color: var(--red); border-bottom: 0.35mm solid var(--ink); padding-bottom: 1.2mm; margin-bottom: 1mm; }
+.toc-row { display: flex; align-items: baseline; gap: 1.5mm; padding: 0.95mm 0; font: 500 8.4pt/1.2 "Barlow"; color: var(--ink); }
+.toc-row .dots { flex: 1; border-bottom: 0.3mm dotted #b9b4ad; transform: translateY(-0.6mm); }
+.toc-row .pg { font: 700 8.6pt/1 "Barlow Condensed"; color: var(--ink); }
+
+/* Back cover. */
+.back .in { inset: calc(var(--bleed) + 14mm) calc(var(--bleed) + 11mm) calc(var(--bleed) + 12mm); }
+.back h1 { font-size: 36pt; }
+.back .qrs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4mm; margin: 6mm 0; }
+.back .qrs figure { margin: 0; text-align: center; }
+.back .qrs figcaption { margin-top: 2mm; font: 700 7.4pt/1.2 "Barlow Condensed"; letter-spacing: 0.12em; text-transform: uppercase; color: #fff; }
+.back .qrs figcaption small { display: block; margin-top: 0.6mm; font: 500 6.8pt/1.2 "Barlow"; letter-spacing: 0; text-transform: none; color: #8a8a92; }
+.back .info { display: grid; grid-template-columns: 1fr 1fr; gap: 3mm 6mm; padding: 4mm 0; border-top: 0.3mm solid var(--dark-line); border-bottom: 0.3mm solid var(--dark-line); }
+.back .info span { display: block; font: 700 6.4pt/1 "Barlow Condensed"; letter-spacing: 0.18em; text-transform: uppercase; color: #8a8a92; margin-bottom: 1.2mm; }
+.back .info strong { font: 600 9pt/1.3 "Barlow"; color: #fff; }
+.back .logo { width: 54mm; display: block; margin: 0 auto; }
+
+/* "If we find... / What we do" table on the health-check page. */
+table.find td:first-child { width: 42%; font-weight: 600; color: var(--ink); }
+.care .card h3 { font-size: 9.2pt; }
+.care .card p { font-size: 7.9pt !important; line-height: 1.4; }
+.promise .small { font-size: 7.7pt; line-height: 1.42; }
