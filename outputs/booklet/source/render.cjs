@@ -28,7 +28,10 @@ const path = require("path");
       }
       return { n: i + 1, id: p.id, over: Math.round(bottom - box.bottom), overRight: Math.round(right - box.right) };
     }));
-    for (const r of report) if (r.over > 0 || r.overRight > 1) console.log(`OVERFLOW p${r.n} ${r.id}: bottom +${r.over}px right +${r.overRight}px`);
+    // Figures deliberately hang 1 mm into the margins, so only a larger overhang counts on the right.
+    for (const r of report) if (r.over > 0 || r.overRight > 9) console.log(`OVERFLOW p${r.n} ${r.id}: bottom +${r.over}px right +${r.overRight}px`);
+    const cut = await page.evaluate(() => Array.from(document.querySelectorAll(".quip")).filter((q) => q.scrollWidth > q.clientWidth + 1).map((q) => q.dataset.id));
+    if (cut.length) console.log("QUIP CUT OFF: " + cut.join(", "));
     const want = extra ? extra.split(",").map(Number) : null;
     const els = await page.locator(".page").all();
     for (let i = 0; i < els.length; i++) {

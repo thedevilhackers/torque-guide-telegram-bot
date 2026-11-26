@@ -282,3 +282,76 @@ ol.isteps.one { grid-template-columns: 1fr; }
 .apply .big { font: 700 13pt/1.2 "Barlow Condensed"; color: #fff; letter-spacing: 0.02em; }
 
 #franchise h1 { font-size: 36pt; }
+
+/* ---------- Facts and fun ---------- */
+
+/* "Did you know?" sticky notes. */
+.dyk { position: relative; margin-top: 3.4mm; padding: 2.6mm 3.2mm 2.6mm 11.4mm; background: #fff2bf; border-radius: 1.2mm; transform: rotate(-0.7deg);
+  box-shadow: 0 0.5mm 1.4mm rgba(0, 0, 0, 0.14); font-size: 7.7pt; line-height: 1.38; color: #2a2a30; }
+.dyk.r { transform: rotate(0.7deg); }
+.dyk::before { content: "?"; position: absolute; left: 2.8mm; top: 2.6mm; width: 6mm; height: 6mm; border-radius: 50%; background: var(--red); color: #fff; font: 400 11pt/6mm "Anton"; text-align: center; }
+.dyk::after { content: ""; position: absolute; top: -1.8mm; left: 50%; width: 16mm; height: 3.6mm; margin-left: -8mm; background: rgba(255, 255, 255, 0.55); border: 0.2mm solid rgba(0, 0, 0, 0.06); transform: rotate(2.5deg); }
+.dyk .t { display: block; font: 700 6.8pt/1 "Barlow Condensed"; letter-spacing: 0.2em; text-transform: uppercase; color: var(--red); margin-bottom: 0.9mm; }
+.dyk b { color: var(--ink); }
+.dyk.float { position: absolute; left: calc(var(--m) + 34mm); top: calc(var(--m) + 8mm); width: 60mm; margin: 0; transform: rotate(-2deg); z-index: 2; }
+
+/* A one-liner in every footer. */
+.foot .quip { flex: 1; min-width: 0; margin: 0 4mm; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font: 600 6.8pt/1 "Barlow Condensed"; letter-spacing: 0.02em; text-transform: none; color: var(--ink-2); }
+.foot .quip::before { content: ""; display: inline-block; width: 2.6mm; height: 2.3mm; margin-right: 1.3mm; vertical-align: -0.3mm;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 10'%3E%3Cpath d='M1 1 H11 V7 H5 L2.5 9.5 V7 H1 Z' fill='%23d81b16'/%3E%3C/svg%3E") center / contain no-repeat; }
+.dark .foot .quip { color: #bdb9b3; }
+
+/* Myth busters. */
+.myths { display: grid; grid-template-columns: 1fr 1fr; gap: 3.2mm 4mm; }
+.myth { position: relative; background: #fff; border: 0.25mm solid var(--line); border-radius: 2.4mm; overflow: hidden; }
+.myth .m { padding: 2.4mm 3mm 2mm; background: #efece7; }
+.myth .m span, .myth .f span { display: block; font: 700 6.4pt/1 "Barlow Condensed"; letter-spacing: 0.2em; text-transform: uppercase; margin-bottom: 0.9mm; }
+.myth .m span { color: #8a8a92; }
+.myth .m p { margin: 0; padding-right: 13mm; font: 600 8.4pt/1.25 "Barlow"; color: #6b6b73; text-decoration: line-through; text-decoration-color: var(--red); text-decoration-thickness: 0.35mm; }
+.myth .f { padding: 2.2mm 3mm 2.6mm; }
+.myth .f span { color: var(--green); }
+.myth .f p { margin: 0; font-size: 7.6pt; line-height: 1.36; }
+.myth .stamp { position: absolute; right: 2.4mm; top: 2mm; padding: 0.5mm 1.6mm; border: 0.45mm solid var(--red); border-radius: 1mm; transform: rotate(8deg);
+  font: 700 7pt/1.2 "Barlow Condensed"; letter-spacing: 0.16em; color: var(--red); background: rgba(255, 255, 255, 0.7); }
+
+/* Timeline. */
+.tl { display: grid; grid-template-columns: 1fr 1fr; gap: 0 6mm; }
+.tl ol { margin: 0; padding: 0; list-style: none; position: relative; }
+.tl ol::before { content: ""; position: absolute; left: 13.6mm; top: 1mm; bottom: 1mm; width: 0.4mm; background: var(--line); }
+.tl li { position: relative; display: grid; grid-template-columns: 12mm 1fr; gap: 3.6mm; padding: 0 0 3.2mm; font-size: 7.7pt; line-height: 1.36; }
+.tl li::after { content: ""; position: absolute; left: 12.6mm; top: 1mm; width: 2.4mm; height: 2.4mm; border-radius: 50%; background: var(--red); box-shadow: 0 0 0 0.8mm var(--paper); }
+.tl .y { font: 400 11pt/1.05 "Anton"; color: var(--ink); text-align: right; }
+.tl li.now .y { color: var(--red); }
+.tl b { display: block; font: 700 8.4pt/1.15 "Barlow Condensed"; letter-spacing: 0.02em; text-transform: uppercase; color: var(--ink); margin-bottom: 0.4mm; }
+
+/* By the numbers (dark page). */
+.nums { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2.6mm; }
+.nums div { padding: 3mm 3mm 2.8mm; border: 0.3mm solid var(--dark-line); border-radius: 2.4mm; background: rgba(255, 255, 255, 0.035); }
+.nums strong { display: block; font: 400 19pt/1 "Anton"; color: var(--red-bright); letter-spacing: 0.01em; }
+.nums span { display: block; margin: 1.4mm 0 0.8mm; font: 700 7.4pt/1.1 "Barlow Condensed"; letter-spacing: 0.1em; text-transform: uppercase; color: #fff; }
+.nums p { margin: 0; font-size: 7pt; line-height: 1.35; color: #a9a59f; }
+.numbers .in { justify-content: flex-start; }
+
+/* Quiz. */
+.quiz { display: grid; grid-template-columns: 1fr 1fr; gap: 2.6mm 6mm; counter-reset: q; }
+.quiz div { counter-increment: q; }
+.quiz h3 { font-size: 8.8pt; margin-bottom: 0.8mm; }
+.quiz h3::before { content: counter(q) ". "; color: var(--red); }
+.quiz p { margin: 0; font-size: 7.7pt; line-height: 1.45; }
+.quiz p i { font-style: normal; display: inline-block; width: 3.6mm; height: 3.6mm; margin-right: 1mm; border: 0.3mm solid var(--ink-3); border-radius: 50%; font: 700 6pt/3.2mm "Barlow Condensed"; text-align: center; color: var(--ink-3); vertical-align: 0.1mm; }
+.answers { transform: rotate(180deg); text-align: center; font: 600 8pt/1.4 "Barlow Condensed"; letter-spacing: 0.06em; color: var(--ink-3); }
+.score { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2mm; }
+.score div { background: #fff; border: 0.25mm solid var(--line); border-radius: 2mm; padding: 2.2mm 2.4mm; }
+.score strong { display: block; font: 400 12pt/1 "Anton"; color: var(--red); }
+.score div > span { display: block; margin: 0.8mm 0 0.6mm; font: 700 7.4pt/1.1 "Barlow Condensed"; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink); }
+.score p { margin: 0; font-size: 6.9pt; line-height: 1.32; color: var(--ink-3); }
+
+/* Cover badge. */
+.badge-burst { position: absolute; right: calc(var(--bleed) + 9mm); top: calc(var(--bleed) + 55mm); width: 25mm; height: 25mm; border-radius: 50%; background: #ffd54a; color: #141418;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; transform: rotate(12deg); box-shadow: 0 0 0 1.2mm rgba(255, 213, 74, 0.25); z-index: 3; }
+.badge-burst b { font: 400 11pt/0.95 "Anton"; color: #141418; letter-spacing: 0.01em; }
+.badge-burst span { font: 700 6.2pt/1.1 "Barlow Condensed"; letter-spacing: 0.08em; text-transform: uppercase; }
+
+/* Never squash blocks to fit a page: overflow must show up (and get fixed), not hide. */
+.page > .in > *, .half > * { flex-shrink: 0; }

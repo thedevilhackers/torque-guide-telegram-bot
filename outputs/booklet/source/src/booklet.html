@@ -12,13 +12,14 @@
 <section class="page dark cover" id="cover" data-nofoot>
   <div class="grid-lines"></div>
   <div class="glow" style="width:170mm;height:120mm;left:-10mm;top:78mm"></div>
+  <div class="badge-burst"><span>With</span><b>FUN FACTS</b><span>+ a quiz</span></div>
   <div class="in">
     <img class="logo" src="img/logo-transparent.png" alt="Unity Motorsports Performance">
     <p class="tag">Performance · Protection · Perfection</p>
     <div class="title">
       <p class="pre">The customer guide to car tuning</p>
       <h1>The Tuning<span>Book</span></h1>
-      <p>Stage 1 to Stage 3, explained part by part: what we fit, why we fit it, how we tune it and how we check every step.</p>
+      <p>Stage 1 to Stage 3, explained part by part: what we fit, why, how it's installed and how we check every step.</p>
       <div class="stagebar"><span>Stage 1</span><span>Stage 2</span><span>Stage 3</span></div>
     </div>
     <div class="art fig" data-fig="turbo" data-dark="1"></div>
@@ -42,7 +43,6 @@
     <h1>Inside this <em>book</em></h1>
     <p class="lede">Tuning shouldn't be a mystery. This book explains, in plain words, every part we fit and why, how each one is installed, how we calibrate the software and how we check every step. Keep it in the glovebox.</p>
     <div class="toc-list" id="toc"></div>
-    <div class="note auto"><p style="margin:0"><b>A note on numbers.</b> Power figures in this book are estimates for healthy, standard cars on the right fuel. We confirm what's realistic for your car after its health check, and we check every tune with data logs on the road.</p></div>
   </div>
 </section>
 
@@ -52,12 +52,13 @@
     <p class="kicker">The basics</p>
     <h1>How your engine<br><em>makes power</em></h1>
     <p class="lede">Every engine is an air pump. The more air it can take in, the more fuel it can burn and the more power it makes. A turbo forces in extra air, and the ECU decides how much.</p>
-    <div class="fig" data-fig="airpath"></div>
+    <div class="fig" data-fig="airpath" style="margin:0 7mm"></div>
     <div class="why mt">
       <div><h3><span class="n">1</span>Air in</h3><p>Air passes the filter. Sensors measure how much is coming in and how warm it is, and report to the ECU, the car's computer.</p></div>
       <div><h3><span class="n">2</span>Squeezed and cooled</h3><p>The turbo's compressor packs the air in: that's <b>boost</b>. Squeezing heats the air, so the intercooler cools it again. Cooler air is denser and safer.</p></div>
       <div><h3><span class="n">3</span>Burned and reused</h3><p>The ECU adds fuel and a spark (a diesel ignites from compression alone). The exhaust then spins the turbo's turbine, which drives the compressor on the same shaft.</p></div>
     </div>
+    <div class="dyk"><span class="t">Did you know?</span>Burning <b>one litre of petrol takes about 9,000 litres of air</b>. Your engine drinks air far faster than it drinks fuel.</div>
     <div class="fact auto"><span class="big">2 LEVERS</span><p><b>Software</b> decides how hard the engine works. <b>Hardware</b> decides how much air and fuel it can flow. Stage 1 uses the first lever; Stages 2 and 3 add the second.</p></div>
   </div>
 </section>
@@ -100,7 +101,7 @@
     <p class="kicker">The basics</p>
     <h1>What a tune <em>actually changes</em></h1>
     <p class="lede">Inside the ECU, most decisions come from tables called maps. Each one is a grid: engine speed along one side, load or pedal along the other, and a value in every cell.</p>
-    <div class="fig" data-fig="maps"></div>
+    <div class="fig" data-fig="maps" style="margin:0 5mm"></div>
     <p class="cap">Example boost maps for a turbo petrol engine (an illustration). Darker cells ask for more boost. Stage 1 raises the target in the mid-range, where you feel it most, and stays gentle at low load so the car is just as smooth in traffic.</p>
     <div class="grid3 mt">
       <div class="card tight"><h3>Boost target</h3><p class="small">How much the turbo pushes, at each speed and load. Kept within the turbo's safe speed.</p></div>
@@ -110,6 +111,7 @@
       <div class="card tight"><h3>Pedal map</h3><p class="small">How much the throttle opens for your foot. Made smooth and progressive, never jumpy.</p></div>
       <div class="card tight"><h3>Protection</h3><p class="small">Limits for temperature, knock and smoke. We keep them all, and often tighten them.</p></div>
     </div>
+    <div class="dyk r"><span class="t">Did you know?</span>At 6,000 rpm, <b>each cylinder fires 50 times a second</b>, and the ECU works out the fuel and spark for every one of those fires.</div>
     <div class="note auto"><p style="margin:0">A good tune changes hundreds of values across many maps. It's not one "power slider", and that's why every file is built for one car and checked with logs.</p></div>
   </div>
 </section>
@@ -137,6 +139,7 @@
       <div class="benefit"><span class="ic" data-icon="fuel"></span><div><h3>Same or better economy</h3><p>Driven the same way, most cars use about the same fuel. Use the power often and you'll use more.</p></div></div>
       <div class="benefit"><span class="ic" data-icon="undo"></span><div><h3>Back to stock anytime</h3><p>Your original file is saved and can be restored.</p></div></div>
     </div>
+    <div class="dyk"><span class="t">Did you know?</span>A horse at full sprint makes <b>about 15 hp</b>. So a stock Fortuner is roughly 14 horses, and Stage 1 adds two more to the team.</div>
   </div>
 </section>
 
@@ -166,12 +169,38 @@
   </div>
 </section>
 
+<!-- FACTS: BY THE NUMBERS -->
+<section class="page dark numbers" id="numbers" data-toc="Your engine, by the numbers" data-group="Facts and fun" data-run="By the numbers">
+  <div class="grid-lines"></div>
+  <div class="glow" style="width:180mm;height:150mm;left:-40mm;bottom:-60mm"></div>
+  <div class="in">
+    <p class="kicker" style="color:var(--red-bright)">Facts and fun</p>
+    <h1>Your engine, <em>by the numbers</em></h1>
+    <p class="lede">Under the bonnet, ordinary driving involves some extraordinary numbers. Here are our favourites.</p>
+    <div class="nums">
+      <div><strong>150,000+</strong><span>rpm</span><p>How fast a turbo can spin: about 25 times faster than your engine at 6,000 rpm.</p></div>
+      <div><strong>900 °C+</strong><span>Exhaust heat</span><p>At the turbine on a hard run. Hot enough to make steel glow red.</p></div>
+      <div><strong>50</strong><span>Fires a second</span><p>Each cylinder at 6,000 rpm. Four cylinders: 200 a second.</p></div>
+      <div><strong>20 ms</strong><span>One engine cycle</span><p>All four strokes at 6,000 rpm. One blink lasts long enough for five of them.</p></div>
+      <div><strong>40,000 V</strong><span>Per spark</span><p>Up to this jumps the spark-plug gap. Your home socket: 230 V.</p></div>
+      <div><strong>2,000+ bar</strong><span>Diesel rail</span><p>Almost twice the pressure at the bottom of the Mariana Trench.</p></div>
+      <div><strong>9,000 L</strong><span>Of air</span><p>Needed to burn a single litre of petrol.</p></div>
+      <div><strong>14.7 : 1</strong><span>Perfect mix</span><p>The chemically exact air-to-petrol ratio, by weight.</p></div>
+      <div><strong>Mach 1+</strong><span>Wheel tips</span><p>A compressor wheel's tips can move faster than the speed of sound.</p></div>
+      <div><strong>108</strong><span>RON</span><p>Octane rating of pure ethanol. Regular Indian petrol: 91.</p></div>
+      <div><strong>~15 hp</strong><span>One horse</span><p>Flat out. A stock Fortuner is about 14 of them.</p></div>
+      <div><strong>5,252</strong><span>rpm</span><p>Where horsepower and lb-ft of torque are always equal. Maths, not magic.</p></div>
+    </div>
+  </div>
+</section>
+
 <!-- 8. STAGE 1 OPENER -->
 <section class="page dark opener" id="stage1" data-toc="Stage 1: software only" data-group="Stage 1" data-run="Stage 1">
   <div class="grid-lines"></div>
   <div class="glow" style="width:160mm;height:160mm;right:-60mm;top:-30mm"></div>
   <div class="num">1</div>
   <img class="mark" src="img/turbo-symbol-transparent.png" alt="">
+  <div class="dyk float"><span class="t">Fun fact</span>Factory settings are packed like Mummy packs for a trip: ready for every possible disaster. <b>A tune packs for the trip you're actually taking.</b></div>
   <div class="in">
     <p class="label">Stage 1</p>
     <h1>Software <em>only</em></h1>
@@ -232,6 +261,7 @@
         <li>Catalyst, DPF, EGR and AdBlue systems</li><li>Cold start, idle and cooling-fan behaviour</li><li>Immobiliser and all safety systems</li><li>Service reminders and warning lights</li></ul></div>
       <div class="card ink"><h3>Fuel matters</h3><p style="font-size:7.6pt;margin:0">We tune for the fuel you actually use. If you choose premium (95+ octane) for more power, the tune is built for it, so keep using it. Tell us if you change fuel, and we'll check the tune.</p></div>
     </div>
+    <div class="dyk"><span class="t">Did you know?</span>Regular petrol in India is rated <b>91 RON</b>. Premium grades are 95, and some pumps even sell <b>100 RON</b>. Higher octane resists knock, but it only adds power if the tune is built to use it.</div>
   </div>
 </section>
 
@@ -263,6 +293,7 @@
   <div class="glow" style="width:160mm;height:160mm;right:-60mm;top:-30mm"></div>
   <div class="num">2</div>
   <img class="mark" src="img/turbo-symbol-transparent.png" alt="">
+  <div class="dyk float"><span class="t">Fun fact</span>Think of Stage 2 as <b>swapping a straw for a pipe</b>. Same engine, much easier breathing.</div>
   <div class="in">
     <p class="label">Stage 2</p>
     <h1>Software <em>+ breathing</em></h1>
@@ -295,7 +326,7 @@
     <p class="kicker">Stage 2 · Part 1<span class="fitref">How it's fitted: page <span data-ref="install-ic"></span></span></p>
     <h1>The <em>intercooler</em></h1>
     <p class="lede">Squeezing air heats it up. The intercooler is a radiator for the air the turbo sends to your engine, and at Stage 2 it's the most important part.</p>
-    <div class="fig" data-fig="intercooler"></div>
+    <div class="fig" data-fig="intercooler" style="margin:0 8mm"></div>
     <ol class="parts mt">
       <li><b>Inlet end tank</b>Spreads hot air from the turbo across the core.</li>
       <li><b>Bar-and-plate core</b>The charge air flows through these sealed passages.</li>
@@ -308,7 +339,7 @@
       <div><h3>What it does</h3><p>A larger core with more frontal area and internal fins keeps intake temperature low and steady, run after run. Cooler air is denser, carrying more oxygen, and far less likely to knock.</p></div>
       <div><h3>What we check</h3><ul class="dots"><li>Intake temperature on back-to-back runs</li><li>Boost before and after the core</li><li>Smoke test for leaks</li><li>Clearance and secure clamps</li></ul></div>
     </div>
-    <div class="fact auto"><span class="big">3%</span><p>Every 10 °C of cooler intake air makes the charge about 3% denser, so there's more oxygen to burn with every stroke.</p></div>
+    <div class="auto"><div class="dyk"><span class="t">Did you know?</span>Squeezing air to 1 bar of boost can heat it <b>past 100 °C</b>. Every 10 °C the intercooler removes makes the air about <b>3% denser</b>.</div></div>
   </div>
 </section>
 
@@ -318,7 +349,7 @@
     <p class="kicker">Stage 2 · Part 2<span class="fitref">How it's fitted: page <span data-ref="install-ic"></span></span></p>
     <h1>Intake, boost pipes <em>and valves</em></h1>
     <p class="lede">The engine's first breath. A freer intake reduces restriction before the turbo, and stronger pipes hold the extra boost after it.</p>
-    <div class="fig" data-fig="intake"></div>
+    <div class="fig" data-fig="intake" style="margin:0 8mm"></div>
     <ol class="parts mt">
       <li><b>Airbox lid</b>The factory airbox stays: it's designed to draw cool air.</li>
       <li><b>High-flow panel filter</b>Washable cotton gauze. Flows more air than paper while still filtering dust.</li>
@@ -331,6 +362,7 @@
       <div><h3>Boost pipes</h3><p>Factory plastic and rubber pipes can balloon or split at higher boost. Reinforced silicone hoses with proper clamps hold the pressure. The <b>diverter valve</b> releases pressure when you lift off; an uprated piston valve stops it leaking at higher boost.</p></div>
       <div><h3>What we check</h3><ul class="dots"><li>Air-mass and pressure readings after fitting</li><li>Fuel trims stay close to zero</li><li>Boost leak test</li><li>The calibration is matched to the new parts</li></ul></div>
     </div>
+    <div class="dyk r"><span class="t">Did you know?</span>Flat out at 6,000 rpm, a 2.0-litre engine swallows about <b>6,000 litres of air a minute</b>, before the turbo adds more.</div>
   </div>
 </section>
 
@@ -340,7 +372,7 @@
     <p class="kicker">Stage 2 · Part 3<span class="fitref">How it's fitted: page <span data-ref="install-plugs"></span></span></p>
     <h1>Downpipe and <em>high-flow catalyst</em></h1>
     <p class="lede">The first section of exhaust after the turbo. On many turbo engines it's the biggest restriction, and freeing it wakes the turbo up.</p>
-    <div class="fig" data-fig="downpipe" style="margin:0 5mm"></div>
+    <div class="fig" data-fig="downpipe" style="margin:0 7mm"></div>
     <ol class="parts mt">
       <li><b>Turbo outlet flange</b>Machined to seal perfectly against the turbo.</li>
       <li><b>Wide, smooth bends</b>Mandrel-bent stainless steel keeps the full diameter through every bend.</li>
@@ -417,6 +449,7 @@
   <div class="glow" style="width:160mm;height:160mm;right:-60mm;top:-30mm"></div>
   <div class="num">3</div>
   <img class="mark" src="img/turbo-symbol-transparent.png" alt="">
+  <div class="dyk float"><span class="t">Fun fact</span>Fair warning: Stage 3 is where <b>"just one more part"</b> becomes a hobby. It happens to the best of people.</div>
   <div class="in">
     <p class="label">Stage 3</p>
     <h1>The <em>full build</em></h1>
@@ -479,6 +512,7 @@
       <div class="card" style="border-color:var(--red)"><h3 class="red">Hybrid turbo</h3><p class="small" style="color:var(--ink-2)">The factory housings with a larger compressor wheel and upgraded turbine and bearings. It bolts on, boost arrives a little later, and there's much more top end. The best balance for road cars.</p></div>
       <div class="card"><h3 style="color:var(--green)">Bigger turbo</h3><p class="small" style="color:var(--ink-2)">A larger frame turbo makes the most power but builds boost later, and needs more supporting parts. Best for dedicated project cars.</p></div>
     </div>
+    <div class="dyk"><span class="t">Did you know?</span>In the 1980s, Formula 1's 1.5-litre turbo engines made <b>well over 1,000 hp</b> in qualifying trim. F1 banned turbos in 1989, then brought them back in 2014.</div>
     <div class="note auto"><p style="margin:0"><b>A new turbo means a new calibration.</b> Boost, fuel, timing and turbo-speed limits are rebuilt from scratch for it, then proven with logs. Fuel, clutch and cooling come next: pages <span data-ref="fuel"></span>–<span data-ref="support"></span>.</p></div>
   </div>
 </section>
@@ -520,7 +554,7 @@
     <p class="kicker">Stage 3 · Part 4<span class="fitref">How it's fitted: page <span data-ref="install-fuel"></span></span></p>
     <h1>Clutch <em>and flywheel</em></h1>
     <p class="lede">Every newton-metre goes through the clutch. Factory clutches have some margin. Stage 2 can use it up on a worn clutch, and Stage 3 always needs more.</p>
-    <div class="fig" data-fig="clutch" style="margin:0 8mm"></div>
+    <div class="fig" data-fig="clutch" style="margin:0 16mm"></div>
     <ol class="parts mt">
       <li><b>Release bearing</b>Pushes the diaphragm when you press the pedal.</li>
       <li><b>Pressure plate</b>Its diaphragm spring clamps the disc. Clamping force decides how much torque it holds.</li>
@@ -532,6 +566,7 @@
       <div><h3>The upgrade</h3><p>A pressure plate with higher clamping force and a stronger disc. Organic linings stay smooth for daily driving; ceramic or sintered linings hold more torque but grab harder.</p></div>
       <div><h3>Our advice</h3><p>For most road cars: an uprated organic clutch, keeping the dual-mass flywheel where possible. A lighter single-mass flywheel is stronger but adds vibration and noise.</p></div>
     </div>
+    <div class="dyk r"><span class="t">Did you know?</span>A clutch passes <b>every newton-metre through friction alone</b>: no teeth, no gears, just two surfaces squeezed together by a spring.</div>
   </div>
 </section>
 
@@ -550,7 +585,38 @@
       <div class="card tight"><h3>Tyres</h3><p class="small" style="color:var(--ink-2)">Quality tyres with the right load and speed rating. All your power goes through four small patches.</p></div>
       <div class="card tight"><h3>Mounts</h3><p class="small" style="color:var(--ink-2)">Stiffer engine and gearbox mount inserts stop wheel hop and protect driveshafts, with a little more vibration.</p></div>
     </div>
+    <div class="dyk"><span class="t">Did you know?</span>All of your car's grip comes from <b>four tyre contact patches, each about the size of your palm</b>.</div>
     <div class="note auto"><p style="margin:0"><b>Stopping comes first.</b> If we think your brakes or tyres aren't up to the power you're asking for, we'll say so before the tune, not after.</p></div>
+  </div>
+</section>
+
+<!-- FACTS: HISTORY -->
+<section class="page" id="history" data-toc="A short history of power" data-group="Facts and fun" data-run="Facts and fun">
+  <div class="in">
+    <p class="kicker">Facts and fun</p>
+    <h1>A short history <em>of power</em></h1>
+    <p class="lede">The turbo in your car is over a century in the making. Here's how we got from steam-age ideas to 1.0-litre engines with the punch of old 2.0s.</p>
+    <div class="tl">
+      <ol>
+        <li><span class="y">1900</span><div><b>Peanut power</b>Rudolf Diesel's engine runs on peanut oil at the Paris World's Fair.</div></li>
+        <li><span class="y">1905</span><div><b>The big idea</b>Swiss engineer Alfred Büchi patents using exhaust gas to drive a compressor: the turbo.</div></li>
+        <li><span class="y">1918</span><div><b>Up a mountain</b>Sanford Moss of General Electric tests a turbocharged aircraft engine on Pikes Peak, over 4,000 m up.</div></li>
+        <li><span class="y">1962</span><div><b>Turbo cars arrive</b>The Oldsmobile Jetfire and Chevrolet Corvair Monza become the first turbocharged production cars.</div></li>
+        <li><span class="y">1973</span><div><b>Europe joins in</b>The BMW 2002 Turbo becomes Europe's first turbocharged production car.</div></li>
+        <li><span class="y">1977</span><div><b>The Yellow Teapot</b>Renault brings turbos to Formula 1. Its smoky early car earns a rather rude nickname.</div></li>
+        <li><span class="y">1978</span><div><b>Turbo for every day</b>The Saab 99 Turbo shows a turbo can be smooth enough for daily driving.</div></li>
+      </ol>
+      <ol>
+        <li><span class="y">1979</span><div><b>The first brain</b>Bosch Motronic, on the BMW 732i, puts fuel and spark under one digital computer.</div></li>
+        <li><span class="y">1980s</span><div><b>Madness</b>F1's 1.5-litre turbo engines top 1,000 hp in qualifying.</div></li>
+        <li><span class="y">1989</span><div><b>Banned</b>Formula 1 outlaws turbos…</div></li>
+        <li><span class="y">2014</span><div><b>…and back</b>F1 returns to turbos, as 1.6-litre turbo hybrids.</div></li>
+        <li><span class="y">2020</span><div><b>BS6, no BS5</b>India jumps straight from BS4 to BS6 emission rules.</div></li>
+        <li><span class="y">2023</span><div><b>E20 at the pump</b>Petrol with 20% ethanol goes on sale in India.</div></li>
+        <li class="now"><span class="y">Today</span><div><b>Your turn</b>Small turbo engines fill Indian roads, and we tune them in Ranchi. History, made locally.</div></li>
+      </ol>
+    </div>
+    <div class="dyk r auto"><span class="t">Did you know?</span>In the 1980s, <b>"turbo" became such a buzzword</b> that it ended up on things with no engine at all, from the "turbo button" on office computers to games consoles.</div>
   </div>
 </section>
 
@@ -732,6 +798,7 @@
       <div><h3>Higher blends</h3><p>E27 and E30 tunes give more power, but you need a reliable supply and a consistent mix. We'll tell you honestly if that's practical for you.</p></div>
       <div><h3>Flex-fuel</h3><p>On some cars, an ethanol-content sensor lets the ECU adjust automatically to whatever blend is in the tank.</p></div>
     </div>
+    <div class="dyk r"><span class="t">Did you know?</span>India brought its <b>E20 target forward from 2030 to 2025</b>. Most of the ethanol is made from sugarcane and grains, so part of your fuel may once have been sweet.</div>
   </div>
 </section>
 
@@ -888,6 +955,26 @@
   </div>
 </section>
 
+<!-- FACTS: MYTH BUSTERS -->
+<section class="page" id="myths" data-toc="Myth busters" data-group="Facts and fun" data-run="Facts and fun">
+  <div class="in">
+    <p class="kicker">Facts and fun</p>
+    <h1>Myth <em>busters</em></h1>
+    <p class="lede">Every chai stall has a tuning expert. Here's what they get wrong, and what's actually true.</p>
+    <div class="myths">
+      <div class="myth"><span class="stamp">BUSTED</span><div class="m"><span>Myth</span><p>"Tuning is just turning a knob."</p></div><div class="f"><span>Fact</span><p>A tune changes hundreds of values across many maps, built for one car and checked with logs.</p></div></div>
+      <div class="myth"><span class="stamp">BUSTED</span><div class="m"><span>Myth</span><p>"A tuned car always drinks more fuel."</p></div><div class="f"><span>Fact</span><p>Driven the same way, most cars use about the same. Your right foot decides the rest.</p></div></div>
+      <div class="myth"><span class="stamp">BUSTED</span><div class="m"><span>Myth</span><p>"More boost always means more power."</p></div><div class="f"><span>Fact</span><p>Past a turbo's sweet spot, extra boost mostly makes hot air. Literally.</p></div></div>
+      <div class="myth"><span class="stamp">BUSTED</span><div class="m"><span>Myth</span><p>"Premium petrol adds power to any car."</p></div><div class="f"><span>Fact</span><p>Only if the engine and tune can use the extra octane. Otherwise it's an expensive placebo.</p></div></div>
+      <div class="myth"><span class="stamp">BUSTED</span><div class="m"><span>Myth</span><p>"Tuning will blow up my engine."</p></div><div class="f"><span>Fact</span><p>Reckless tuning can. A careful tune within the hardware's limits, on a healthy engine, is reliable.</p></div></div>
+      <div class="myth"><span class="stamp">BUSTED</span><div class="m"><span>Myth</span><p>"Removing the catalyst is free power."</p></div><div class="f"><span>Fact</span><p>A high-flow catalyst gets most of the gain, legally and cleanly. A decat just pollutes.</p></div></div>
+      <div class="myth"><span class="stamp">BUSTED</span><div class="m"><span>Myth</span><p>"Turbo engines don't last."</p></div><div class="f"><span>Fact</span><p>Modern turbos are built to last the life of the car, given clean oil and a little warm-up and cool-down.</p></div></div>
+      <div class="myth"><span class="stamp">BUSTED</span><div class="m"><span>Myth</span><p>"Idle for 10 minutes to warm up."</p></div><div class="f"><span>Fact</span><p>Idling wastes fuel. Drive off gently and save full power until the oil is warm.</p></div></div>
+    </div>
+    <div class="fact auto"><span class="big">?!</span><p>Heard a myth we haven't busted? Send it to us on WhatsApp. We'll bust it, or admit it's true.</p></div>
+  </div>
+</section>
+
 <!-- 30. GLOSSARY -->
 <section class="page" id="glossary" data-toc="Glossary" data-group="After your tune" data-run="Glossary">
   <div class="in">
@@ -911,7 +998,7 @@
       <p><b>Fuel trim</b>The ECU's small corrections to fuelling. Large trims point to a fault.</p>
       <p><b>Heat range</b>How quickly a spark plug passes heat away from its tip.</p>
       <p><b>Heat soak</b>When parts get so hot they can't cool the air, and power fades.</p>
-      <p><b>hp / PS</b>Units of power: how fast the engine can do work.</p>
+      <p><b>hp / PS</b>Units of power. James Watt coined "horsepower" to sell steam engines to people who used horses.</p>
       <p><b>Hybrid turbo</b>A factory turbo rebuilt with larger or better internals.</p>
       <p><b>Intercooler</b>A radiator that cools the air after the turbo.</p>
       <p><b>Knock</b>Uncontrolled burning that hammers the pistons. The ECU listens for it and retards the spark.</p>
@@ -928,6 +1015,35 @@
       <p><b>VGT</b>Variable-geometry turbo, with movable vanes. Common on diesels.</p>
       <p><b>Wastegate</b>A valve that lets exhaust bypass the turbine to control boost.</p>
     </div>
+  </div>
+</section>
+
+<!-- FACTS: QUIZ -->
+<section class="page" id="quiz" data-toc="Quiz: test your tuning IQ" data-group="Facts and fun" data-run="Facts and fun">
+  <div class="in">
+    <p class="kicker">Facts and fun</p>
+    <h1>Test your <em>tuning IQ</em></h1>
+    <p class="lede">Ten questions, all answered somewhere in this book. No phones, no asking the mechanic.</p>
+    <div class="quiz">
+      <div><h3>What spins a turbo?</h3><p><i>a</i>A belt from the engine<br><i>b</i>Exhaust gas<br><i>c</i>Pure magic</p></div>
+      <div><h3>An intercooler cools…</h3><p><i>a</i>The air going into the engine<br><i>b</i>The driver<br><i>c</i>Your chai</p></div>
+      <div><h3>Stage 1 adds…</h3><p><i>a</i>A bigger turbo<br><i>b</i>Racing stripes<br><i>c</i>Software only</p></div>
+      <div><h3>"Knock" is…</h3><p><i>a</i>Uncontrolled burning that hammers the pistons<br><i>b</i>Someone at the workshop door<br><i>c</i>A new turbo sound</p></div>
+      <div><h3>Which resists knock best?</h3><p><i>a</i>91 RON petrol<br><i>b</i>95 RON petrol<br><i>c</i>Pure ethanol</p></div>
+      <div><h3>Your original ECU file is…</h3><p><i>a</i>Deleted forever<br><i>b</i>Saved, so you can go back to stock<br><i>c</i>Framed on our wall</p></div>
+      <div><h3>A turbo can spin at…</h3><p><i>a</i>1,500 rpm<br><i>b</i>15,000 rpm<br><i>c</i>Over 150,000 rpm</p></div>
+      <div><h3>A diesel lights its fuel with…</h3><p><i>a</i>Heat from squeezing the air<br><i>b</i>A spark plug<br><i>c</i>A matchstick</p></div>
+      <div><h3>After a hard drive, you should…</h3><p><i>a</i>Switch off immediately<br><i>b</i>Let it idle for 30–60 seconds<br><i>c</i>Rev it to the limiter, for luck</p></div>
+      <div><h3>Which part do we never remove?</h3><p><i>a</i>The catalytic converter<br><i>b</i>Your old spark plugs<br><i>c</i>The airbox lid, to fit a filter</p></div>
+    </div>
+    <div class="score mt2">
+      <div><strong>0–4</strong><span>Learner's licence</span><p>Read it again. There's no rush.</p></div>
+      <div><strong>5–7</strong><span>Daily driver</span><p>You know your boost from your brakes.</p></div>
+      <div><strong>8–9</strong><span>Stage 1 certified</span><p>Friends will start asking you for advice.</p></div>
+      <div><strong>10</strong><span>Full marks</span><p>We should talk. See page <span data-ref="franchise"></span>.</p></div>
+    </div>
+    <div class="dyk r"><span class="t">Bonus fact</span>Your catalytic converter contains platinum, palladium and <b>rhodium</b>. At times, rhodium has cost several times more than gold.</div>
+    <p class="answers auto">Answers: 1 b · 2 a · 3 c · 4 a · 5 c · 6 b · 7 c · 8 a · 9 b · 10 a</p>
   </div>
 </section>
 
@@ -1087,6 +1203,53 @@ const FIGS = [
 document.getElementById("figrows").innerHTML = FIGS.map(([name, fuel, ...st]) =>
   `<tr><td>${name}<span class="fuel ${fuel}">${fuel === "d" ? "Diesel" : "Petrol"}</span></td>${st.map(([hp, nm], i) => `<td>${i ? "<b>" : ""}${hp} hp${i ? "</b>" : ""}<br><small>${nm} Nm</small></td>`).join("")}</tr>`).join("");
 
+
+// A one-liner in the footer of every page.
+const QUIPS = {
+  contents: "Read it in order, or skip to the pictures. We won't judge.",
+  power: "Your engine: a very expensive air pump with opinions.",
+  ecu: "The ECU makes more decisions in a second than we do all week.",
+  maps: "A map is a spreadsheet your engine actually reads.",
+  why: "Garage gyaan: Same gaadi, naya josh.",
+  stages: "Stage 1 is a step. Stage 3 is a lifestyle.",
+  numbers: "Warning: these numbers may turn you into a car nerd.",
+  stage1: "No new parts, no drama. Just more pull.",
+  s1changes: "Petrol or diesel, the engine listens to whoever writes the maps.",
+  process: "Measure twice, flash once.",
+  stage2: "Breathe in, breathe out. Your engine does it thousands of times a minute.",
+  intercooler: "Garage gyaan: Hawa thandi, engine khush.",
+  intake: "Cone filters look cool. Your fuel trims may disagree.",
+  downpipe: "A wider exit for the exhaust. Like a stadium with more gates.",
+  plugs: "Up to 40,000 volts per spark. Please don't test it with a finger.",
+  diesel: "Diesel: no spark, all torque.",
+  stage3: "Big turbo, big plans, big smile.",
+  turbo: "A turbo: basically a hairdryer powered by your exhaust.",
+  turbochoice: "Big turbo, big lag, big smile. Eventually.",
+  fuel: "Garage gyaan: Hawa zyada, toh petrol bhi zyada.",
+  clutch: "The clutch takes the stress so the gearbox doesn't have to.",
+  support: "More go needs more whoa.",
+  history: "History lesson over. The quiz is on page {quiz}.",
+  "install-map": "Fourteen parts, one happy car.",
+  "install-ic": "Clamps: tight enough for boost, gentle enough for silicone.",
+  "install-turbo": "Oil first, fire later. Turbos hate dry starts.",
+  "install-plugs": "Old spark plugs tell stories. We read every one.",
+  "install-fuel": "Relieve the pressure first. Good advice for fuel systems, and for life.",
+  ethanol: "Garage gyaan: Ganne ka ras, ab tank mein bhi.",
+  monitor: "In God we trust. Everyone else brings data logs.",
+  health: "We'd rather say no today than sorry tomorrow.",
+  figures: "Estimates here. The real story is in your car's logs.",
+  care: "Warm oil, happy turbo, happy owner.",
+  promise: "No decats. No shortcuts. No nonsense.",
+  faq: "No question is silly. Except 'Can I get 100 hp free?'",
+  myths: "Myths busted: 8. Engines harmed: 0.",
+  glossary: "Now you can talk boost with the best of them.",
+  quiz: "No peeking. The answers are upside down for a reason.",
+  record: "Future you, and the next owner, will thank you.",
+  franchise: "Your city. Your workshop. Our standards.",
+  "franchise-packages": "Everything in one box. Ambition not included.",
+  "franchise-apply": "Step one is a WhatsApp message. We made it easy.",
+};
+
 // Page numbers, running headers, cross-references and the contents list.
 const pages = [...document.querySelectorAll(".page")];
 const pageOf = {};
@@ -1095,8 +1258,9 @@ pages.forEach((p, i) => {
   pageOf[p.id] = num;
   p.classList.add(num % 2 ? "odd" : "even");
   if (p.hasAttribute("data-nofoot")) return;
-  p.insertAdjacentHTML("beforeend", `<div class="run"><span>The Tuning Book</span><b>${p.dataset.run || ""}</b></div><div class="foot"><span class="pn">${String(num).padStart(2, "0")}</span><span>unityperformance.co</span></div>`);
+  p.insertAdjacentHTML("beforeend", `<div class="run"><span>The Tuning Book</span><b>${p.dataset.run || ""}</b></div><div class="foot"><span class="pn">${String(num).padStart(2, "0")}</span><span class="quip" data-id="${p.id}"></span><span>unityperformance.co</span></div>`);
 });
+for (const q of document.querySelectorAll(".quip")) q.textContent = (QUIPS[q.dataset.id] || "").replace(/\{(\w+)\}/g, (_, id) => pageOf[id]);
 for (const el of document.querySelectorAll("[data-ref]")) el.textContent = pageOf[el.dataset.ref];
 const groups = {};
 for (const p of pages) if (p.dataset.toc) (groups[p.dataset.group] ||= []).push(p);

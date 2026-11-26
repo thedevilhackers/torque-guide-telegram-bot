@@ -1,6 +1,12 @@
 # The Tuning Book
 
-A 40-page A5 customer booklet that explains Stage 1 to Stage 3 tuning. It covers every part, why it's fitted, how it's installed, how it's tuned and how each tune is checked. It ends with the franchise offer.
+A 44-page A5 customer booklet that explains Stage 1 to Stage 3 tuning. It covers every part, why it's fitted, how it's installed, how it's tuned and how each tune is checked. It ends with the franchise offer.
+
+To keep readers turning pages, the booklet also has:
+
+- "Did you know?" sticky notes.
+- A one-liner in every footer, some in Hinglish.
+- Four fun pages: by the numbers, a history timeline, myth busters and a quiz.
 
 | File | Use it for |
 | --- | --- |
@@ -11,31 +17,38 @@ A 40-page A5 customer booklet that explains Stage 1 to Stage 3 tuning. It covers
 
 | Pages | Section |
 | --- | --- |
-| 1 | Cover: logo, QR code to the website, WhatsApp, address, opening hours and Instagram |
+| 1 | Cover: logo, "fun facts + quiz" badge, QR code to the website, WhatsApp, address, opening hours and Instagram |
 | 2 | Contents |
 | 3–7 | **The basics:** how an engine makes power, inside the ECU, what a tune changes, why tuning is the most popular upgrade, and the three stages compared |
-| 8–10 | **Stage 1:** what changes in the software, and the 10-step process |
-| 11–16 | **Stage 2:** intercooler, intake and boost pipes, downpipe with high-flow catalyst, spark plugs and gearbox tuning, and diesel Stage 2. Each part has an exploded-view diagram. |
-| 17–22 | **Stage 3:** the turbo (exploded), hybrid vs bigger turbo, fuel system, clutch and flywheel, and cooling and supporting parts |
-| 23–27 | **Installation:** a car cutaway showing where every part sits, then step-by-step installation diagrams for the intercooler, intake, turbo, spark plugs, downpipe, fuel pump and injectors, and clutch |
-| 28–31 | **Our work:** ethanol tuning, how tunes are monitored, the health check and safety limits, and power figures for 14 popular cars |
-| 32–36 | **After your tune:** car care, what we will and won't do, FAQ, glossary, and a tune-record page to fill in at handover |
-| 37–39 | **Franchise:** the offer, the Standard and Premium packages and terms, and how to apply, with a QR code to unityperformance.co/franchise |
-| 40 | Back cover: QR codes for WhatsApp, the website and Instagram, plus contact details |
+| 8 | **Your engine, by the numbers:** 12 big-number facts |
+| 9–11 | **Stage 1:** what changes in the software, and the 10-step process |
+| 12–17 | **Stage 2:** intercooler, intake and boost pipes, downpipe with high-flow catalyst, spark plugs and gearbox tuning, and diesel Stage 2. Each part has an exploded-view diagram. |
+| 18–23 | **Stage 3:** the turbo (exploded), hybrid vs bigger turbo, fuel system, clutch and flywheel, and cooling and supporting parts |
+| 24 | **A short history of power:** a timeline from 1900 to today |
+| 25–29 | **Installation:** a car cutaway showing where every part sits, then step-by-step installation diagrams for the intercooler, intake, turbo, spark plugs, downpipe, fuel pump and injectors, and clutch |
+| 30–33 | **Our work:** ethanol tuning, how tunes are monitored, the health check and safety limits, and power figures for 14 popular cars |
+| 34–36 | **After your tune:** car care, what we will and won't do, and the FAQ |
+| 37 | **Myth busters:** eight tuning myths, busted |
+| 38 | Glossary |
+| 39 | **Quiz:** 10 questions, with the answers printed upside down |
+| 40 | A tune-record page to fill in at handover |
+| 41–43 | **Franchise:** the offer, the Standard and Premium packages and terms, and how to apply, with a QR code to unityperformance.co/franchise |
+| 44 | Back cover: QR codes for WhatsApp, the website and Instagram, plus contact details |
 
 ## Printing
 
-- **Size:** A5 portrait, 40 pages, saddle-stitched (stapled).
+- **Size:** A5 portrait, 44 pages, saddle-stitched (stapled).
 - **Paper:** 300 gsm matt cover with matt lamination; 130–170 gsm matt art paper inside.
 - **Colour:** full colour on both sides.
 - **Proof first:** ask for one printed proof before the full run, and scan all five QR codes on it.
 
 ## Check before printing
 
-- **Process pages (10, 29 and 30)** describe how the workshop works. Make sure every step matches what you actually do.
-- **Installation times (pages 24–27)** are typical times for common cars. Adjust them if yours differ.
-- **Power figures (pages 7 and 31)** come from the model list on the website. Update both together if the model list changes.
-- **Franchise prices and terms (pages 37–39)** come from the franchise page on the website. Update them here too if they change in Admin.
+- **Process pages (11, 31 and 32)** describe how the workshop works. Make sure every step matches what you actually do.
+- **Installation times (pages 26–29)** are typical times for common cars. Adjust them if yours differ.
+- **Power figures (pages 7 and 33)** come from the model list on the website. Update both together if the model list changes.
+- **Franchise prices and terms (pages 41–43)** come from the franchise page on the website. Update them here too if they change in Admin.
+- **Footer one-liners** are set per page in the `QUIPS` list near the end of `src/booklet.html`. Change or translate them there.
 - **Illustrations** are drawings, not photos. To use photos of real parts from the workshop instead, they can be swapped in.
 
 ## Editing and rebuilding
