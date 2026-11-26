@@ -220,3 +220,22 @@ Sirf ECU tuning se:
 🌐 unityperformance.co · 📍 Argora, Ranchi
 
 #fortuner #creta #seltos #ecutuning #stage1 #ranchi #jharkhand #reels #cartuning #dieseltuning #turbo #unityperformance
+
+---
+
+## Video: Fortuner, Creta and Seltos (15-second English Reel)
+
+`fortuner-creta-reel-english-reel-1080x1920.mp4` and `fortuner-creta-reel-english-feed-1080x1350.mp4`: the same Reel with an English voiceover (Indian voice) and English on-screen text. Music and sound effects are included, so **don't add Instagram music**.
+
+Fortuner owners, wait! ✋
+
+Just ECU tuning:
+🔥 Fortuner 2.8 diesel: 204 → 235 hp, 500 → 580 Nm
+⚡ Creta / Seltos 1.5 turbo: 160 → 190 hp
+✅ No parts changed. Original file saved.
+(Estimated Stage 1 figures for healthy, standard cars.)
+
+📲 WhatsApp your model for a free estimate: +91 87096 47229
+🌐 unityperformance.co · 📍 Argora, Ranchi
+
+#fortuner #creta #seltos #ecutuning #stage1 #ranchi #jharkhand #reels #cartuning #dieseltuning #turbo #unityperformance
