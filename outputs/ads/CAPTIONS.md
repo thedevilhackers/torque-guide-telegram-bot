@@ -239,3 +239,22 @@ Just ECU tuning:
 🌐 unityperformance.co · 📍 Argora, Ranchi
 
 #fortuner #creta #seltos #ecutuning #stage1 #ranchi #jharkhand #reels #cartuning #dieseltuning #turbo #unityperformance
+
+---
+
+## Video: Fortuner and Creta, Hindi "khushkhabri" Reel (26 seconds)
+
+`fortuner-creta-reel-hindi-reel-1080x1920.mp4` and `fortuner-creta-reel-hindi-feed-1080x1350.mp4`: the owner's own script in Hindi, in the voice the owner picked. Music and sound effects are included, so **don't add Instagram music**.
+
+फ़ॉर्च्यूनर वालों, सुनो! 📢 आपके लिए खुशखबरी है:
+अब रांची में ECU ट्यूनिंग! 🎉
+
+🔥 फ़ॉर्च्यूनर 2.8 डीज़ल: 204 → 235 hp, 500 → 580 Nm
+⚡ क्रेटा / सेल्टॉस 1.5 टर्बो: 160 → 190 hp
+✅ कोई पार्ट नहीं बदलता। ओरिजिनल फ़ाइल सेव रहती है।
+(सही-सलामत स्टैंडर्ड कारों के लिए स्टेज 1 के अनुमानित आँकड़े)
+
+📲 फ़्री एस्टिमेट के लिए अपना मॉडल WhatsApp करें: +91 87096 47229
+🌐 unityperformance.co · 📍 अरगोड़ा, रांची, झारखंड
+
+#fortuner #creta #seltos #ecutuning #ranchi #jharkhand #stage1 #reels #cartuning #dieseltuning #unityperformance #रांची
