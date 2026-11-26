@@ -12,6 +12,8 @@ To keep readers turning pages, the booklet also has:
 | --- | --- |
 | `Unity-Performance-Tuning-Book.pdf` | WhatsApp, email and the website. A5, 2 MB. |
 | `Unity-Performance-Tuning-Book-print-3mm-bleed.pdf` | The printer. A5 with 3 mm bleed on every side (154 × 216 mm). |
+| `Unity-Performance-Tuning-Book-Hindi.pdf` | The Hindi edition, for sharing. Same 44 pages, A5. |
+| `Unity-Performance-Tuning-Book-Hindi-print-3mm-bleed.pdf` | The Hindi edition, for the printer. |
 
 ## What's inside
 
@@ -51,6 +53,22 @@ To keep readers turning pages, the booklet also has:
 - **Footer one-liners** are set per page in the `QUIPS` list near the end of `src/booklet.html`. Change or translate them there.
 - **Illustrations** are drawings, not photos. To use photos of real parts from the workshop instead, they can be swapped in.
 
+## Hindi edition
+
+The Hindi edition has the same 44 pages and the same page numbers as the English one:
+
+- Every page, footer one-liner and diagram label is in simple, everyday Hindi.
+- Familiar technical words stay as they are, such as टर्बो, इंटरकूलर, बूस्ट and ECU.
+- Brand names, web addresses and car model names stay in English.
+
+The source files:
+
+- `src/hi/p1.html` to `p4.html`: the Hindi page text.
+- `src/tr-hi.js`: the Hindi labels used in the diagrams and charts.
+- `src/booklet-hi.css`: the Hindi typography (Noto Sans Devanagari, more line spacing, no letter-spacing).
+
+After editing, run `python3 source/assemble_hi.py` to rebuild `src/booklet-hi.html`, then build the PDFs with `BOOK=booklet-hi.html` in front of the render commands below.
+
 ## Editing and rebuilding
 
 The source is in `source/`:
@@ -75,4 +93,4 @@ node source/render.cjs review <folder>     # one PNG per page, and a warning if 
 All under the SIL Open Font License (`source/src/fonts/OFL.txt`):
 
 - Barlow, Barlow Condensed and Anton.
-- Noto Sans Devanagari, used only for the ₹ sign, which the other fonts don't have.
+- Noto Sans Devanagari, used for the ₹ sign (which the other fonts don't have) and for all Hindi text.

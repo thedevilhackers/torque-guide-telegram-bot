@@ -138,8 +138,15 @@ function callout(num, px, py, tx, ty, dark = false) {
     `<text x="${n(tx)}" y="${n(ty + 5.3)}" text-anchor="middle" font-family="Barlow Condensed" font-weight="700" font-size="15.5" fill="#fff">${num}</text>`;
 }
 
+// Labels can be translated: another edition sets window.TR = { "English label": "translation" }.
+const tr = (t) => {
+  if (typeof t !== "string" || !window.TR) return t;
+  if (window.TR[t] !== undefined) return window.TR[t];
+  const m = t.match(/^Cylinder (\d+)$/);
+  return m && window.TR.Cylinder ? `${window.TR.Cylinder} ${m[1]}` : t;
+};
 const label = (x, y, text, o = {}) =>
-  `<text x="${n(x)}" y="${n(y)}" text-anchor="${o.anchor || "start"}" font-family="${o.family || "Barlow Condensed"}" font-weight="${o.weight || 600}" font-size="${o.size || 15.5}" fill="${o.fill || INK}" letter-spacing="${o.ls || 0}">${text}</text>`;
+  `<text x="${n(x)}" y="${n(y)}" text-anchor="${o.anchor || "start"}" font-family="${o.family || "Barlow Condensed"}" font-weight="${o.weight || 600}" font-size="${o.size || 15.5}" fill="${o.fill || INK}" letter-spacing="${window.TR ? 0 : o.ls || 0}">${tr(text)}</text>`;
 
 const svg = (w, h, body, a = "") => `<svg viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg" ${a}>${body}</svg>`;
 const axis = (x0, x1, y) => `<line x1="${x0}" y1="${y}" x2="${x1}" y2="${y}" stroke="${GUIDE}" stroke-width="1" stroke-dasharray="7 5"/>`;

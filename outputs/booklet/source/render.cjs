@@ -1,11 +1,12 @@
 // node render.cjs review <outDir> [pages, e.g. 1,2,5]   → a PNG per page, plus an overflow report
 // node render.cjs pdf <out.pdf> [print]                  → the PDF (print = with 3 mm bleed)
+// BOOK=booklet-hi.html picks the Hindi edition.
 const { chromium } = require("playwright");
 const path = require("path");
 
 (async () => {
   const [mode, out, extra] = process.argv.slice(2);
-  const src = path.join(__dirname, "src", "booklet.html") + (mode === "pdf" && extra === "print" ? "?print=1" : "");
+  const src = path.join(__dirname, "src", process.env.BOOK || "booklet.html") + (mode === "pdf" && extra === "print" ? "?print=1" : "");
   const browser = await chromium.launch();
   const page = await browser.newPage({ viewport: { width: 900, height: 1000 }, deviceScaleFactor: mode === "review" ? 1.6 : 1 });
   const errors = [];

@@ -1,0 +1,58 @@
+/* Hindi edition. Devanagari comes from Noto Sans Devanagari (OFL), attached to the brand font names
+   with unicode-range, so every style in booklet.css keeps working and Latin text stays in Barlow. */
+@font-face { font-family: "Barlow"; font-weight: 400; src: url(fonts/noto-deva-400.woff2) format("woff2"); unicode-range: U+0900-097F, U+1CD0-1CF9, U+200C-200D, U+25CC, U+A830-A839, U+A8E0-A8FF; }
+@font-face { font-family: "Barlow"; font-weight: 500; src: url(fonts/noto-deva-500.woff2) format("woff2"); unicode-range: U+0900-097F, U+1CD0-1CF9, U+200C-200D, U+25CC, U+A830-A839, U+A8E0-A8FF; }
+@font-face { font-family: "Barlow"; font-weight: 600; src: url(fonts/noto-deva-600.woff2) format("woff2"); unicode-range: U+0900-097F, U+1CD0-1CF9, U+200C-200D, U+25CC, U+A830-A839, U+A8E0-A8FF; }
+@font-face { font-family: "Barlow Condensed"; font-weight: 500; src: url(fonts/noto-deva-500.woff2) format("woff2"); unicode-range: U+0900-097F, U+1CD0-1CF9, U+200C-200D, U+25CC, U+A830-A839, U+A8E0-A8FF; }
+@font-face { font-family: "Barlow Condensed"; font-weight: 600; src: url(fonts/noto-deva-600.woff2) format("woff2"); unicode-range: U+0900-097F, U+1CD0-1CF9, U+200C-200D, U+25CC, U+A830-A839, U+A8E0-A8FF; }
+@font-face { font-family: "Barlow Condensed"; font-weight: 700; src: url(fonts/noto-deva-700.woff2) format("woff2"); unicode-range: U+0900-097F, U+1CD0-1CF9, U+200C-200D, U+25CC, U+A830-A839, U+A8E0-A8FF; }
+@font-face { font-family: "Anton"; font-weight: 400; src: url(fonts/noto-deva-800.woff2) format("woff2"); unicode-range: U+0900-097F, U+1CD0-1CF9, U+200C-200D, U+25CC, U+A830-A839, U+A8E0-A8FF; }
+
+/* Devanagari needs no letter-spacing (it breaks the headline bar) and more room above and below the line. */
+html[lang="hi"] * { letter-spacing: 0 !important; }
+html[lang="hi"] body { font-size: 8pt; line-height: 1.55; }
+html[lang="hi"] h1 { font-size: 21pt; line-height: 1.22; }
+html[lang="hi"] h2 { font-size: 11.5pt; line-height: 1.3; }
+html[lang="hi"] h3 { line-height: 1.3; }
+html[lang="hi"] p { margin-bottom: 1.3mm; }
+html[lang="hi"] .lede { font-size: 8.9pt; line-height: 1.5; margin: 2mm 0 3mm; }
+html[lang="hi"] :is(.kicker, .run, .foot, .foot .quip, th, td.k, .opener .label, .opener .stats span, .opener .stats strong, .toc-group h3, .toc-row,
+  .meta > span, ol.parts li b, .myth .m span, .myth .f span, .myth .stamp, .tl .y, .tl b, .nums span, .nums strong, .score div > span, .score strong,
+  .pkg .name, .badge-burst b, .badge-burst span, .cover .tag, .cover .title .pre, .cover .stagebar span, .dyk .t, .fact .big, .gloss b, .apply .big,
+  .flow h3, .cover .contact .rows span, .back .info span, .back .qrs figcaption, .cover .scan, .opener .toc a, .why h3, .step h3, .benefit h3, .pkg .price small) { line-height: 1.4 !important; }
+html[lang="hi"] .kicker { font-size: 7.4pt; margin-bottom: 1.4mm; }
+html[lang="hi"] .run, html[lang="hi"] .foot { font-size: 6.6pt; }
+html[lang="hi"] .foot { padding-top: 1.4mm; }
+html[lang="hi"] .foot .quip { font-size: 6.6pt; }
+html[lang="hi"] td.k { white-space: normal; }
+html[lang="hi"] .opener h1 { font-size: 32pt; line-height: 1.15; }
+html[lang="hi"] .opener .label { font-size: 8.4pt; }
+html[lang="hi"] #franchise h1 { font-size: 27pt; }
+
+html[lang="hi"] .cover .title h1 span { -webkit-text-stroke: 0.4mm #fff; }
+html[lang="hi"] .back h1 { font-size: 28pt; }
+html[lang="hi"] .badge-burst { width: 26mm; height: 26mm; }
+html[lang="hi"] .badge-burst b { font-size: 9.6pt; }
+html[lang="hi"] .fact .big { font-size: 17pt; }
+html[lang="hi"] .why p, html[lang="hi"] .why li { font-size: 7.6pt; line-height: 1.5; }
+html[lang="hi"] ol.parts li { font-size: 7.5pt; line-height: 1.45; }
+html[lang="hi"] .dyk { font-size: 7.4pt; line-height: 1.5; }
+html[lang="hi"] .step p { font-size: 7.4pt; line-height: 1.45; }
+html[lang="hi"] ol.isteps li { font-size: 7.2pt; line-height: 1.42; }
+html[lang="hi"] .qa p { font-size: 7.8pt; line-height: 1.5; margin-bottom: 2.4mm; }
+html[lang="hi"] .gloss p { font-size: 7.4pt; line-height: 1.45; margin-bottom: 1.6mm; }
+html[lang="hi"] .tl li { font-size: 7.3pt; line-height: 1.45; padding-bottom: 2.6mm; }
+html[lang="hi"] .myth .m p { font-size: 7.9pt; line-height: 1.4; }
+html[lang="hi"] .myth .f p { font-size: 7.3pt; line-height: 1.45; }
+html[lang="hi"] .quiz p { font-size: 7.3pt; line-height: 1.55; }
+html[lang="hi"] .quiz h3 { font-size: 8.3pt; }
+html[lang="hi"] .nums p { font-size: 6.8pt; line-height: 1.45; }
+html[lang="hi"] table { font-size: 7.1pt; line-height: 1.4; }
+html[lang="hi"] .toc-row { font-size: 7.6pt; padding: 0.35mm 0; }
+html[lang="hi"] .toc-group { margin-bottom: 2mm; }
+html[lang="hi"] .cover .title { margin-top: 4.5mm; }
+html[lang="hi"] .cover .title h1 { font-size: 36pt; line-height: 1.08; margin-top: 1.6mm; }
+html[lang="hi"] .cover .title p { font-size: 8.4pt; line-height: 1.45; margin-top: 2.4mm; }
+html[lang="hi"] .cover .stagebar { margin-top: 3mm; }
+html[lang="hi"] .back h1 { font-size: 24pt; }
+html[lang="hi"] .badge-burst { top: calc(var(--bleed) + 43mm); }
