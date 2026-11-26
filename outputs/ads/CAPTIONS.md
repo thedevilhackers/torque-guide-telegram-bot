@@ -199,3 +199,24 @@ How much more can YOUR car do? 👇
 🌐 Or search your car at unityperformance.co
 
 #whatisecuremap #ecuremap #cartuning #stage1 #ranchi #jharkhand #carhacks #carsofinstagram #turbo #unityperformance #reels
+
+---
+
+## Video: Fortuner, Creta and Seltos (15-second Hinglish Reel)
+
+`fortuner-creta-reel-hinglish-reel-1080x1920.mp4` (Reels, Stories, Shorts, WhatsApp Status) and `fortuner-creta-reel-hinglish-feed-1080x1350.mp4` (feed). It has a Hinglish voiceover, music and sound effects, so **don't add Instagram music**.
+
+The car photos in this Reel are Toyota's and Hyundai's own images. Before you put money behind it as a paid boost, consider swapping in photos of your customers' cars.
+
+Arre Fortuner waalon, ruko! ✋
+
+Sirf ECU tuning se:
+🔥 Fortuner 2.8 diesel: 204 → 235 hp, 500 → 580 Nm
+⚡ Creta / Seltos 1.5 turbo: 160 → 190 hp
+✅ Koi part change nahi. Original file saved.
+(Estimated Stage 1 figures for healthy, standard cars.)
+
+📲 Apna model WhatsApp karo, free estimate pao: +91 87096 47229
+🌐 unityperformance.co · 📍 Argora, Ranchi
+
+#fortuner #creta #seltos #ecutuning #stage1 #ranchi #jharkhand #reels #cartuning #dieseltuning #turbo #unityperformance
