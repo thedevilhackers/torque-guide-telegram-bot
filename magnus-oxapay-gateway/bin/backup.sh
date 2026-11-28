@@ -31,11 +31,23 @@ MODE=${1:-}
 cli() { php "$APP_DIR/bin/cli.php" "$@"; }
 log() { printf '[%s] %s\n' "$(date '+%F %T')" "$*"; }
 fail() {
+    trap - ERR   # a failing alert must not raise a second one
     log "FAILED: $1"
-    [[ ${TELEGRAM:-0} == 1 ]] && cli backup:notify "❌ Nightly backup on $HOST failed: $1" >/dev/null 2>&1
+    if [[ ${TELEGRAM:-0} == 1 ]]; then
+        cli backup:notify "❌ Nightly backup on $HOST failed: $1" > /dev/null 2>&1 || log "The failure alert could not be sent to Telegram either."
+    fi
     exit 1
 }
 trap 'fail "stopped at line $LINENO"' ERR
+# send FILE CAPTION: fails only if no admin chat got the file. Chats that did not get it are noted for one warning.
+send() {
+    local out
+    if ! out=$(cli backup:send "$1" "$2" 2>&1); then
+        log "$out"
+        return 1
+    fi
+    grep '^not sent to chat ' <<< "$out" >> "$TMP/not-sent" || true
+}
 
 [[ $EUID -eq 0 ]] || { echo "Run as root." >&2; exit 1; }
 umask 077
@@ -148,18 +160,28 @@ done
 if [[ ${TELEGRAM:-0} == 1 ]]; then
     caption="💾 <b>Nightly backup</b> $HOST · $(date '+%d %b %Y %H:%M') · $(du -h "$FILE" | cut -f1), encrypted.
 Restore: bash $APP_DIR/bin/backup.sh --restore FILE (needs the key from backup.sh --show-key)."
+    : > "$TMP/not-sent"
     if [[ $SIZE -le $PART_SIZE ]]; then
-        cli backup:send "$FILE" "$caption" > /dev/null || fail "sending to Telegram failed"
+        send "$FILE" "$caption" || fail "no admin chat could receive it on Telegram (the backup is saved on the server: $FILE)"
     else
         split -b "$PART_SIZE" -a 2 "$FILE" "$TMP/$(basename "$FILE").part-"
         parts=("$TMP/$(basename "$FILE")".part-*)
         n=1
         for part in "${parts[@]}"; do
-            cli backup:send "$part" "$caption
-Part $n of ${#parts[@]}. Join the parts in order before restoring." > /dev/null || fail "sending part $n to Telegram failed"
+            send "$part" "$caption
+Part $n of ${#parts[@]}. Join the parts in order before restoring." \
+                || fail "part $n could not be sent to any admin chat on Telegram (the backup is saved on the server: $FILE)"
             n=$((n + 1))
         done
     fi
-    log "Sent to the Telegram admin chats"
+    if [[ -s $TMP/not-sent ]]; then
+        missed=$(sort -u "$TMP/not-sent")
+        log "Sent, but some admin chats did not get it:"
+        log "$missed"
+        cli backup:notify "⚠️ Backup on $HOST is saved and sent, but these admin chats did not get it:
+$missed" > /dev/null 2>&1 || true
+    else
+        log "Sent to the Telegram admin chats"
+    fi
 fi
 log "Backup finished"

@@ -98,6 +98,24 @@ function registerBotCommands(App $app): void
     }
 }
 
+/**
+ * Prints the result of App::eachAdminChat(). Throws when no admin chat got it.
+ *
+ * @param array{sent:int,failed:array<string,string>} $result
+ */
+function reportAdminDelivery(string $what, array $result): void
+{
+    foreach ($result['failed'] as $chat => $reason) {
+        line('not sent to chat ' . $chat . ': ' . $reason);
+    }
+    if ($result['sent'] === 0) {
+        throw new \RuntimeException($result['failed'] === []
+            ? 'There are no admin chats: add your chat ID to telegram.admin_chat_ids in config.php.'
+            : 'No admin chat received ' . $what . '.');
+    }
+    line('sent ' . $what . ' to ' . $result['sent'] . ' of ' . ($result['sent'] + count($result['failed'])) . ' admin chats');
+}
+
 function printOrder(array $order): void
 {
     foreach ($order as $key => $value) {
@@ -185,20 +203,23 @@ try {
             break;
 
         case 'backup:send':
+            // Each admin chat is tried on its own. Fails only when no chat got the file; the chats that did not
+            // are listed as "not sent to chat ..." lines, which backup.sh passes on as a warning.
             $file = (string) ($argv[2] ?? '');
             if (!is_file($file)) {
                 throw new \RuntimeException('Usage: php bin/cli.php backup:send FILE [caption]');
             }
-            foreach ((array) $app->config['telegram']['admin_chat_ids'] as $chat) {
-                $app->telegram()->sendDocument((string) $chat, $file, (string) ($argv[3] ?? ''));
-            }
-            line('sent ' . basename($file));
+            $caption = (string) ($argv[3] ?? '');
+            reportAdminDelivery(basename($file), $app->eachAdminChat(static function (string $chat) use ($app, $file, $caption): void {
+                $app->telegram()->sendDocument($chat, $file, $caption);
+            }));
             break;
 
         case 'backup:notify':
-            foreach ((array) $app->config['telegram']['admin_chat_ids'] as $chat) {
-                $app->telegram()->sendMessage((string) $chat, htmlspecialchars((string) ($argv[2] ?? ''), ENT_QUOTES, 'UTF-8'));
-            }
+            $text = htmlspecialchars((string) ($argv[2] ?? ''), ENT_QUOTES, 'UTF-8');
+            reportAdminDelivery('the message', $app->eachAdminChat(static function (string $chat) use ($app, $text): void {
+                $app->telegram()->sendMessage($chat, $text);
+            }));
             break;
 
         case 'twostep:off':

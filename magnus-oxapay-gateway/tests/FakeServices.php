@@ -80,8 +80,11 @@ final class FakeServices
             if ($methodName === 'setMyCommands' && in_array((string) ($params['scope']['chat_id'] ?? ''), $this->unknownChats, true)) {
                 return ['status' => 400, 'body' => json_encode(['ok' => false, 'error_code' => 400, 'description' => 'Bad Request: chat not found'])];
             }
-            if ($methodName === 'sendMessage' && in_array((string) ($params['chat_id'] ?? ''), $this->blockedChats, true)) {
+            if (in_array($methodName, ['sendMessage', 'sendDocument'], true) && in_array((string) ($params['chat_id'] ?? ''), $this->blockedChats, true)) {
                 return ['status' => 403, 'body' => json_encode(['ok' => false, 'error_code' => 403, 'description' => 'Forbidden: bot was blocked by the user'])];
+            }
+            if (in_array($methodName, ['sendMessage', 'sendDocument'], true) && in_array((string) ($params['chat_id'] ?? ''), $this->unknownChats, true)) {
+                return ['status' => 400, 'body' => json_encode(['ok' => false, 'error_code' => 400, 'description' => 'Bad Request: chat not found'])];
             }
             $this->telegram[] = ['method' => $methodName, 'params' => json_decode((string) $body, true)];
             return ['status' => 200, 'body' => json_encode(['ok' => true, 'result' => $methodName === 'getMe' ? ['username' => 'test_bot'] : true])];

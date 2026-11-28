@@ -1645,6 +1645,29 @@ test('backups: encrypted file goes to Telegram as a document', function () {
     unlink($file);
 });
 
+test('backups: one admin chat that cannot receive files does not stop the others', function () {
+    [$app, $fake] = makeApp(['telegram' => ['admin_chat_ids' => [555, 999, '602', 999, '']]]);
+    $fake->unknownChats = ['555'];
+    $fake->blockedChats = ['602'];
+    $file = tempnam(sys_get_temp_dir(), 'bk');
+    file_put_contents($file, 'encrypted bytes');
+    $result = $app->eachAdminChat(static function (string $chat) use ($app, $file): void {
+        $app->telegram()->sendDocument($chat, $file, 'backup');
+    });
+    unlink($file);
+    same(1, $result['sent'], 'the good chat still gets it, once');
+    same(['999'], array_column(telegramCalls($fake, 'sendDocument'), 'chat_id'), 'sent after the unknown chat failed');
+    same(['555', '602'], array_map('strval', array_keys($result['failed'])), 'each failed chat named once, blanks skipped');
+    same('Bad Request: chat not found (that person must open the bot and press Start, or the chat ID is wrong)', $result['failed']['555']);
+    check(strpos($result['failed']['602'], 'unblock') !== false, 'blocked chat explained');
+
+    $fake->unknownChats = ['555', '999', '602'];
+    same(0, $app->eachAdminChat(static function (string $chat) use ($app): void {
+        $app->telegram()->sendMessage($chat, 'test');
+    })['sent'], 'nobody reachable');
+    same('', \Gateway\Telegram::chatProblemHint('Too Many Requests: retry after 5'), 'no hint for other errors');
+});
+
 // ------------------------------------------------------------ referrals
 
 /** Creates and pays a web order; returns the credited order. */

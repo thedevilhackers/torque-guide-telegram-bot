@@ -54,6 +54,31 @@ final class Telegram
     }
 
     /**
+     * What to do about a Telegram error for one chat, e.g. " (that admin must open the bot and press Start ...)".
+     */
+    public static function chatProblemHint(string $error): string
+    {
+        $error = strtolower($error);
+        $hints = [
+            "chat not found" => 'that person must open the bot and press Start, or the chat ID is wrong',
+            "can't initiate conversation" => 'that person must open the bot and press Start first',
+            'blocked by the user' => 'that person blocked the bot: they must unblock it and press Start',
+            'user is deactivated' => 'that Telegram account was deleted: remove the ID from telegram.admin_chat_ids',
+            'not a member' => 'the bot is not in that group or channel any more: add it back or remove the ID',
+            'kicked' => 'the bot was removed from that group: add it back or remove the ID',
+            'too big' => 'the file is too big for Telegram',
+            'entity too large' => 'the file is too big for Telegram',
+        ];
+        foreach ($hints as $needle => $hint) {
+            if (strpos($error, $needle) !== false) {
+                return ' (' . $hint . ')';
+            }
+        }
+
+        return '';
+    }
+
+    /**
      * @param array<string,mixed> $extra e.g. ['reply_markup' => [...]]
      */
     public function sendMessage($chatId, string $html, array $extra = []): void

@@ -420,7 +420,7 @@ Every night at 03:17, `bin/backup.sh` backs up the server:
 - **What:** the MagnusBilling database (without call history, unless `backup.include_calls` is on), `/etc/asterisk`, and the gateway's `config.php` and database.
 - **Encryption:** AES-256, with the key in `/root/unitycarrier-backups/backup.key`.
 - **Copies:** the last 7 are kept in `/root/unitycarrier-backups/nightly/`. Each one is also sent to the Telegram admin chats, which is the copy off the server. Backups over 45 MB are sent in parts.
-- **Problems:** if a backup fails, admins get a Telegram message.
+- **Problems:** if a backup fails, admins get a Telegram message. If it worked but some admin chats could not get it, the others get a ⚠️ message naming those chats and why. Usually that person never pressed **Start** in the bot, or the chat ID in `telegram.admin_chat_ids` is wrong.
 
 **Save the key somewhere safe, off the server (a password manager).** Without it nobody can open the backups, not even you. The installer shows it once. To show it again:
 

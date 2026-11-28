@@ -360,6 +360,32 @@ final class App
         return $base !== '' ? $base . '/terms/' : 'terms/';
     }
 
+    /**
+     * Runs $send(chatId) for every admin chat on its own, so a chat that cannot receive messages (an admin who never
+     * pressed Start, a wrong ID, a group the bot left) does not stop the others.
+     *
+     * @return array{sent:int,failed:array<string,string>} failed: chat ID => what went wrong and what to do
+     */
+    public function eachAdminChat(callable $send): array
+    {
+        $sent = 0;
+        $failed = [];
+        $chats = array_unique(array_filter(array_map(static function ($chat): string {
+            return trim((string) $chat);
+        }, (array) ($this->config['telegram']['admin_chat_ids'] ?? [])), 'strlen'));
+        foreach ($chats as $chat) {
+            try {
+                $send($chat);
+                $sent++;
+            } catch (\Throwable $e) {
+                $error = (string) preg_replace('/^Telegram \w+ failed: /', '', $e->getMessage());
+                $failed[$chat] = $error . Telegram::chatProblemHint($error);
+            }
+        }
+
+        return ['sent' => $sent, 'failed' => $failed];
+    }
+
     public function isAdminChat($chatId): bool
     {
         foreach ((array) $this->config['telegram']['admin_chat_ids'] as $admin) {
