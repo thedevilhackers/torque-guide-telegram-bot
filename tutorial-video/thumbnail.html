@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Thumbnail</title>
+<!-- YouTube thumbnail, 1280x720. Rendered by make-thumbnail.cjs. -->
+<style>
+* { box-sizing: border-box; }
+html, body { margin: 0; width: 1280px; height: 720px; overflow: hidden; background: #050a14; color: #fff;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+.bg { position: absolute; inset: 0;
+    background: radial-gradient(760px 520px at 82% 30%, rgba(47, 107, 255, .42), transparent 62%),
+                radial-gradient(620px 460px at 12% 100%, rgba(34, 184, 240, .28), transparent 60%),
+                linear-gradient(160deg, #071226 0%, #050a14 60%); }
+.grid { position: absolute; inset: 0; opacity: .14;
+    background-image: linear-gradient(rgba(255, 255, 255, .5) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, .5) 1px, transparent 1px);
+    background-size: 48px 48px; mask-image: radial-gradient(900px 600px at 30% 50%, #000, transparent 75%); }
+
+.brand { position: absolute; left: 56px; top: 46px; display: flex; align-items: center; gap: 14px; font-weight: 800; font-size: 30px; letter-spacing: .05em; }
+.mark { width: 58px; height: 58px; border-radius: 16px; background: linear-gradient(135deg, #2f6bff, #22b8f0); display: grid; place-items: center;
+    box-shadow: 0 10px 30px rgba(34, 184, 240, .45); }
+.mark svg { width: 32px; height: 32px; color: #fff; }
+
+.pill { position: absolute; left: 56px; top: 148px; padding: 9px 18px; border-radius: 999px; background: #ffb547; color: #1a1205; font-weight: 900;
+    font-size: 24px; letter-spacing: .04em; box-shadow: 0 8px 24px rgba(255, 181, 71, .35); }
+h1 { position: absolute; left: 52px; top: 206px; margin: 0; font-size: 80px; line-height: 1; font-weight: 900; letter-spacing: -.03em;
+    text-shadow: 0 6px 30px rgba(0, 0, 0, .5); }
+h1 span { display: block; background: linear-gradient(90deg, #4f9bff, #22d3ee); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.steps { position: absolute; left: 56px; top: 422px; display: grid; gap: 14px; }
+.steps div { display: flex; align-items: center; gap: 14px; font-size: 33px; font-weight: 800; }
+.steps b { width: 50px; height: 50px; border-radius: 12px; display: grid; place-items: center; font-size: 25px; background: rgba(255, 255, 255, .1);
+    border: 2px solid rgba(255, 255, 255, .18); }
+
+/* right side */
+.browser { position: absolute; left: 722px; top: 118px; width: 510px; height: 420px; border-radius: 18px; overflow: hidden; background: #fff;
+    transform: rotate(-4deg); box-shadow: 0 40px 90px rgba(0, 0, 0, .6), 0 0 0 2px rgba(255, 255, 255, .12); }
+.browser .bar { height: 34px; background: #e9edf3; display: flex; align-items: center; gap: 7px; padding: 0 14px; }
+.browser .bar i { width: 12px; height: 12px; border-radius: 50%; background: #ff5f57; }
+.browser .bar i:nth-child(2) { background: #febc2e; } .browser .bar i:nth-child(3) { background: #28c840; }
+.browser .url { margin-left: 10px; flex: 1; height: 22px; border-radius: 7px; background: #fff; color: #333; font-size: 13px; display: flex; align-items: center; padding: 0 10px; }
+.browser img { width: 100%; display: block; }
+
+.phone { position: absolute; left: 1010px; top: 250px; width: 230px; height: 430px; border-radius: 34px; background: #0b0f19; padding: 10px;
+    transform: rotate(6deg); box-shadow: 0 40px 90px rgba(0, 0, 0, .65), 0 0 0 2px #2a3550; }
+.phone .scr { position: absolute; inset: 10px; border-radius: 26px; overflow: hidden; background: linear-gradient(180deg, #1c2b4a, #0b1222);
+    display: grid; place-items: center; text-align: center; }
+.phone .notch { position: absolute; left: 50%; top: 16px; width: 70px; height: 18px; transform: translateX(-50%); background: #0b0f19; border-radius: 10px; z-index: 2; }
+.phone .av { width: 74px; height: 74px; border-radius: 50%; background: rgba(255, 255, 255, .12); display: grid; place-items: center; font-size: 34px; margin: 0 auto 12px; }
+.phone .num { font-size: 19px; font-weight: 800; font-family: ui-monospace, Menlo, Consolas, monospace; }
+.phone .time { color: #9fd8ff; margin-top: 4px; font-size: 16px; font-weight: 700; }
+.phone .hang { width: 54px; height: 54px; border-radius: 50%; background: #ef4444; display: grid; place-items: center; margin: 24px auto 0; font-size: 24px; }
+
+.toast { position: absolute; padding: 12px 18px; border-radius: 14px; font-weight: 900; font-size: 24px; display: flex; align-items: center; gap: 10px;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, .45); }
+.toast.paid { left: 650px; top: 520px; background: #12b76a; color: #fff; transform: rotate(-3deg); }
+.toast.reg { left: 930px; top: 62px; background: #fff; color: #0f172a; transform: rotate(3deg); font-size: 21px; }
+.toast.reg i { width: 14px; height: 14px; border-radius: 50%; background: #26c165; display: inline-block; box-shadow: 0 0 0 4px rgba(38, 193, 101, .25); }
+
+.coin { position: absolute; width: 74px; height: 74px; border-radius: 50%; display: grid; place-items: center; font-weight: 900; font-size: 17px; color: #fff;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, .5), inset 0 -6px 0 rgba(0, 0, 0, .18); border: 3px solid rgba(255, 255, 255, .35); }
+</style>
+</head>
+<body>
+<div class="bg"></div><div class="grid"></div>
+<svg width="0" height="0" style="position:absolute"><symbol id="ph" viewBox="0 0 24 24"><path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11.4 11.4 0 0 0 3.6.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.57a1 1 0 0 1-.25 1z" fill="currentColor"/><path d="M15 3.5a6 6 0 0 1 5.5 5.5M15 7a2.5 2.5 0 0 1 2 2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol></svg>
+
+<div class="brand"><span class="mark"><svg><use href="#ph"/></svg></span>UNITY CARRIER</div>
+<div class="pill">STEP-BY-STEP GUIDE</div>
+<h1>START CALLING<span>IN 3 MINUTES</span></h1>
+<div class="steps">
+    <div><b>👤</b>Create your account</div>
+    <div><b>💳</b>Top up with crypto</div>
+    <div><b>📞</b>Call: SIP app or browser</div>
+</div>
+
+<div class="browser"><div class="bar"><i></i><i></i><i></i><div class="url">🔒 www.unitycarrier.com/panel</div></div>
+    <img src="shots/panel-topup-25.png" alt=""></div>
+<div class="toast paid">✅ €25 paid · credit added</div>
+<div class="phone"><div class="notch"></div><div class="scr"><div>
+    <div class="av">👤</div><div class="num">+44 7700 900123</div><div class="time">● 00:07</div><div class="hang">📵</div>
+</div></div></div>
+<div class="toast reg"><i></i>SIP Registered</div>
+<div class="coin" style="left:648px;top:84px;background:#26a17b">USDT</div>
+<div class="coin" style="left:1180px;top:170px;width:66px;height:66px;background:#f7931a">BTC</div>
+<div class="coin" style="left:930px;top:610px;width:62px;height:62px;background:#627eea">ETH</div>
+</body>
+</html>
