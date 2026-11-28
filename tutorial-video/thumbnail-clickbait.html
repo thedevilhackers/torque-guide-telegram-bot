@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Clickbait thumbnail</title>
+<!-- YouTube thumbnail, 1280x720, two styles: thumbnail-clickbait.html?v=a (sunburst) and ?v=b (neon). make-thumbnail.cjs renders both. -->
+<style>
+* { box-sizing: border-box; }
+html, body { margin: 0; width: 1280px; height: 720px; overflow: hidden; color: #fff;
+    font-family: "Arial Black", "Helvetica Neue", Arial, system-ui, sans-serif; }
+.v { position: absolute; inset: 0; display: none; }
+body.a .va, body.b .vb { display: block; }
+.out { -webkit-text-stroke: 10px #000; paint-order: stroke fill; text-shadow: 0 10px 0 #000, 0 14px 30px rgba(0, 0, 0, .55); }
+.brand { position: absolute; display: flex; align-items: center; gap: 10px; font-size: 26px; font-weight: 900; letter-spacing: .05em; }
+.mark { width: 48px; height: 48px; border-radius: 13px; background: linear-gradient(135deg, #2f6bff, #22b8f0); display: grid; place-items: center;
+    box-shadow: 0 0 0 4px #fff, 0 10px 24px rgba(0, 0, 0, .45); }
+.mark svg { width: 27px; height: 27px; color: #fff; }
+
+/* phone */
+.phone { position: absolute; width: 300px; height: 560px; border-radius: 44px; background: #0b0f19; padding: 12px;
+    box-shadow: 0 40px 90px rgba(0, 0, 0, .6), 0 0 0 5px #fff; }
+.phone .scr { position: absolute; inset: 12px; border-radius: 34px; overflow: hidden; background: linear-gradient(180deg, #1c2b4a, #0b1222);
+    display: grid; place-items: center; text-align: center; font-family: system-ui, sans-serif; }
+.phone .notch { position: absolute; left: 50%; top: 20px; width: 90px; height: 22px; transform: translateX(-50%); background: #0b0f19; border-radius: 12px; z-index: 2; }
+.phone .flag { font-size: 64px; margin-bottom: 8px; }
+.phone .num { font-size: 25px; font-weight: 900; font-family: ui-monospace, Menlo, Consolas, monospace; }
+.phone .time { color: #4ade80; margin-top: 6px; font-size: 22px; font-weight: 800; }
+.phone .hang { width: 70px; height: 70px; border-radius: 50%; background: #ef4444; display: grid; place-items: center; margin: 30px auto 0; font-size: 32px; }
+
+.sticker { position: absolute; padding: 12px 20px; border-radius: 16px; font-weight: 900; font-size: 30px; color: #000; border: 5px solid #000;
+    box-shadow: 0 8px 0 #000; white-space: nowrap; }
+.emoji { position: absolute; font-family: "Noto Color Emoji", "Apple Color Emoji", sans-serif; filter: drop-shadow(0 12px 18px rgba(0, 0, 0, .45)); }
+.arrow { position: absolute; filter: drop-shadow(0 8px 0 #000); }
+
+/* style A: sunburst */
+.va .bg { position: absolute; inset: 0; background:
+    repeating-conic-gradient(from 0deg at 72% 46%, rgba(255, 255, 255, .16) 0deg 9deg, transparent 9deg 18deg),
+    radial-gradient(circle at 72% 46%, #ffe14a 0%, #ffb020 28%, #ff6a00 55%, #d4145a 100%); }
+.va h1 { position: absolute; left: 40px; top: 96px; margin: 0; font-size: 150px; line-height: .9; letter-spacing: -.01em; }
+.va .red { position: absolute; left: 40px; top: 352px; padding: 6px 22px 12px; background: #e10600; border: 6px solid #000; border-radius: 14px;
+    transform: rotate(-2deg); box-shadow: 0 10px 0 #000; font-size: 58px; line-height: 1; }
+.va .sub { position: absolute; left: 48px; top: 490px; font-size: 52px; line-height: 1.05; }
+
+/* style B: neon */
+.vb .bg { position: absolute; inset: 0; background: radial-gradient(800px 520px at 75% 45%, #2f6bff 0%, #0a1c4d 55%, #030712 100%); }
+.vb .grid { position: absolute; inset: 0; opacity: .25; background-image: linear-gradient(#22d3ee 1px, transparent 1px), linear-gradient(90deg, #22d3ee 1px, transparent 1px);
+    background-size: 56px 56px; mask-image: radial-gradient(700px 500px at 70% 50%, #000, transparent 75%); }
+.vb h1 { position: absolute; left: 40px; top: 70px; margin: 0; font-size: 116px; line-height: .95; }
+.vb h1 .y { color: #ffe14a; }
+.vb .sub { position: absolute; left: 46px; top: 430px; font-size: 50px; line-height: 1.05; }
+.browser { position: absolute; border-radius: 16px; overflow: hidden; background: #fff; box-shadow: 0 30px 70px rgba(0, 0, 0, .6), 0 0 0 5px #fff; }
+.browser .bar { height: 30px; background: #e9edf3; display: flex; align-items: center; gap: 6px; padding: 0 12px; font-family: system-ui, sans-serif; font-size: 13px; color: #333; }
+.browser .bar i { width: 11px; height: 11px; border-radius: 50%; background: #ff5f57; }
+.browser .bar i:nth-child(2) { background: #febc2e; } .browser .bar i:nth-child(3) { background: #28c840; }
+.ring { position: absolute; border: 8px solid #ff1f1f; border-radius: 50%; box-shadow: 0 0 0 4px #000, inset 0 0 0 4px #000; }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute">
+    <symbol id="ph" viewBox="0 0 24 24"><path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11.4 11.4 0 0 0 3.6.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.57a1 1 0 0 1-.25 1z" fill="currentColor"/><path d="M15 3.5a6 6 0 0 1 5.5 5.5M15 7a2.5 2.5 0 0 1 2 2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+    <symbol id="arrow" viewBox="0 0 200 140"><path d="M10 120 C 60 30, 120 20, 160 46" fill="none" stroke="#ff1f1f" stroke-width="20" stroke-linecap="round"/>
+        <path d="M128 18 L 190 54 L 132 86 Z" fill="#ff1f1f"/></symbol>
+</svg>
+
+<!-- A: sunburst -->
+<div class="v va">
+    <div class="bg"></div>
+    <div class="brand" style="left:42px;top:26px;text-shadow:0 3px 0 #000,0 0 12px rgba(0,0,0,.6)"><span class="mark"><svg><use href="#ph"/></svg></span>UNITY CARRIER</div>
+    <h1 class="out">NO SIM?<br>NO APP?</h1>
+    <div class="red">CALL ANY COUNTRY</div>
+    <div class="sub out" style="-webkit-text-stroke:9px #000">from your<br><span style="color:#ffe14a">BROWSER!</span></div>
+    <div class="phone" style="left:840px;top:96px;transform:rotate(8deg)"><div class="notch"></div><div class="scr"><div>
+        <div class="flag">🌍</div><div class="num">+44 7700 900123</div><div class="time">● Connected 00:07</div><div class="hang">📵</div></div></div></div>
+    <svg class="arrow" style="left:470px;top:440px;width:330px;height:220px;transform:rotate(-14deg)"><use href="#arrow"/></svg>
+    <div class="emoji" style="left:1110px;top:-6px;font-size:150px;transform:rotate(12deg)">😱</div>
+    <div class="sticker" style="left:560px;top:600px;background:#4ade80;transform:rotate(-4deg)">💳 PAY WITH CRYPTO</div>
+    <div class="sticker" style="left:880px;top:640px;background:#fff;transform:rotate(3deg);font-size:24px;padding:8px 16px">IN 3 MINUTES ⏱</div>
+</div>
+
+<!-- B: neon -->
+<div class="v vb">
+    <div class="bg"></div><div class="grid"></div>
+    <div class="brand" style="left:46px;top:622px;text-shadow:0 3px 0 #000,0 0 12px rgba(0,0,0,.6)"><span class="mark"><svg><use href="#ph"/></svg></span>UNITY CARRIER</div>
+    <h1 class="out">CALL THE<br><span class="y">WORLD</span><br>NO APP! 📞</h1>
+    <div class="sub out" style="-webkit-text-stroke:9px #000;top:452px">⚡ <span style="color:#4ade80">3 MIN</span> SETUP<br><span style="font-size:40px">right in your browser</span></div>
+    <div class="browser" style="left:736px;top:90px;width:450px;height:520px;transform:rotate(4deg)">
+        <div class="bar"><i></i><i></i><i></i>&nbsp; www.unitycarrier.com/panel</div>
+        <div style="position:absolute;inset:30px 0 0;background:linear-gradient(180deg,#f3f5f9,#e7ecf4);display:grid;place-items:center;font-family:system-ui,sans-serif;color:#1d2b44">
+            <div style="text-align:center">
+                <div style="font-weight:800;font-size:19px;margin-bottom:6px">🎧 Webphone</div>
+                <div style="font-size:15px;color:#0b7a43;font-weight:700;margin-bottom:14px">● Registered</div>
+                <div style="font-family:ui-monospace,monospace;font-size:28px;font-weight:800;margin-bottom:16px">+44 7700 900123</div>
+                <div style="display:grid;grid-template-columns:repeat(3,62px);gap:10px;justify-content:center">
+                    <b style="height:62px;border-radius:50%;background:#fff;display:grid;place-items:center;font-size:24px">1</b><b style="height:62px;border-radius:50%;background:#fff;display:grid;place-items:center;font-size:24px">2</b><b style="height:62px;border-radius:50%;background:#fff;display:grid;place-items:center;font-size:24px">3</b>
+                    <b style="height:62px;border-radius:50%;background:#fff;display:grid;place-items:center;font-size:24px">4</b><b style="height:62px;border-radius:50%;background:#fff;display:grid;place-items:center;font-size:24px">5</b><b style="height:62px;border-radius:50%;background:#fff;display:grid;place-items:center;font-size:24px">6</b>
+                </div>
+                <div style="width:84px;height:84px;border-radius:50%;background:#22c55e;margin:20px auto 0;display:grid;place-items:center;font-size:38px">📞</div>
+            </div></div>
+    </div>
+    <div class="ring" style="left:888px;top:436px;width:150px;height:150px"></div>
+    <svg class="arrow" style="left:630px;top:470px;width:260px;height:180px;transform:scaleY(-1) rotate(-8deg)"><use href="#arrow"/></svg>
+    <div class="emoji" style="left:1100px;top:10px;font-size:140px;transform:rotate(-10deg)">🤯</div>
+    <div class="sticker" style="left:980px;top:640px;background:#ffe14a;transform:rotate(-3deg);font-size:26px">₿ PAY WITH CRYPTO</div>
+</div>
+<script>document.body.className = (new URLSearchParams(location.search).get('v') || 'a');</script>
+</body>
+</html>
