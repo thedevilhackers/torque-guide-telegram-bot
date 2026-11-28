@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8">
 <title>Clickbait thumbnail</title>
-<!-- YouTube thumbnail, 1280x720, two styles: thumbnail-clickbait.html?v=a (sunburst) and ?v=b (neon). make-thumbnail.cjs renders both. -->
+<!-- YouTube thumbnail, 1280x720: thumbnail-clickbait.html?v=a (sunburst), ?v=b (neon), ?v=c (your own caller ID). make-thumbnail.cjs renders them. -->
 <style>
 * { box-sizing: border-box; }
 html, body { margin: 0; width: 1280px; height: 720px; overflow: hidden; color: #fff;
     font-family: "Arial Black", "Helvetica Neue", Arial, system-ui, sans-serif; }
 .v { position: absolute; inset: 0; display: none; }
-body.a .va, body.b .vb { display: block; }
+body.a .va, body.b .vb, body.c .vc { display: block; }
 .out { -webkit-text-stroke: 10px #000; paint-order: stroke fill; text-shadow: 0 10px 0 #000, 0 14px 30px rgba(0, 0, 0, .55); }
 .brand { position: absolute; display: flex; align-items: center; gap: 10px; font-size: 26px; font-weight: 900; letter-spacing: .05em; }
 .mark { width: 48px; height: 48px; border-radius: 13px; background: linear-gradient(135deg, #2f6bff, #22b8f0); display: grid; place-items: center;
@@ -40,6 +40,22 @@ body.a .va, body.b .vb { display: block; }
 .va .red { position: absolute; left: 40px; top: 352px; padding: 6px 22px 12px; background: #e10600; border: 6px solid #000; border-radius: 14px;
     transform: rotate(-2deg); box-shadow: 0 10px 0 #000; font-size: 58px; line-height: 1; }
 .va .sub { position: absolute; left: 48px; top: 490px; font-size: 52px; line-height: 1.05; }
+
+.vc .bg { position: absolute; inset: 0; background:
+    repeating-conic-gradient(from 0deg at 74% 44%, rgba(255, 255, 255, .13) 0deg 9deg, transparent 9deg 18deg),
+    radial-gradient(circle at 74% 44%, #ff7ad9 0%, #b04dff 35%, #5b21b6 70%, #2a0a5e 100%); }
+.vc h1 { position: absolute; left: 40px; top: 104px; margin: 0; font-size: 100px; line-height: .95; letter-spacing: -.01em; }
+.vc h1 .y { color: #ffe14a; }
+.vc .red { position: absolute; left: 44px; top: 330px; padding: 6px 22px 12px; background: #e10600; border: 6px solid #000; border-radius: 14px;
+    transform: rotate(-2deg); box-shadow: 0 10px 0 #000; font-size: 60px; line-height: 1; }
+.incoming { position: absolute; inset: 12px; border-radius: 34px; overflow: hidden; background: linear-gradient(180deg, #0f766e, #064e3b);
+    font-family: system-ui, sans-serif; text-align: center; padding-top: 70px; }
+.incoming small { display: block; font-size: 17px; color: #a7f3d0; letter-spacing: .08em; text-transform: uppercase; font-weight: 700; }
+.incoming .who { margin: 18px auto 6px; width: 96px; height: 96px; border-radius: 50%; background: rgba(255, 255, 255, .15); display: grid; place-items: center; font-size: 46px; }
+.incoming .name { font-size: 30px; font-weight: 900; margin-top: 10px; }
+.incoming .tel { font-size: 24px; font-weight: 800; font-family: ui-monospace, Menlo, Consolas, monospace; margin-top: 6px; color: #fff; }
+.incoming .btns { position: absolute; left: 0; right: 0; bottom: 56px; display: flex; justify-content: space-around; }
+.incoming .btns b { width: 70px; height: 70px; border-radius: 50%; display: grid; place-items: center; font-size: 32px; }
 
 /* style B: neon */
 .vb .bg { position: absolute; inset: 0; background: radial-gradient(800px 520px at 75% 45%, #2f6bff 0%, #0a1c4d 55%, #030712 100%); }
@@ -101,6 +117,22 @@ body.a .va, body.b .vb { display: block; }
     <svg class="arrow" style="left:630px;top:470px;width:260px;height:180px;transform:scaleY(-1) rotate(-8deg)"><use href="#arrow"/></svg>
     <div class="emoji" style="left:1100px;top:10px;font-size:140px;transform:rotate(-10deg)">🤯</div>
     <div class="sticker" style="left:980px;top:640px;background:#ffe14a;transform:rotate(-3deg);font-size:26px">₿ PAY WITH CRYPTO</div>
+</div>
+<!-- C: your own caller ID -->
+<div class="v vc">
+    <div class="bg"></div>
+    <div class="brand" style="left:42px;top:26px;text-shadow:0 3px 0 #000,0 0 12px rgba(0,0,0,.6)"><span class="mark"><svg><use href="#ph"/></svg></span>UNITY CARRIER</div>
+    <h1 class="out">SHOW YOUR<br><span class="y">OWN NUMBER</span></h1>
+    <div class="red">ON EVERY CALL 📞</div>
+    <div class="sub out" style="position:absolute;left:48px;top:462px;font-size:46px;line-height:1.08;-webkit-text-stroke:9px #000">Your business number,<br>not "Unknown caller"</div>
+    <div class="phone" style="left:850px;top:90px;transform:rotate(7deg)"><div class="notch"></div><div class="incoming">
+        <small>Incoming call</small><div class="who">🏢</div>
+        <div class="name">Your Business</div><div class="tel">+1 555-0123</div>
+        <div class="btns"><b style="background:#ef4444">📵</b><b style="background:#22c55e">📞</b></div></div></div>
+    <svg class="arrow" style="left:676px;top:300px;width:200px;height:140px;transform:rotate(-6deg)"><use href="#arrow"/></svg>
+    <div class="emoji" style="left:1110px;top:-4px;font-size:140px;transform:rotate(12deg)">😎</div>
+    <div class="sticker" style="left:600px;top:606px;background:#4ade80;transform:rotate(-4deg)">✅ YOUR CALLER ID</div>
+    <div class="sticker" style="left:912px;top:648px;background:#fff;transform:rotate(3deg);font-size:24px;padding:8px 16px">NO SIM NEEDED</div>
 </div>
 <script>document.body.className = (new URLSearchParams(location.search).get('v') || 'a');</script>
 </body>
